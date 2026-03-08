@@ -37,6 +37,9 @@ Command::Command(const string& progName, const StringV& argList) :
 
 void Command::run(bool showOutput) {
 
+    // Log full command before running
+    logRaw("[CMD] " + toString());
+
     // Get starting time
     auto startTime = chrono::high_resolution_clock::now();
 
@@ -83,6 +86,7 @@ void Command::run(bool showOutput) {
     }
     else {
         // Else if execution fails, notify
+        logRaw("[CMD ERROR] CreateProcessA failed for: " + toString());
         printErr("Command execution failed");
     }
 
@@ -90,7 +94,10 @@ void Command::run(bool showOutput) {
     replaceAll(consoleOutput, "\r", "");
     replaceAll(consoleOutput, "\n", "");
 
-    // Print output if wanted
+    // Always log command output
+    logRaw("[CMD OUTPUT] " + (consoleOutput.empty() ? "(empty)" : consoleOutput));
+
+    // Print output to console if wanted
     if (showOutput) {
         printOutput();
     }
@@ -101,6 +108,8 @@ void Command::run(bool showOutput) {
     // Calculate duration and save
     auto rawDur = duration_cast<chrono::milliseconds>(stopTime - startTime);
     duration = double(rawDur.count()) / 1000.0;
+
+    logRaw("[CMD TIME] " + formatTimeTaken(duration));
 }
 
 string Command::toString() const {

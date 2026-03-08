@@ -8,18 +8,67 @@
 #include <iomanip>
 #include <ranges>
 #include <string_view>
+#include <chrono>
+#include <ctime>
+#include <sstream>
 
 // Namespace mods
 using namespace std;
+
+
+// ### Log State
+
+static ofstream gLogFile;
+static string gLogPath;
+
+void initLog(const string& logPath) {
+    gLogPath = logPath;
+
+    // Ensure parent directory exists
+    fs::create_directories(fs::path(logPath).parent_path());
+
+    gLogFile.open(logPath, ios::out | ios::trunc);
+    if (!gLogFile.is_open()) {
+        cerr << "WARNING: Could not open log file: " << logPath << "\n";
+    }
+
+    // Header
+    auto now = chrono::system_clock::now();
+    time_t t = chrono::system_clock::to_time_t(now);
+    char buf[64];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&t));
+    logRaw("=== CompilationVidMaker Log ===");
+    logRaw("Started: " + string(buf));
+    logRaw("Log file: " + logPath);
+    logRaw("================================");
+}
+
+void logRaw(const string& s) {
+    if (gLogFile.is_open()) {
+        gLogFile << s << "\n";
+        gLogFile.flush();
+    }
+}
+
+string getLogPath() {
+    return gLogPath;
+}
 
 
 // ### Function Definitions
 
 // # Printing Functions
 
+// Internal: write to both console and log
+static void output(const string& s) {
+    cout << "\n" << s;
+    logRaw(s);
+}
+
 void print(const string& s, bool useEndl)
 {
     cout << "\n" << s;
+    logRaw(s);
     if (useEndl) {
         cout << endl;
     }
@@ -42,6 +91,7 @@ void printErr(const string& msg, bool exitAfter)
 
     if (exitAfter) {
         print("\n");
+        logRaw("=== EXITING DUE TO ERROR ===");
         exit(EXIT_FAILURE);
     }
 }

@@ -8,6 +8,7 @@
 #include <format>
 #include <filesystem>
 #include <functional>
+#include <fstream>
 
 // String Vector Type
 using StringV = std::vector<std::string>;
@@ -19,6 +20,26 @@ using Seconds = int;
 namespace fs = std::filesystem;
 
 // ### Function Declarations
+
+
+// # Log Functions
+
+/**
+ * @brief Initialise the log file. Call once at startup.
+ *        All print/printSuccess/printErr calls mirror output here automatically.
+ * @param logPath Full path to the log file.
+*/
+void initLog(const std::string& logPath);
+
+/**
+ * @brief Write a raw line directly to the log file (no console output).
+*/
+void logRaw(const std::string& s);
+
+/**
+ * @return Path of the current log file.
+*/
+std::string getLogPath();
 
 
 // # Printing Functions
