@@ -12,3 +12,6 @@ FFMPEG/
 Clips/
 Output/
 logs/
+
+# KO scan temp frames (cache .cache files ARE tracked)
+ClipCache/temp/

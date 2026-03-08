@@ -118,7 +118,7 @@ void Processor::run() {
                 continue;
             }
 
-            vector<KillEvent> kills = KillDetector::detect(batch);
+            vector<KillEvent> kills = KillDetector::detect(batch, ffmpegPath);
             if (!kills.empty()) {
                 print("Kill events: " + to_string(kills.size()));
                 for (const KillEvent& ev : kills) {

@@ -8,6 +8,7 @@
 #include <map>
 #include <chrono>
 #include <ctime>
+#include <windows.h>
 
 using namespace std;
 
@@ -41,8 +42,23 @@ string makeLogPath() {
     return string("logs\\run_") + buf + ".log";
 }
 
+// Set working directory to repo root (exe lives at Project/x64/Release/, go up 3 levels)
+void setRepoRootAsWorkingDir() {
+    char exeBuf[MAX_PATH];
+    GetModuleFileNameA(NULL, exeBuf, MAX_PATH);
+    fs::path repoRoot = fs::path(exeBuf)
+        .parent_path()   // Release/
+        .parent_path()   // x64/
+        .parent_path()   // Project/
+        .parent_path();  // repo root
+    SetCurrentDirectoryA(repoRoot.string().c_str());
+}
+
 int main()
 {
+    // Fix relative paths — set CWD to repo root before anything else
+    setRepoRootAsWorkingDir();
+
     // Init log before anything else
     initLog(makeLogPath());
 

@@ -1,0 +1,200 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+PS C:\Users\David> cd C:\Users\David\GitHubRepos\CompilationVidMaker
+PS C:\Users\David\GitHubRepos\CompilationVidMaker> python .\scan_kills.py
+
+=== BATCH1 (Thor Vid 1) ===
+  0:24  Quad Kill  (THOR_2026-02-01_23-06-24.mp4)
+  THOR_2026-02-01_23-06-24.mp4: 4 kills, dur=35.2s
+  0:56  Quad Kill  (THOR_2026-02-05_23-34-58.mp4)
+  1:01  Penta Kill  (THOR_2026-02-05_23-34-58.mp4)
+  THOR_2026-02-05_23-34-58.mp4: 5 kills, dur=33.0s
+  THOR_2026-02-05_23-35-47.mp4: 3 kills, dur=20.7s
+  THOR_2026-02-06_21-25-38.mp4: 2 kills, dur=26.6s
+  THOR_2026-02-06_21-26-23.mp4: 3 kills, dur=27.3s
+  THOR_2026-02-06_21-27-07.mp4: 1 kills, dur=24.4s
+  THOR_2026-02-06_21-38-51.mp4: 3 kills, dur=29.0s
+  3:30  Quad Kill  (THOR_2026-02-06_21-39-43.mp4)
+  3:34  Penta Kill  (THOR_2026-02-06_21-39-43.mp4)
+  3:38  Hexa Kill  (THOR_2026-02-06_21-39-43.mp4)
+  THOR_2026-02-06_21-39-43.mp4: 6 kills, dur=29.6s
+  4:02  Quad Kill  (THOR_2026-02-06_22-38-56.mp4)
+  4:04  Penta Kill  (THOR_2026-02-06_22-38-56.mp4)
+  THOR_2026-02-06_22-38-56.mp4: 5 kills, dur=29.8s
+  4:38  Quad Kill  (THOR_2026-02-06_22-39-48.mp4)
+  THOR_2026-02-06_22-39-48.mp4: 4 kills, dur=31.9s
+  THOR_2026-02-06_22-42-30.mp4: 3 kills, dur=28.3s
+  5:36  Quad Kill  (THOR_2026-02-15_22-39-21.mp4)
+  5:40  Penta Kill  (THOR_2026-02-15_22-39-21.mp4)
+  THOR_2026-02-15_22-39-21.mp4: 5 kills, dur=31.4s
+  6:07  Quad Kill  (THOR_2026-02-15_23-00-22.mp4)
+  6:11  Penta Kill  (THOR_2026-02-15_23-00-22.mp4)
+  6:13  Hexa Kill  (THOR_2026-02-15_23-00-22.mp4)
+  THOR_2026-02-15_23-00-22.mp4: 6 kills, dur=38.8s
+  6:44  Quad Kill  (THOR_2026-02-15_23-09-55.mp4)
+  6:46  Penta Kill  (THOR_2026-02-15_23-09-55.mp4)
+  THOR_2026-02-15_23-09-55.mp4: 5 kills, dur=31.3s
+  THOR_2026-02-15_23-21-47.mp4: 3 kills, dur=24.7s
+  THOR_2026-02-15_23-36-49.mp4: 3 kills, dur=25.3s
+  8:06  Quad Kill  (THOR_2026-02-16_00-12-08.mp4)
+  8:11  Penta Kill  (THOR_2026-02-16_00-12-08.mp4)
+  8:14  Hexa Kill  (THOR_2026-02-16_00-12-08.mp4)
+  THOR_2026-02-16_00-12-08.mp4: 6 kills, dur=35.9s
+  THOR_2026-02-17_23-24-35.mp4: 3 kills, dur=29.3s
+  THOR_2026-02-17_23-25-25.mp4: 3 kills, dur=23.0s
+  THOR_2026-02-18_23-19-12.mp4: 2 kills, dur=26.6s
+  THOR_2026-02-18_23-20-39.mp4: 3 kills, dur=28.1s
+  THOR_2026-02-20_01-02-03.mp4: 2 kills, dur=17.5s
+  10:49  Quad Kill  (THOR_2026-02-20_01-10-58.mp4)
+  10:52  Penta Kill  (THOR_2026-02-20_01-10-58.mp4)
+  10:54  Hexa Kill  (THOR_2026-02-20_01-10-58.mp4)
+  THOR_2026-02-20_01-10-58.mp4: 6 kills, dur=35.5s
+  11:19  Quad Kill  (THOR_2026-02-20_01-15-20.mp4)
+  11:23  Penta Kill  (THOR_2026-02-20_01-15-20.mp4)
+  11:32  Hexa Kill  (THOR_2026-02-20_01-15-20.mp4)
+  11:39  Multi Kill  (THOR_2026-02-20_01-15-20.mp4)
+  11:41  Multi Kill  (THOR_2026-02-20_01-15-20.mp4)
+  THOR_2026-02-20_01-15-20.mp4: 8 kills, dur=47.7s
+  12:10  Quad Kill  (THOR_2026-02-20_01-18-26.mp4)
+  THOR_2026-02-20_01-18-26.mp4: 4 kills, dur=26.3s
+  12:39  Quad Kill  (THOR_2026-02-20_01-19-11.mp4)
+  THOR_2026-02-20_01-19-11.mp4: 4 kills, dur=34.8s
+  THOR_2026-02-20_01-20-03.mp4: 2 kills, dur=25.7s
+  13:33  Quad Kill  (THOR_2026-02-20_23-50-11.mp4)
+  13:37  Penta Kill  (THOR_2026-02-20_23-50-11.mp4)
+  THOR_2026-02-20_23-50-11.mp4: 5 kills, dur=26.9s
+  THOR_2026-02-20_23-50-59.mp4: 3 kills, dur=25.8s
+  THOR_2026-02-20_23-52-42.mp4: 2 kills, dur=21.0s
+  14:50  Quad Kill  (THOR_2026-02-21_00-09-43.mp4)
+  14:53  Penta Kill  (THOR_2026-02-21_00-09-43.mp4)
+  14:56  Hexa Kill  (THOR_2026-02-21_00-09-43.mp4)
+  THOR_2026-02-21_00-09-43.mp4: 6 kills, dur=31.7s
+
+Quad+ timestamps for BATCH1 (Thor Vid 1):
+  0:24 Quad Kill
+  0:56 Quad Kill
+  1:01 Penta Kill
+  3:30 Quad Kill
+  3:34 Penta Kill
+  3:38 Hexa Kill
+  4:02 Quad Kill
+  4:04 Penta Kill
+  4:38 Quad Kill
+  5:36 Quad Kill
+  5:40 Penta Kill
+  6:07 Quad Kill
+  6:11 Penta Kill
+  6:13 Hexa Kill
+  6:44 Quad Kill
+  6:46 Penta Kill
+  8:06 Quad Kill
+  8:11 Penta Kill
+  8:14 Hexa Kill
+  10:49 Quad Kill
+  10:52 Penta Kill
+  10:54 Hexa Kill
+  11:19 Quad Kill
+  11:23 Penta Kill
+  11:32 Hexa Kill
+  11:39 Multi Kill
+  11:41 Multi Kill
+  12:10 Quad Kill
+  12:39 Quad Kill
+  13:33 Quad Kill
+  13:37 Penta Kill
+  14:50 Quad Kill
+  14:53 Penta Kill
+  14:56 Hexa Kill
+
+=== BATCH2 (Thor Vid 2) ===
+  THOR_2026-02-21_00-12-21.mp4: 3 kills, dur=28.4s
+  0:44  Quad Kill  (THOR_2026-02-21_19-02-00.mp4)
+  THOR_2026-02-21_19-02-00.mp4: 4 kills, dur=27.1s
+  THOR_2026-02-21_20-30-43.mp4: 3 kills, dur=30.5s
+  1:51  Quad Kill  (THOR_2026-02-21_20-31-53.mp4)
+  THOR_2026-02-21_20-31-53.mp4: 4 kills, dur=36.4s
+  THOR_2026-02-21_20-46-38.mp4: 3 kills, dur=23.0s
+  2:43  Quad Kill  (THOR_2026-02-21_20-47-21.mp4)
+  2:48  Penta Kill  (THOR_2026-02-21_20-47-21.mp4)
+  2:53  Hexa Kill  (THOR_2026-02-21_20-47-21.mp4)
+  THOR_2026-02-21_20-47-21.mp4: 6 kills, dur=35.2s
+  THOR_2026-02-21_21-12-31.mp4: 3 kills, dur=27.9s
+  3:54  Quad Kill  (THOR_2026-02-21_22-18-09.mp4)
+  3:56  Penta Kill  (THOR_2026-02-21_22-18-09.mp4)
+  THOR_2026-02-21_22-18-09.mp4: 5 kills, dur=39.2s
+  THOR_2026-02-21_23-41-31.mp4: 1 kills, dur=21.7s
+  THOR_2026-02-21_23-42-33.mp4: 1 kills, dur=17.9s
+  THOR_2026-02-21_23-43-50.mp4: 3 kills, dur=19.1s
+  THOR_2026-02-21_23-44-31.mp4: 2 kills, dur=22.8s
+  5:42  Quad Kill  (THOR_2026-02-22_21-46-36.mp4)
+  5:44  Penta Kill  (THOR_2026-02-22_21-46-36.mp4)
+  5:46  Hexa Kill  (THOR_2026-02-22_21-46-36.mp4)
+  5:49  Multi Kill  (THOR_2026-02-22_21-46-36.mp4)
+  5:51  Multi Kill  (THOR_2026-02-22_21-46-36.mp4)
+  5:53  Multi Kill  (THOR_2026-02-22_21-46-36.mp4)
+  THOR_2026-02-22_21-46-36.mp4: 9 kills, dur=32.3s
+  THOR_2026-02-22_23-46-11.mp4: 2 kills, dur=23.2s
+  THOR_2026-02-22_23-46-54.mp4: 1 kills, dur=20.4s
+  7:04  Quad Kill  (THOR_2026-02-22_23-47-33.mp4)
+  THOR_2026-02-22_23-47-33.mp4: 4 kills, dur=26.3s
+  7:26  Quad Kill  (THOR_2026-02-22_23-48-21.mp4)
+  THOR_2026-02-22_23-48-21.mp4: 4 kills, dur=26.6s
+  7:59  Quad Kill  (THOR_2026-02-22_23-49-23.mp4)
+  THOR_2026-02-22_23-49-23.mp4: 4 kills, dur=28.4s
+  THOR_2026-02-24_23-35-25.mp4: 2 kills, dur=28.5s
+  THOR_2026-02-24_23-37-54.mp4: 1 kills, dur=24.2s
+  THOR_2026-02-24_23-40-21.mp4: 3 kills, dur=34.6s
+  THOR_2026-02-24_23-41-47.mp4: 1 kills, dur=16.4s
+  10:08  Quad Kill  (THOR_2026-02-24_23-42-46.mp4)
+  THOR_2026-02-24_23-42-46.mp4: 4 kills, dur=24.7s
+  THOR_2026-02-25_23-24-36.mp4: 3 kills, dur=26.7s
+  THOR_2026-02-25_23-25-20.mp4: 3 kills, dur=27.4s
+  11:28  Quad Kill  (THOR_2026-02-25_23-26-43.mp4)
+  THOR_2026-02-25_23-26-43.mp4: 4 kills, dur=30.4s
+  THOR_2026-02-27_20-39-30.mp4: 3 kills, dur=23.0s
+  THOR_2026-03-01_00-20-52.mp4: 2 kills, dur=23.5s
+  12:38  Quad Kill  (THOR_2026-03-01_22-38-49.mp4)
+  12:43  Penta Kill  (THOR_2026-03-01_22-38-49.mp4)
+  12:54  Hexa Kill  (THOR_2026-03-01_22-38-49.mp4)
+  THOR_2026-03-01_22-38-49.mp4: 6 kills, dur=40.6s
+  13:24  Quad Kill  (THOR_2026-03-02_00-00-08.mp4)
+  THOR_2026-03-02_00-00-08.mp4: 4 kills, dur=24.7s
+  13:48  Quad Kill  (THOR_2026-03-02_23-28-38.mp4)
+  13:54  Penta Kill  (THOR_2026-03-02_23-28-38.mp4)
+  THOR_2026-03-02_23-28-38.mp4: 5 kills, dur=34.1s
+  14:25  Quad Kill  (THOR_2026-03-03_22-54-23.mp4)
+  14:31  Penta Kill  (THOR_2026-03-03_22-54-23.mp4)
+  THOR_2026-03-03_22-54-23.mp4: 5 kills, dur=32.5s
+  THOR_2026-03-05_19-24-55.mp4: 3 kills, dur=27.8s
+
+Quad+ timestamps for BATCH2 (Thor Vid 2):
+  0:44 Quad Kill
+  1:51 Quad Kill
+  2:43 Quad Kill
+  2:48 Penta Kill
+  2:53 Hexa Kill
+  3:54 Quad Kill
+  3:56 Penta Kill
+  5:42 Quad Kill
+  5:44 Penta Kill
+  5:46 Hexa Kill
+  5:49 Multi Kill
+  5:51 Multi Kill
+  5:53 Multi Kill
+  7:04 Quad Kill
+  7:26 Quad Kill
+  7:59 Quad Kill
+  10:08 Quad Kill
+  11:28 Quad Kill
+  12:38 Quad Kill
+  12:43 Penta Kill
+  12:54 Hexa Kill
+  13:24 Quad Kill
+  13:48 Quad Kill
+  13:54 Penta Kill
+  14:25 Quad Kill
+  14:31 Penta Kill
+PS C:\Users\David\GitHubRepos\CompilationVidMaker>

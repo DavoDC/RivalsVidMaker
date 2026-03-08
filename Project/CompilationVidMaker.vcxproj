@@ -8,6 +8,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Code\Batcher.cpp" />
+    <ClCompile Include="..\Code\ClipCache.cpp" />
     <ClCompile Include="..\Code\Clip.cpp" />
     <ClCompile Include="..\Code\ClipList.cpp" />
     <ClCompile Include="..\Code\Command.cpp" />
@@ -20,6 +21,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Code\Batcher.h" />
+    <ClInclude Include="..\Code\ClipCache.h" />
     <ClInclude Include="..\Code\Clip.h" />
     <ClInclude Include="..\Code\ClipList.h" />
     <ClInclude Include="..\Code\Command.h" />
