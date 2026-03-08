@@ -60,7 +60,7 @@ string Encoder::encode(const Batch& batch, const string& charName) {
 
     print("\nEncoding " + charName + " batch " + to_string(batch.batchNumber) + "...");
     Command cmd(ffmpegPath, args);
-    cmd.run(true);
+    cmd.run(false);   // Output goes to log only — console stays clean
     cmd.printTimeTaken();
 
     printSuccess("Encoded: " + outFile);

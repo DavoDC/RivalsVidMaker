@@ -11,8 +11,10 @@ using namespace chrono;
 
 Processor::Processor(const string& clipsPath,
                      const string& exePath,
-                     const string& outputPath)
-    : clipsPath(clipsPath), exePath(exePath), outputPath(outputPath)
+                     const string& outputPath,
+                     int minBatchSeconds)
+    : clipsPath(clipsPath), exePath(exePath), outputPath(outputPath),
+      minBatchSeconds(minBatchSeconds)
 {
 }
 
@@ -107,11 +109,11 @@ void Processor::run() {
                 + " of " + to_string(batcher.getCount()) + " (" + durStr + ") ---");
 
             // Skip batches shorter than minimum — YouTube algorithm targets ~15min
-            if (batch.totalDurationSeconds < MIN_BATCH_SECONDS) {
+            if (batch.totalDurationSeconds < minBatchSeconds) {
                 print("SKIPPED — too short (" + durStr + ", minimum is "
-                    + to_string(MIN_BATCH_SECONDS / 60) + "m). Not worth uploading.");
+                    + to_string(minBatchSeconds / 60) + "m). Not worth uploading.");
                 logRaw("[SKIP] " + charName + " batch " + to_string(batchNum)
-                    + " skipped: " + durStr + " < " + to_string(MIN_BATCH_SECONDS / 60) + "m minimum.");
+                    + " skipped: " + durStr + " < " + to_string(minBatchSeconds / 60) + "m minimum.");
                 batchNum++;
                 continue;
             }

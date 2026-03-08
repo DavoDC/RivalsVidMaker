@@ -54,12 +54,14 @@ int main()
     string clipsPath  = cfg["ClipsPath"];
     string outputPath = cfg["OutputPath"];
     string ffmpegPath = cfg["FFMPEGPath"];
+    int minBatchSecs  = cfg.count("MinBatchSeconds") ? stoi(cfg["MinBatchSeconds"]) : 10 * 60;
 
-    logRaw("[CONFIG] ClipsPath  = " + clipsPath);
-    logRaw("[CONFIG] OutputPath = " + outputPath);
-    logRaw("[CONFIG] FFMPEGPath = " + ffmpegPath);
+    logRaw("[CONFIG] ClipsPath       = " + clipsPath);
+    logRaw("[CONFIG] OutputPath      = " + outputPath);
+    logRaw("[CONFIG] FFMPEGPath      = " + ffmpegPath);
+    logRaw("[CONFIG] MinBatchSeconds = " + to_string(minBatchSecs));
 
-    Processor proc(clipsPath, ffmpegPath, outputPath);
+    Processor proc(clipsPath, ffmpegPath, outputPath, minBatchSecs);
     proc.run();
 
     print("\nLog saved to: " + getLogPath());

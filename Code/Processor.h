@@ -19,7 +19,8 @@ public:
     // ### Constructor
     Processor(const std::string& clipsPath,
               const std::string& exePath,
-              const std::string& outputPath);
+              const std::string& outputPath,
+              int minBatchSeconds = 10 * 60);
 
     // ### Public methods
 
@@ -32,4 +33,5 @@ private:
     std::string clipsPath;
     std::string exePath;
     std::string outputPath;
+    int minBatchSeconds;
 };

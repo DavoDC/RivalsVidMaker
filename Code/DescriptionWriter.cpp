@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 
 using namespace std;
 
@@ -22,19 +23,35 @@ void DescriptionWriter::write(const Batch& batch, const vector<KillEvent>& kills
         return;
     }
 
-    // --- Clips section ---
-    file << "Clips:\n";
-    int index = 1;
-    for (const Clip& clip : batch.clips) {
-        file << index++ << ". " << clip.getFileName() << "\n";
-    }
+    // Capitalise character name for display
+    string displayName = charName;
+    transform(displayName.begin(), displayName.end(), displayName.begin(), [](unsigned char c) { return (char)::toupper(c); });
 
-    // --- Timestamps section (only if kills found) ---
+    int totalMins = batch.totalDurationSeconds / 60;
+    int totalSecs = batch.totalDurationSeconds % 60;
+
+    // --- Title suggestion (ready to paste as YouTube title) ---
+    file << "=== TITLE ===\n";
+    file << "Marvel Rivals " << displayName << " Highlights Part " << batch.batchNumber << "\n\n";
+
+    // --- Description body ---
+    file << "=== DESCRIPTION ===\n";
+    file << "Marvel Rivals " << displayName << " highlights compilation — Part " << batch.batchNumber << "\n";
+    file << "Duration: " << totalMins << "m " << totalSecs << "s\n\n";
+
+    // --- Timestamps (only if kills detected) ---
     if (!kills.empty()) {
-        file << "\nTimestamps:\n";
+        file << "Timestamps:\n";
         for (const KillEvent& ev : kills) {
             file << formatTimestamp(ev.timestampSeconds) << " " << ev.tier << "\n";
         }
+        file << "\n";
+    }
+
+    // --- Clip list ---
+    file << "Clips (" << batch.clips.size() << "):\n";
+    for (size_t i = 0; i < batch.clips.size(); i++) {
+        file << (i + 1) << ". " << batch.clips[i].getFileName() << "\n";
     }
 
     file.close();

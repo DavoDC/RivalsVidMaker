@@ -8,3 +8,7 @@ OutputPath=C:\Users\David\Videos\MarvelRivals\Output
 
 # Folder containing ffmpeg.exe and ffprobe.exe
 FFMPEGPath=FFMPEG\
+
+# Minimum batch duration in seconds to bother encoding (default: 600 = 10 minutes)
+# Batches shorter than this are skipped — not worth uploading to YouTube
+MinBatchSeconds=600
