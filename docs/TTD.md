@@ -9,3 +9,5 @@ clipcahce from c++ also nonsense
 KillCount=6
 KillTimestamps=4.5,10,17,20,24,26
 timestamps too inaccurate, and this was a quadra clip not a hexa
+
+make config.txt a JSON file
