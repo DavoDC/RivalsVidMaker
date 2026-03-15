@@ -31,7 +31,7 @@ map<string, string> readConfig(const string& configPath) {
     return cfg;
 }
 
-// Build a timestamped log filename: logs\run_YYYYMMDD_HHMMSS.log
+// Build a timestamped log filename: data\logs\run_YYYYMMDD_HHMMSS.log
 string makeLogPath() {
     auto now = chrono::system_clock::now();
     time_t t = chrono::system_clock::to_time_t(now);
@@ -39,7 +39,7 @@ string makeLogPath() {
     tm tmInfo{};
     localtime_s(&tmInfo, &t);
     strftime(buf, sizeof(buf), "%Y%m%d_%H%M%S", &tmInfo);
-    return string("logs\\run_") + buf + ".log";
+    return string("data\\logs\\run_") + buf + ".log";
 }
 
 // Set working directory to repo root (exe lives at Project/x64/Release/, go up 3 levels)
@@ -66,7 +66,7 @@ int main()
     print("Automates batching, encoding, and YouTube description generation.");
     print("Log file: " + getLogPath());
 
-    auto cfg = readConfig("config.txt");
+    auto cfg = readConfig("config\\config.txt");
     string clipsPath  = cfg["ClipsPath"];
     string outputPath = cfg["OutputPath"];
     string ffmpegPath = cfg["FFMPEGPath"];

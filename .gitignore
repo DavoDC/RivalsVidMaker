@@ -8,10 +8,10 @@ x64/
 Project/x64/
 
 # Runtime folders (not tracked — user populates these)
-FFMPEG/
+tools/
 Clips/
 Output/
-logs/
+data/logs/
 
 # KO scan temp frames (cache .cache files ARE tracked)
-ClipCache/temp/
+data/cache/temp/

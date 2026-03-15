@@ -7,29 +7,29 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Code\Batcher.cpp" />
-    <ClCompile Include="..\Code\ClipCache.cpp" />
-    <ClCompile Include="..\Code\Clip.cpp" />
-    <ClCompile Include="..\Code\ClipList.cpp" />
-    <ClCompile Include="..\Code\Command.cpp" />
-    <ClCompile Include="..\Code\Common.cpp" />
-    <ClCompile Include="..\Code\DescriptionWriter.cpp" />
-    <ClCompile Include="..\Code\Encoder.cpp" />
-    <ClCompile Include="..\Code\KillDetector.cpp" />
-    <ClCompile Include="..\Code\Main.cpp" />
-    <ClCompile Include="..\Code\Processor.cpp" />
+    <ClCompile Include="..\src\Batcher.cpp" />
+    <ClCompile Include="..\src\ClipCache.cpp" />
+    <ClCompile Include="..\src\Clip.cpp" />
+    <ClCompile Include="..\src\ClipList.cpp" />
+    <ClCompile Include="..\src\Command.cpp" />
+    <ClCompile Include="..\src\Common.cpp" />
+    <ClCompile Include="..\src\DescriptionWriter.cpp" />
+    <ClCompile Include="..\src\Encoder.cpp" />
+    <ClCompile Include="..\src\KillDetector.cpp" />
+    <ClCompile Include="..\src\Main.cpp" />
+    <ClCompile Include="..\src\Processor.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Code\Batcher.h" />
-    <ClInclude Include="..\Code\ClipCache.h" />
-    <ClInclude Include="..\Code\Clip.h" />
-    <ClInclude Include="..\Code\ClipList.h" />
-    <ClInclude Include="..\Code\Command.h" />
-    <ClInclude Include="..\Code\Common.h" />
-    <ClInclude Include="..\Code\DescriptionWriter.h" />
-    <ClInclude Include="..\Code\Encoder.h" />
-    <ClInclude Include="..\Code\KillDetector.h" />
-    <ClInclude Include="..\Code\Processor.h" />
+    <ClInclude Include="..\src\Batcher.h" />
+    <ClInclude Include="..\src\ClipCache.h" />
+    <ClInclude Include="..\src\Clip.h" />
+    <ClInclude Include="..\src\ClipList.h" />
+    <ClInclude Include="..\src\Command.h" />
+    <ClInclude Include="..\src\Common.h" />
+    <ClInclude Include="..\src\DescriptionWriter.h" />
+    <ClInclude Include="..\src\Encoder.h" />
+    <ClInclude Include="..\src\KillDetector.h" />
+    <ClInclude Include="..\src\Processor.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />
