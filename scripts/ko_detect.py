@@ -4,19 +4,16 @@ ko_detect.py — Multi-kill tier detection for Marvel Rivals clips.
 Uses FFmpeg (2fps extraction) + Tesseract OCR to read the kill banner
 on the right side of the screen.
 
+Timestamps reported = start of the kill streak (first KO banner),
+so viewers can watch the full streak from beginning to the Quad/Penta/Hexa.
+
 Usage:
     python scripts/ko_detect.py                         # test ground truth clip
-    python scripts/ko_detect.py <clip_path>             # single clip
-    python scripts/ko_detect.py --batch vid1            # full batch
-
-Output (single clip):
-    QUAD KILL  |  0:12 → 0:45  (within clip)
-
-Output (batch):
-    [3:20] QUAD KILL  (compiled video timestamp)
+    python scripts/ko_detect.py <clip_path>             # single clip (debug)
+    python scripts/ko_detect.py --batch vid1            # full batch → writes output txt
 """
 
-import subprocess, os, sys, tempfile, shutil, glob, re
+import subprocess, os, sys, tempfile, shutil, glob, re, json
 from pathlib import Path
 from PIL import Image, ImageOps, ImageFilter
 import pytesseract
@@ -26,24 +23,28 @@ import pytesseract
 FFMPEG       = r"C:\Users\David\GitHubRepos\CompilationVidMaker\tools\ffmpeg.exe"
 TESSERACT    = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 CLIPS_BASE   = r"C:\Users\David\Videos\MarvelRivals\Highlights\THOR"
+CACHE_DIR    = r"C:\Users\David\GitHubRepos\CompilationVidMaker\data\cache"
+OUTPUT_DIR   = r"C:\Users\David\GitHubRepos\CompilationVidMaker\data"
 GROUND_TRUTH = r"C:\Users\David\Videos\MarvelRivals\Highlights\THOR\vid1_uploaded\THOR_2026-02-06_22-38-56.mp4"
 
 pytesseract.pytesseract.tesseract_cmd = TESSERACT
 
 # ── Detection parameters ───────────────────────────────────────────────────────
 
-SCAN_FPS      = 2      # frames/sec to extract (banner lasts 2-4s, so 2fps is sufficient)
-SKIP_SECS     = 2      # skip first N seconds (banner never appears this early)
-COOLDOWN_SECS = 2.0    # min gap between distinct events (prevents double-counting same banner)
+SCAN_FPS      = 2      # frames/sec to extract
+SKIP_SECS     = 2      # skip first N seconds
+COOLDOWN_SECS = 2.0    # min gap between distinct events
 
 # Banner region: right 25% of frame width, vertically 40–62%
-# Calibrated from ground truth frames — see examples/ground_truth/GROUND_TRUTH.md
-CROP_X = 0.75
+CROP_X  = 0.75
 CROP_Y1 = 0.40
 CROP_Y2 = 0.62
 
-TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+TIERS     = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
 TIER_RANK = {t: i for i, t in enumerate(TIERS)}
+
+# Only tiers at this rank or above appear in the YouTube description output
+REPORT_MIN_TIER = "QUAD"
 
 # ── Image processing ──────────────────────────────────────────────────────────
 
@@ -54,26 +55,20 @@ def crop_banner(img: Image.Image) -> Image.Image:
 
 def preprocess(crop: Image.Image) -> Image.Image:
     grey = crop.convert("L")
-    # Scale up 3x — Tesseract performs better on larger images
     grey = grey.resize((grey.width * 3, grey.height * 3), Image.LANCZOS)
-    # Banner text is white on dark → invert so Tesseract sees dark text on white
     grey = ImageOps.invert(grey)
     grey = grey.filter(ImageFilter.SHARPEN)
     return grey
 
 
 def ocr_tier(img_path: str) -> str | None:
-    """Return highest tier detected in this frame, or None."""
     img   = Image.open(img_path)
     crop  = crop_banner(img)
     proc  = preprocess(crop)
-
-    # PSM 8 = single word; try PSM 7 (single line) as fallback
     for psm in (8, 7, 6):
-        cfg  = f"--psm {psm} --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ!"
-        text = pytesseract.image_to_string(proc, config=cfg)
+        cfg   = f"--psm {psm} --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ!"
+        text  = pytesseract.image_to_string(proc, config=cfg)
         clean = re.sub(r"[^A-Z]", "", text.upper())
-        # Check highest tier first (HEXA > PENTA > ... > KO)
         for tier in reversed(TIERS):
             if tier in clean:
                 return tier
@@ -82,7 +77,6 @@ def ocr_tier(img_path: str) -> str | None:
 # ── Frame extraction ──────────────────────────────────────────────────────────
 
 def extract_frames(clip_path: str, tmpdir: str) -> list[tuple[float, str]]:
-    """Extract frames to tmpdir at SCAN_FPS. Returns [(timestamp_secs, path), ...]."""
     pat = os.path.join(tmpdir, "f_%05d.png")
     subprocess.run(
         [FFMPEG, "-y", "-loglevel", "quiet",
@@ -93,33 +87,67 @@ def extract_frames(clip_path: str, tmpdir: str) -> list[tuple[float, str]]:
     frames = sorted(glob.glob(os.path.join(tmpdir, "f_*.png")))
     return [(SKIP_SECS + i / SCAN_FPS, p) for i, p in enumerate(frames)]
 
+
+def get_duration(clip_path: str) -> float:
+    r = subprocess.run(
+        [FFMPEG.replace("ffmpeg", "ffprobe"), "-v", "error",
+         "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", clip_path],
+        capture_output=True, text=True
+    )
+    try:
+        return float(r.stdout.strip())
+    except:
+        return 0.0
+
+# ── Cache ─────────────────────────────────────────────────────────────────────
+
+def cache_path(clip_path: str) -> str:
+    stem = Path(clip_path).stem
+    return os.path.join(CACHE_DIR, f"{stem}.ko.json")
+
+
+def cache_load(clip_path: str) -> dict | None:
+    p = cache_path(clip_path)
+    if os.path.exists(p):
+        with open(p) as f:
+            return json.load(f)
+    return None
+
+
+def cache_save(clip_path: str, result: dict | None):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    with open(cache_path(clip_path), "w") as f:
+        json.dump(result, f)
+
 # ── Core scan ─────────────────────────────────────────────────────────────────
 
-def scan_clip(clip_path: str, debug: bool = False) -> dict | None:
+def scan_clip(clip_path: str, debug: bool = False, use_cache: bool = True) -> dict | None:
     """
-    Scan a clip for multi-kill events.
-
     Returns:
         {
-            "tier":     "QUAD",        # highest tier achieved
-            "start_ts": 12.0,          # first banner appearance (secs within clip)
-            "end_ts":   46.0,          # last banner disappearance + 1s buffer
-            "events":   [              # all individual events detected
-                {"tier": "KO",     "ts": 12.0},
-                {"tier": "DOUBLE", "ts": 14.0},
-                {"tier": "TRIPLE", "ts": 23.0},
-                {"tier": "QUAD",   "ts": 40.0},
-            ]
+            "tier":      "QUAD",   # highest tier achieved
+            "start_ts":  6.0,      # when FIRST banner appeared (streak start — use for YT timestamp)
+            "max_ts":    20.0,     # when the MAX tier banner appeared
+            "end_ts":    22.0,     # when last banner disappeared + 1s
+            "events":    [{"tier": "KO", "ts": 6.0}, ...]
         }
         or None if no kill banner detected.
     """
+    if use_cache:
+        cached = cache_load(clip_path)
+        if cached is not None:
+            if debug:
+                print("  [cache hit]")
+            return cached  # None stored in cache means "no kill detected"
+
     tmpdir = tempfile.mkdtemp(prefix="ko_")
     try:
-        frames = extract_frames(clip_path, tmpdir)
-        events        = []
-        prev_tier     = None
-        cooldown_end  = 0.0
-        last_active   = None
+        frames       = extract_frames(clip_path, tmpdir)
+        events       = []
+        prev_tier    = None
+        cooldown_end = 0.0
+        last_active  = None
 
         for ts, path in frames:
             tier = ocr_tier(path)
@@ -129,10 +157,8 @@ def scan_clip(clip_path: str, debug: bool = False) -> dict | None:
                 print(f"  t={ts:5.1f}s  {label}")
 
             if tier and ts >= cooldown_end:
-                rank     = TIER_RANK.get(tier, -1)
+                rank      = TIER_RANK.get(tier, -1)
                 prev_rank = TIER_RANK.get(prev_tier, -1) if prev_tier else -1
-
-                # New event: either first detection, tier went up, or cooldown elapsed after a gap
                 if prev_tier is None or rank > prev_rank:
                     events.append({"tier": tier, "ts": ts})
                     cooldown_end = ts + COOLDOWN_SECS
@@ -140,29 +166,37 @@ def scan_clip(clip_path: str, debug: bool = False) -> dict | None:
                     if debug:
                         print(f"    *** EVENT: {tier} at {ts:.1f}s ***")
                 elif tier == prev_tier:
-                    # Same tier still showing — update cooldown, don't add new event
                     cooldown_end = ts + COOLDOWN_SECS
 
             if tier:
                 last_active = ts
             elif last_active and (ts - last_active) > COOLDOWN_SECS * 2:
-                # Banner has been gone long enough — streak could reset
                 prev_tier = None
 
         if not events:
+            cache_save(clip_path, None)
             return None
 
-        max_tier = max(events, key=lambda e: TIER_RANK.get(e["tier"], 0))["tier"]
-        return {
-            "tier":     max_tier,
-            "start_ts": events[0]["ts"],
+        max_event = max(events, key=lambda e: TIER_RANK.get(e["tier"], 0))
+        result = {
+            "tier":     max_event["tier"],
+            "start_ts": events[0]["ts"],        # streak start → use for YT timestamp
+            "max_ts":   max_event["ts"],        # when highest tier appeared
             "end_ts":   (last_active or events[-1]["ts"]) + 1.0,
             "events":   events,
         }
+        cache_save(clip_path, result)
+        return result
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
-# ── Batch processing ──────────────────────────────────────────────────────────
+# ── Formatting ────────────────────────────────────────────────────────────────
+
+def fmt(secs: float) -> str:
+    s = int(secs)
+    return f"{s // 60}:{s % 60:02d}"
+
+# ── Batch ─────────────────────────────────────────────────────────────────────
 
 BATCH1 = [
     "THOR_2026-02-01_23-06-24.mp4","THOR_2026-02-05_23-34-58.mp4","THOR_2026-02-05_23-35-47.mp4",
@@ -179,101 +213,100 @@ BATCH1 = [
 ]
 
 
-def get_duration(clip_path: str) -> float:
-    r = subprocess.run(
-        [FFMPEG.replace("ffmpeg", "ffprobe"), "-v", "error",
-         "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1",
-         clip_path],
-        capture_output=True, text=True
-    )
-    try:
-        return float(r.stdout.strip())
-    except:
-        return 0.0
+def run_batch(batch_name: str, clips: list[str], clips_dir: str):
+    print(f"\n{'=' * 60}")
+    print(f"BATCH: {batch_name}  ({len(clips)} clips)")
+    print("=" * 60)
 
+    running    = 0.0
+    highlights = []  # (video_ts, tier, clip_name)
 
-def fmt(secs: float) -> str:
-    s = int(secs)
-    return f"{s // 60}:{s % 60:02d}"
+    for i, name in enumerate(clips):
+        path = os.path.join(clips_dir, name)
+        if not os.path.exists(path):
+            print(f"  [{i+1:2d}/{len(clips)}] MISSING: {name}")
+            continue
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+        dur    = get_duration(path)
+        cached = cache_load(path)
+        if cached is not None:
+            result = cached
+            tag = "[cached]"
+        else:
+            print(f"  [{i+1:2d}/{len(clips)}] Scanning: {name}...", end="", flush=True)
+            result = scan_clip(path, use_cache=False)
+            cache_save(path, result)
+            tag = ""
+
+        tier_str = result["tier"] if result else "—"
+        if result:
+            video_ts = running + result["start_ts"]
+            print(f"  [{i+1:2d}/{len(clips)}] {tag} {name}  →  {tier_str}  (streak starts {fmt(video_ts)} in video)")
+            if TIER_RANK.get(result["tier"], 0) >= TIER_RANK[REPORT_MIN_TIER]:
+                highlights.append((video_ts, result["tier"], name))
+        else:
+            print(f"  [{i+1:2d}/{len(clips)}] {tag} {name}  →  {tier_str}")
+
+        running += dur
+
+    # ── Write output file ──────────────────────────────────────────────────────
+    out_path = os.path.join(OUTPUT_DIR, f"{batch_name}_timestamps.txt")
+    lines = [f"Multi-kill timestamps — {batch_name}\n"]
+    lines.append("(Timestamps = start of kill streak, so viewers see the full build-up)\n\n")
+    if highlights:
+        for ts, tier, clip in highlights:
+            lines.append(f"{fmt(ts)} - {tier.capitalize()} Kill\n")
+    else:
+        lines.append("(no Quad+ kills detected)\n")
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with open(out_path, "w") as f:
+        f.writelines(lines)
+
+    print(f"\n{'─' * 60}")
+    print(f"Quad+ highlights ({batch_name}):")
+    for ts, tier, clip in highlights:
+        print(f"  {fmt(ts)} - {tier.capitalize()} Kill")
+    print(f"\nSaved to: {out_path}")
+
+# ── Entry points ──────────────────────────────────────────────────────────────
 
 def run_ground_truth():
-    """Test on the known ground truth clip. Expected: QUAD, window ~0:12 → 0:45."""
     print("=" * 60)
     print(f"GROUND TRUTH TEST: {Path(GROUND_TRUTH).name}")
-    print("Expected: QUAD KILL  |  ~0:06 → ~0:22")
+    print("Expected: QUAD KILL  |  streak start ~0:06")
     print("=" * 60)
-    result = scan_clip(GROUND_TRUTH, debug=True)
+    result = scan_clip(GROUND_TRUTH, debug=True, use_cache=False)
     print()
     if result:
         print(f"RESULT:  {result['tier']} KILL")
-        print(f"Window:  {fmt(result['start_ts'])} → {fmt(result['end_ts'])}")
-        print("Events:")
-        for ev in result["events"]:
-            print(f"  {fmt(ev['ts'])}  {ev['tier']}")
-        # Pass/fail check
-        ok_tier   = result["tier"] == "QUAD"
-        ok_start  = abs(result["start_ts"] - 6) <= 3
-        ok_end    = abs(result["end_ts"]   - 22) <= 4
-        print()
-        print(f"  Tier correct?   {'PASS' if ok_tier  else 'FAIL'} (got {result['tier']}, want QUAD)")
-        print(f"  Start correct?  {'PASS' if ok_start else 'FAIL'} (got {fmt(result['start_ts'])}, want ~0:06)")
-        print(f"  End correct?    {'PASS' if ok_end   else 'FAIL'} (got {fmt(result['end_ts'])},  want ~0:22)")
+        print(f"Streak:  {fmt(result['start_ts'])} → {fmt(result['end_ts'])}")
+        print(f"Events:  {', '.join(e['tier'] + '@' + fmt(e['ts']) for e in result['events'])}")
+        ok_tier  = result["tier"] == "QUAD"
+        ok_start = abs(result["start_ts"] - 6) <= 3
+        print(f"\n  Tier:   {'PASS' if ok_tier  else 'FAIL'}  (got {result['tier']}, want QUAD)")
+        print(f"  Start:  {'PASS' if ok_start else 'FAIL'}  (got {fmt(result['start_ts'])}, want ~0:06)")
     else:
         print("FAIL — no multi-kill detected")
 
 
 def run_single(clip_path: str):
     print(f"Scanning: {Path(clip_path).name}")
-    result = scan_clip(clip_path, debug=True)
+    result = scan_clip(clip_path, debug=True, use_cache=False)
     print()
     if result:
         print(f"RESULT:  {result['tier']} KILL")
-        print(f"Window:  {fmt(result['start_ts'])} → {fmt(result['end_ts'])}")
+        print(f"Streak:  {fmt(result['start_ts'])} → {fmt(result['end_ts'])}")
+        print(f"Events:  {', '.join(e['tier'] + '@' + fmt(e['ts']) for e in result['events'])}")
     else:
         print("No multi-kill detected.")
 
 
-def run_batch(batch_name: str, clips: list[str], clips_dir: str):
-    print(f"\n{'=' * 60}")
-    print(f"BATCH: {batch_name}")
-    print("=" * 60)
-    running = 0.0
-    quad_plus = []
-    for name in clips:
-        path = os.path.join(clips_dir, name)
-        if not os.path.exists(path):
-            print(f"  MISSING: {name}")
-            continue
-        dur = get_duration(path)
-        result = scan_clip(path)
-        tier_str = result["tier"] if result else "—"
-        if result:
-            video_ts = running + result["start_ts"]
-            video_end = running + result["end_ts"]
-            print(f"  {name}  →  {tier_str}  [{fmt(video_ts)} – {fmt(video_end)}]")
-            if TIER_RANK.get(result["tier"], 0) >= TIER_RANK["QUAD"]:
-                quad_plus.append((video_ts, result["tier"], name))
-        else:
-            print(f"  {name}  →  {tier_str}")
-        running += dur
-
-    print(f"\nQuad+ timestamps for YouTube description ({batch_name}):")
-    if quad_plus:
-        for ts, tier, clip in quad_plus:
-            print(f"  {fmt(ts)}  {tier}")
-    else:
-        print("  (none detected)")
-
-
 if __name__ == "__main__":
     args = sys.argv[1:]
-
     if not args:
         run_ground_truth()
     elif args[0] == "--batch" and len(args) > 1 and args[1] == "vid1":
-        clips_dir = os.path.join(CLIPS_BASE, "vid1_uploaded")
-        run_batch("vid1", BATCH1, clips_dir)
+        run_batch("vid1", BATCH1, os.path.join(CLIPS_BASE, "vid1_uploaded"))
     else:
         run_single(args[0])
