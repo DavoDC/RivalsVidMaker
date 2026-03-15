@@ -24,5 +24,16 @@ Repo: `C:\Users\David\GitHubRepos\CompilationVidMaker` (C++ / Visual Studio 2022
 - **Single language rule** — if KO prompt detection requires Python (e.g. for ML/CV libraries), rewrite the ENTIRE app in Python. Do not mix languages. Pick one and go all-in.
 - Only move to multi-clip / full video pipeline after one clip is perfect
 
+## KO Detection — Frame Extraction Tool (Idea)
+
+**Idea:** Build a tool to split a clip into individual frames/images, then label the important ones (KO prompt visible, KO prompt gone, etc.). Purpose: generate a ground-truth labelled dataset to develop and test an accurate KO prompt detector.
+
+- Use FFmpeg to extract frames (already a dependency — use the existing FFmpeg exes)
+- Output frames to a folder, named by timestamp (e.g. `frame_00m01s500ms.png`)
+- Label tool: simple script that lets you mark frames as KO/no-KO (even a manual CSV would do)
+- Labelled frames become the test set for any CV/ML approach
+
+This directly unblocks the KO detection rewrite — can't build an accurate detector without ground truth data.
+
 ## Pending Improvements (Lower Priority)
 YouTube API upload, description format overhaul, group clips by output vid, skip-if-exists, time estimation.
