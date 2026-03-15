@@ -11,7 +11,7 @@ using namespace std;
 
 // --- Banner crop region (as fraction of video dimensions) ---
 // The KO prompt sits in the right portion of the screen, vertically centred-upper.
-// These values were calibrated from example screenshots (see Examples/KOPrompt/).
+// These values were calibrated from example screenshots (see examples/ko_frames/).
 //   X start : 75% of width
 //   Width   : 25% of width  (covers to right edge)
 //   Y start : 41% of height
@@ -30,7 +30,7 @@ static constexpr double EVENT_COOLDOWN_SECS = 2.0;
 static constexpr double SCAN_START_SECS = 4.0;
 
 // Temp directory for extracted PPM frames (cleaned after each clip scan)
-static const string TEMP_DIR = "ClipCache\\temp";
+static const string TEMP_DIR = "data\\cache\\temp";
 
 // ---
 

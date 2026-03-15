@@ -6,7 +6,7 @@
 
 using namespace std;
 
-const string ClipCache::CACHE_DIR = "ClipCache";
+const string ClipCache::CACHE_DIR = "data\\cache";
 
 string ClipCache::getCachePath(const string& clipFilePath) {
     string stem = fs::path(clipFilePath).stem().string();
