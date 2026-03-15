@@ -12,6 +12,12 @@
 
 ## Labelled Frames
 
+> **Important:** These labels mark frames where the banner was **clearly visible**,
+> NOT the exact frame where the banner first appeared. The banner may have appeared
+> 1–5 frames earlier. Use these as approximate reference points, not precise onset times.
+
+
+
 | Filename | Frame # | Timestamp | Label |
 |---|---|---|---|
 | `frame_000304_KO_prompt_starting.png` | 304 | 0:10 | Game action begins — banner not yet visible |
