@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(FFPROBE=\"C:/Users/David/GitHubRepos/CompilationVidMaker/FFMPEG/ffprobe.exe\"\n\"$FFPROBE\" -v quiet -show_entries format=duration -of csv=p=0 \"C:/Users/David/Videos/MarvelRivals/Output/thor_vid1/THOR_batch1.mp4\"\n\"$FFPROBE\" -v quiet -show_entries format=duration -of csv=p=0 \"C:/Users/David/Videos/MarvelRivals/Output/thor_vid2/THOR_batch2.mp4\")"
+      "Bash(FFPROBE=\"C:/Users/David/GitHubRepos/CompilationVidMaker/FFMPEG/ffprobe.exe\"\n\"$FFPROBE\" -v quiet -show_entries format=duration -of csv=p=0 \"C:/Users/David/Videos/MarvelRivals/Output/thor_vid1/THOR_batch1.mp4\"\n\"$FFPROBE\" -v quiet -show_entries format=duration -of csv=p=0 \"C:/Users/David/Videos/MarvelRivals/Output/thor_vid2/THOR_batch2.mp4\")",
+      "Bash(FFPROBE=\"C:/Users/David/GitHubRepos/CompilationVidMaker/tools/ffprobe.exe\"\n\"$FFPROBE\" -v quiet -show_entries stream=r_frame_rate,duration -of csv=p=0 \"C:/Users/David/Videos/MarvelRivals/Highlights/THOR/vid1_uploaded/THOR_2026-02-06_22-38-56.mp4\")"
     ]
   }
 }
