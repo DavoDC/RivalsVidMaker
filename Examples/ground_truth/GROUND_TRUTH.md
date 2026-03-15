@@ -113,6 +113,17 @@ video timestamp is TBD. But within the clip itself:
 - **Quad kill at: 0:40** (frame 1192)
 - **Sequence window: 0:10 – 0:45**
 
+## Validated Test Clips
+
+Clips verified correct by watching the actual video after running `ko_detect.py`:
+
+| Clip | Expected | Script output | Window | Verified |
+|---|---|---|---|---|
+| `THOR_2026-02-06_22-38-56.mp4` | QUAD | QUAD | 0:06 → 0:22 | ✅ |
+| `THOR_2026-02-17_23-25-25.mp4` | TRIPLE | TRIPLE | 0:06 → 0:14 | ✅ |
+
+**Notes on misses:** DOUBLE was missed in the TRIPLE clip (banner visible ~1s, fell between 2fps sample points). This is acceptable — intermediate tiers don't affect the final classification as long as the highest tier is caught.
+
 ## Notes / Gotchas
 
 - The gap between Triple (0:23) and Quad (0:40) is ~17 seconds — kills can be
