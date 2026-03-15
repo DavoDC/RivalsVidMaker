@@ -2,9 +2,9 @@
 
 ## Source Clip
 `THOR_2026-02-06_22-38-56.mp4`
-- Duration: ~60s
-- FPS: 29.83 (effectively 30fps)
-- Total frames extracted: 1801
+- Duration: ~30s (29.83s)
+- FPS: 60fps (r_frame_rate=120/1 is container rate; actual avg ~60fps — confirmed 1801 frames / 29.83s)
+- Total frames extracted: 1801 (at native fps)
 - Tier classification: **QUAD KILL** (KO → Double → Triple → Quad)
 - Frames live at: `Examples/frame_by_frame_example_THOR_2026-02-06_22-38-56/frames/`
   - Bulk unlabelled frames: `frame_000001.png` … `frame_001801.png`
@@ -20,14 +20,14 @@
 
 | Filename | Frame # | Timestamp | Label |
 |---|---|---|---|
-| `frame_000304_KO_prompt_starting.png` | 304 | 0:10 | Game action begins — banner not yet visible |
-| `frame_000347_KO.png` | 347 | 0:12 | **KO** banner fully visible on right |
-| `frame_000412_double.png` | 412 | 0:14 | **DOUBLE!** banner visible |
-| `frame_000700_triple.png` | 700 | 0:23 | **TRIPLE!** banner visible |
-| `frame_000748_triple_still.png` | 748 | 0:25 | TRIPLE! banner still on screen |
-| `frame_001192_quadra_early.png` | 1192 | 0:40 | **QUAD!** banner first appears |
-| `frame_001248_quadra_still.png` | 1248 | 0:42 | QUAD! banner still showing |
-| `frame_001298_quadra_still.png` | 1298 | 0:44 | QUAD! banner still showing |
+| `frame_000304_KO_prompt_starting.png` | 304 | 0:05 | Game action begins — banner not yet visible |
+| `frame_000347_KO.png` | 347 | 0:06 | **KO** banner fully visible on right |
+| `frame_000412_double.png` | 412 | 0:07 | **DOUBLE!** banner visible |
+| `frame_000700_triple.png` | 700 | 0:12 | **TRIPLE!** banner visible |
+| `frame_000748_triple_still.png` | 748 | 0:12 | TRIPLE! banner still on screen |
+| `frame_001192_quadra_early.png` | 1192 | 0:20 | **QUAD!** banner first appears |
+| `frame_001248_quadra_still.png` | 1248 | 0:21 | QUAD! banner still showing |
+| `frame_001298_quadra_still.png` | 1298 | 0:22 | QUAD! banner still showing |
 | `frame_001358_multikill_finished.png` | 1358 | 0:45 | Banner gone — sequence complete |
 
 **Multi-kill window within this clip: 0:10 → 0:45**
