@@ -33,8 +33,20 @@ CompilationVidMaker/
 
 - Windows
 - Visual Studio 2022 (v143 toolset, C++20)
-- FFmpeg (ffmpeg.exe + ffprobe.exe)
+- FFmpeg (ffmpeg.exe + ffprobe.exe) — place in `tools/`
 - NVIDIA GPU recommended (NVENC) — falls back to CPU automatically
+
+### KO detection script (`scripts/ko_detect.py`)
+
+Additional requirements for the Python OCR-based kill detection:
+
+- Python 3.10+
+- [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) — install via:
+  ```
+  winget install UB-Mannheim.TesseractOCR
+  ```
+  Installs to `C:\Program Files\Tesseract-OCR\` (expected path, no config needed)
+- Python packages: `pip install pytesseract Pillow`
 
 ## Kill detection
 
