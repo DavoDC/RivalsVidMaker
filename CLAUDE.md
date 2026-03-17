@@ -9,7 +9,7 @@ timestamped YouTube descriptions automatically.
 ```
 src/
   main.py               — entry point (run from repo root)
-  config.py             — load config.json
+  config.py             — load config/config.json
   pipeline.py           — main orchestrator: scan → batch → detect → encode → describe
   clip_scanner.py       — scan folder for clips, probe durations in parallel
   batcher.py            — group clips into ~15-min batches
@@ -31,7 +31,9 @@ data/
   examples/             — ground_truth/ labelled frames, ko_frames/ reference screenshots
 docs/                   MULTIKILL_DETECTION.md, YOUTUBE_API.md, IDEAS.md
 tools/                  ffmpeg.exe + ffprobe.exe (gitignored, user provides)
-config.json             — configuration (paths, batch settings)
+config/
+  config.json           — your local config (gitignored)
+  config.example.json   — template (tracked)
 pytest.ini              — test config (testpaths=tests, pythonpath=src)
 ```
 
