@@ -52,21 +52,41 @@ Null stored in cache = "no kill detected for this clip" (valid result, not an er
 
 ## Clips location
 `C:\Users\David\Videos\MarvelRivals\Highlights\THOR\`
-- `vid1_uploaded/`    — 31 clips, compiled video already on YouTube (private while testing)
-- `vid2_uploaded/`    — 33 clips, compiled video already on YouTube (private while testing)
+- `vid1_uploaded/`    — 31 clips, compiled video published on YouTube (old timestamp format — needs update)
+- `vid2_uploaded/`    — 33 clips, compiled video published on YouTube ✅ (new range format, all verified)
 - `batch3_unused/`    — 5 clips (Mar 5–7 2026), not yet in a video
 
 ## Compiled videos
 Output folder: `C:\Users\David\Videos\MarvelRivals\Output\`
-- `thor_vid1/THOR_batch1.mp4` + description.txt  (~15m 3s, 31 clips)
-- `thor_vid2/THOR_batch2.mp4` + description.txt  (~15m 5s, 33 clips)
+- `thor_vid1/THOR_batch1.mp4`  (~15m 3s, 31 clips) — published, old timestamp format
+- `thor_vid2/THOR_batch2.mp4`  (~15m 5s, 33 clips) — published ✅, new range format, all 6 kills verified perfect
+  - Title: "THOR OVERLOAD ⚡ Back-to-Back Multikills (Feb–Mar 2026)"
+
+## YouTube description format (canonical — see `data/examples/descriptions/vid2_canonical_example.txt`)
+
+```
+TITLE:
+<CHARACTER> <tagline> ⚡ <subtitle> (<date range>)
+
+DESCRIPTION:
+<one punchy line with emojis, ends with "in Marvel Rivals">
+
+TIMESTAMPS:
+<streak start> - <max kill time> = <Tier> Kill
+(Quad+ only)
+
+HIGHLIGHTS:
+1. CLIP_FILENAME.mp4
+...
+```
 
 ## YouTube description timestamp workflow
-1. Run `python scripts/ko_detect.py --batch vid1`
-2. Output written to `data/output/vid1/description.txt`
-3. Paste into YouTube description
-4. Click each timestamp to verify it lands at the right moment in the video
-5. Adjust manually if any are wrong
+1. Run `python src/ko_detect.py --batch <vid>`
+2. Output written to `data/output/<vid>/<vid>_timestamps.txt`
+3. Build full description using canonical format above
+4. Paste into YouTube description
+5. Click each timestamp to verify it lands at the right moment in the video
+6. Adjust manually if any are wrong
 
 ### Verified vid1 timestamps (complete — all 7 Quad kills confirmed ✅):
 ```
@@ -95,16 +115,13 @@ Known limitations:
 1. ~~Run `python src/ko_detect.py --batch vid1` — get full timestamp list~~ ✅ DONE
 2. ~~Verify vid1 timestamps~~ ✅ DONE — all 7 Quad kills confirmed accurate
 3. ~~Update script output format to range: `<streak start> - <max tier time> = Quad Kill`~~ ✅ DONE
-4. Run `python src/ko_detect.py --batch vid2` → output in `data/output/vid2/vid2_timestamps.txt`
-5. Verify vid2 timestamps (user clicks through YouTube to check each one)
-6. Publish vid2 with new range-format timestamps
-7. Re-run `python src/ko_detect.py --batch vid1` → update vid1 YouTube description to new format
+4. ~~Run `python src/ko_detect.py --batch vid2`~~ ✅ DONE
+5. ~~Verify vid2 timestamps~~ ✅ DONE — all 6 kills perfect (including Hexa)
+6. ~~Publish vid2 with new range-format timestamps~~ ✅ DONE
+7. Re-run `python src/ko_detect.py --batch vid1` → update vid1 YouTube description to new range format
 8. Eventually rewrite entire pipeline in Python (C++ is lower priority)
 
-> **Note:** vid1 was published with old single-timestamp format. Steps 4–6 must be done first,
-> then circle back to update vid1 (step 7).
-
-> **Script location:** `src/ko_detect.py` (not `scripts/` — CLAUDE.md had stale path)
+> **Script location:** `src/ko_detect.py` (not `scripts/`)
 
 ## Dependencies
 - Python 3.10+
