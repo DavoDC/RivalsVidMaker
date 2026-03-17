@@ -2,6 +2,56 @@
 
 ## High-priority / structural
 
+### Consolidate docs/ folder (no data loss)
+The `docs/` folder has too many files with significant duplication. Target: 3 files.
+
+**Files to delete (fully superseded):**
+- `PRIORITIES.md` — entirely covered by CLAUDE.md's "Current focus" section
+- `compilationvidmaker.md` — old project overview + old bugs; ~90% superseded by CLAUDE.md.
+  One unique item (YouTube API lower-priority list) is already captured in IDEAS.md.
+
+**Files to relocate (wrong folder):**
+- `vid1_timestamps.txt` → `data/` (it's generated output, not a doc)
+- `full_vid_scan_test.txt` → `data/logs/` or delete (raw terminal output log)
+
+**Files to merge then delete:**
+- `NOTES.md` — KO banner position, colour table, reference screenshot index, scan params.
+  Unique content should be merged into `GROUND_TRUTH.md`, then `NOTES.md` deleted.
+
+**Files to keep (each has unique content):**
+- `GROUND_TRUTH.md` — ground truth reference for KO detection (absorbs NOTES.md)
+- `CompilationVidMaker-Research.md` — YouTube API deep-dive research, not duplicated anywhere
+- `IDEAS.md` — this file
+
+### Reorganise repo structure (matches SBS_Download layout)
+The repo is messy — inconsistent folder names, C++ VS project folders mixed in, `tools/`
+instead of `dependencies/`, no `.gitkeep` sentinels, etc. Decide on a clean structure
+before the Python rewrite lands so the rewrite drops files in the right places.
+
+**Target layout (mirroring SBS_Download):**
+```
+dependencies/       ffmpeg/ (ffmpeg.exe, ffprobe.exe — gitignored), README.md
+data/               cache/     — *.ko.json scan cache (tracked)
+                    logs/      — runtime logs (.gitkeep tracked, logs gitignored)
+src/                Python source modules (ko_detect.py + future pipeline modules)
+tests/              pytest tests
+scripts/            run.bat / run.sh entry-point launchers
+docs/               PRIORITIES.md, TTD.md, IDEAS.md, research docs
+examples/           ground_truth/, ko_frames/, descriptions/, issues/
+CLAUDE.md           (root)
+README.md           (root)
+.gitignore          (root)
+config.txt          (root, or move to data/)
+```
+
+**What to remove / archive:**
+- `Project/` — VS 2022 solution + vcxproj (archive or delete once C++ is retired)
+- `config/` — fold config.txt up to root (or `data/`)
+- `tools/` — rename to `dependencies/` (add README.md like SBS_Download)
+
+**`.gitkeep` pattern:** empty-but-tracked folders (e.g. `data/logs/`) get a `.gitkeep`
+so git doesn't lose the folder, matching SBS_Download convention.
+
 ### Rewrite pipeline in Python
 Replace the C++ pipeline entirely with Python (matching the SBS Downloader repo structure).
 Encoder, batcher, clip list, description writer — all in Python alongside `ko_detect.py` (in 'src' folder).
