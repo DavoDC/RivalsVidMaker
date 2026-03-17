@@ -8,4 +8,9 @@ Manually checked full_vid_scan_test.txt  results
 8:32 - Quad Kill = quadra happened around 8:42
 12:58 - Quad Kill = quadra happened around 13:07
 
-Overall: Code is working very well! all Quadra detections were accurate! and I like that the timestamps give the viewer the context before the quadra. BUT , and update all docs to be on clear on this, i want the tim
+Overall: Code is working very well! all Quadra detections were accurate! WE HAVE KO DETECTION DOWN PACT!!!
+and I like that the timestamps give the viewer the context before the quadra. BUT , and update all docs to be on clear on this, i want the timestamps to be the STREAK Range. the numbers above are one half of this. 
+
+For example the IDEAL youtube description timestamps section would have: 
+1:36 - 1:45 = Quad Kill 
+General format = <When streak started> - <when MAX KO prompt occurred> = MultiKill classification
