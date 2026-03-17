@@ -19,7 +19,7 @@ class Config:
     target_batch_seconds: int  # aim for this duration per batch
 
 
-def load(path: Path = Path("config.json")) -> Config:
+def load(path: Path = Path("config/config.json")) -> Config:
     """Load configuration from a JSON file."""
     if not path.exists():
         raise FileNotFoundError(f"config.json not found at: {path.resolve()}")
