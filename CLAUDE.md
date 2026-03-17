@@ -6,22 +6,23 @@ into ~15-min YouTube compilations using FFmpeg. A Python script handles KO detec
 
 ## Repo structure
 ```
-config/         config.txt — ClipsPath, OutputPath, FFMPEGPath, MinBatchSeconds
-data/           cache/*.ko.json — per-clip KO scan cache (JSON)
+data/           cache/          — *.ko.json per-clip KO scan cache (tracked)
                 logs/           — runtime logs (gitignored)
-docs/           PRIORITIES.md, TTD.md, research docs
-examples/       descriptions/   — example YouTube description .txt files
-                ground_truth/   — labelled frames + GROUND_TRUTH.md
-                issues/         — screenshots of detection issues
-                ko_frames/      — reference banner screenshots + NOTES.md
-Project/        CompilationVidMaker.sln + .vcxproj (VS 2022)
+                output/vid1/    — description.txt + full_vid_scan_test.txt for vid1
+                examples/       — ground_truth/ labelled frames, ko_frames/ reference screenshots
+docs/           MULTIKILL_DETECTION.md, YOUTUBE_API.md, IDEAS.md
 scripts/        ko_detect.py    — KO detection (Python, THIS IS THE ACTIVE FOCUS)
-src/            C++ source (Batcher, ClipList, Encoder, etc.) — lower priority
+src/CppProject/ C++ source + config.txt (VS 2022, lower priority)
 tools/          ffmpeg.exe + ffprobe.exe (gitignored, user provides)
 ```
 
+## Development principles
+- **Single language rule** — if a feature requires Python, rewrite the entire app in Python. No mixed languages.
+- **TDD** — write automated tests first for every feature.
+- **One clip first** — get a single clip working perfectly before scaling to batch processing.
+
 ## Current focus: KO detection (scripts/ko_detect.py)
-See `docs/PRIORITIES.md` — get detection perfect before touching anything else.
+Get detection perfect before touching anything else.
 
 ### What we're detecting
 The multi-kill banner that appears on the RIGHT side of the screen in Marvel Rivals
@@ -58,7 +59,7 @@ Output folder: `C:\Users\David\Videos\MarvelRivals\Output\`
 
 ## YouTube description timestamp workflow
 1. Run `python scripts/ko_detect.py --batch vid1`
-2. Output written to `data/vid1_timestamps.txt`
+2. Output written to `data/output/vid1/description.txt`
 3. Paste into YouTube description
 4. Click each timestamp to verify it lands at the right moment in the video
 5. Adjust manually if any are wrong

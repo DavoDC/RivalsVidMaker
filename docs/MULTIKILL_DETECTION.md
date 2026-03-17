@@ -39,9 +39,12 @@
 - **Style**: cyan/blue circular icon (Thor hammer) + white text on dark translucent panel
 - **Text values**: `KO` → `DOUBLE!` → `TRIPLE!` → `QUAD!` → `PENTA!` → `HEXA!`
 - **Colour is character-dependent** — not reliable for detection:
-  - Thor: electric cyan/blue
-  - Squirrel Girl: gold/yellow
+  | Character     | Banner colour                              |
+  |---------------|--------------------------------------------|
+  | Thor          | Vivid electric blue/cyan (~R=0, G=160, B=240) |
+  | Squirrel Girl | Vivid gold/yellow (~R=220, G=180, B=0)     |
 - Banner text is **white** on a dark background regardless of character
+- Saturation heuristic (character-agnostic): `max(R,G,B) > 180 AND max(R,G,B) - min(R,G,B) > 100`
 
 ## Crop Region for Detection
 
@@ -62,6 +65,13 @@ other HUD elements (kill feed is top-right, health bar is bottom-centre).
 - OCR reads the actual text → zero ambiguity
 - Banner text is large, high-contrast (white on dark) → easy for OCR
 
+**Why OCR beats template matching:**
+- Template matching requires a reference image per tier (3+ PNG files to maintain)
+- Fails if game patches the UI visuals or resolution/UI scale changes
+- OCR handles font variations and will pick up new kill tiers automatically
+- Template matching is faster (~3–8ms/frame vs ~50–150ms) but 2fps scanning
+  means speed is not a concern — accuracy matters more
+
 **Recommended stack:** Python + `pytesseract` + `Pillow`
 
 **Steps per clip:**
@@ -72,6 +82,13 @@ other HUD elements (kill feed is top-right, health bar is bottom-centre).
 5. Check if result contains any of: `KO`, `DOUBLE`, `TRIPLE`, `QUAD`, `PENTA`, `HEXA`
 6. Apply 2s cooldown between distinct events (prevents double-counting same banner)
 7. Record event tier + timestamp
+
+**Performance at 2fps (30s clips):** ~60 frames extracted per clip.
+OCR at ~50–150ms/frame = ~3–9 seconds per clip. Acceptable; cache means re-runs are instant.
+
+For context on a full 15-min compiled video at native fps (not used — we scan clips individually):
+- 15 min @ 60fps = 54,000 frames; template matching ~3min, OCR ~45–135min (impractical)
+- Sampling every 10 frames at 2fps = 180 frames; OCR ~9–27 seconds total — fast enough
 
 ## YouTube Description Timestamp Goal
 
@@ -134,3 +151,19 @@ Clips verified correct by watching the actual video after running `ko_detect.py`
   detection (inactive → active transition) to count distinct events.
 - A 2s cooldown after each detected event prevents counting the same
   banner frame twice.
+
+## Reference Screenshots (`data/examples/ko_frames/`)
+
+| File | Character | Tier | Map / notes |
+|---|---|---|---|
+| `thor_ko.png` | Thor | KO | t=00:05 |
+| `thor_double.png` | Thor | DOUBLE! | t=00:09 |
+| `thor_triple.png` | Thor | TRIPLE! | t=00:14 |
+| `quad_example1.png` | Thor | QUAD! | Stone ruins map |
+| `quad_example2.png` | Thor | QUAD! | Asgard-style map (blue/purple ambient — watch for false positives) |
+| `quad_example3.png` | Squirrel Girl | TRIPLE! | Gold/orange colour, neon space map — confirms colour-agnostic heuristic works |
+| `example_a.png` | Thor | TRIPLE! | Circular arena map |
+| `example_b.png` | Thor | KO | Circular arena map |
+| `example_c.png` | Thor | KO | Circular arena map (different frame) |
+| `example_d.png` | Thor | DOUBLE! | Stone castle / Japanese map |
+| `example_e.png` | Thor | QUAD! | JIKAWA MALL |
