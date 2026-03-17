@@ -135,8 +135,23 @@ def get_duration(clip_path: str) -> float:
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 
+def _month_from_stem(stem: str) -> str | None:
+    """Extract YYYY-MM from a clip stem like THOR_2026-02-01_23-06-24.
+    Returns None if the filename doesn't contain a parseable date."""
+    m = re.search(r"(\d{4}-\d{2})-\d{2}", stem)
+    return m.group(1) if m else None
+
+
 def cache_path(clip_path: str) -> str:
+    """Return the cache file path, nested under a YYYY-MM month subfolder.
+
+    Structure: <CACHE_DIR>/<YYYY-MM>/<stem>.ko.json
+    Falls back to <CACHE_DIR>/<stem>.ko.json for filenames without a date.
+    """
     stem = Path(clip_path).stem
+    month = _month_from_stem(stem)
+    if month:
+        return os.path.join(CACHE_DIR, month, f"{stem}.ko.json")
     return os.path.join(CACHE_DIR, f"{stem}.ko.json")
 
 
@@ -159,7 +174,7 @@ def cache_load(clip_path: str) -> tuple[bool, dict | None]:
 
 
 def cache_save(clip_path: str, result: dict | None):
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    os.makedirs(os.path.dirname(cache_path(clip_path)), exist_ok=True)
     with open(cache_path(clip_path), "w") as f:
         json.dump(result, f)
 
