@@ -28,7 +28,13 @@ python src/main.py
 
 ## Configuration
 
-Edit `config.json` in the repo root:
+Copy the example config and fill in your paths:
+
+```bash
+cp config/config.example.json config/config.json
+```
+
+Then edit `config/config.json`:
 
 ```json
 {
@@ -76,7 +82,9 @@ docs/
   IDEAS.md              future work
   MULTIKILL_DETECTION.md
 tools/                  ffmpeg.exe + ffprobe.exe (not tracked — provide your own)
-config.json             configuration
+config/
+  config.json           your local config (gitignored)
+  config.example.json   template — copy to config.json and edit
 ```
 
 ## Requirements

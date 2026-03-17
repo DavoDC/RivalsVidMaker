@@ -40,7 +40,7 @@ def main() -> None:
     print("=" * 50)
     print(f"  Log: {log_file}\n")
 
-    config_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("config.json")
+    config_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("config/config.json")
 
     try:
         config = load_config(config_path)
