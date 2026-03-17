@@ -59,6 +59,11 @@ Benefits:
 - Enables future "Best of" compilations: filter by `_PENTA` or `_HEXA` without
   re-processing anything
 
+### Auto-download FFmpeg if missing
+On startup, check whether `ffmpeg.exe` / `ffprobe.exe` exist at the configured path.
+If not, automatically download and extract the latest FFmpeg Windows build (same pattern
+as `C:\Users\David\GitHubRepos\SBS_Download`). No manual setup required for new machines.
+
 ### Startup clip availability check + video recommendations
 On launch, scan the highlights folder, group clips by character, tally total duration per group,
 and recommend compilations that can be made (e.g. "15-min Thor vid: 30 clips available").
