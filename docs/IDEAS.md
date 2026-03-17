@@ -5,34 +5,8 @@
 ### ~~Consolidate docs/ folder~~ ✅ DONE
 `docs/` is now 3 files: `GROUND_TRUTH.md`, `CompilationVidMaker-Research.md`, `IDEAS.md`.
 
-### Reorganise repo structure (matches SBS_Download layout)
-The repo is messy — inconsistent folder names, C++ VS project folders mixed in, `tools/`
-instead of `dependencies/`, no `.gitkeep` sentinels (DEFINITELY ADD), etc. Decide on a clean structure
-before the Python rewrite lands so the rewrite drops files in the right places.
-
-**Target layout (mirroring SBS_Download):**
-```
-dependencies/       ffmpeg/ (ffmpeg.exe, ffprobe.exe — gitignored), README.md
-data/               cache/     — *.ko.json scan cache (tracked)
-                    logs/      — runtime logs (.gitkeep tracked, logs gitignored)
-src/                Python source modules (ko_detect.py + future pipeline modules)
-tests/              pytest tests
-scripts/            run.bat / run.sh entry-point launchers
-docs/               PRIORITIES.md, TTD.md, IDEAS.md, research docs
-examples/           ground_truth/, ko_frames/, descriptions/, issues/
-CLAUDE.md           (root)
-README.md           (root)
-.gitignore          (root)
-config.txt          (root, or move to data/)
-```
-
-**What to remove / archive:**
-- `Project/` — VS 2022 solution + vcxproj (archive or delete once C++ is retired)
-- `config/` — fold config.txt up to root (or `data/`)
-- `tools/` — rename to `dependencies/` (add README.md like SBS_Download)
-
-**`.gitkeep` pattern:** empty-but-tracked folders (e.g. `data/logs/`) get a `.gitkeep`
-so git doesn't lose the folder, matching SBS_Download convention.
+### ~~Reorganise repo structure~~ ✅ DONE
+C++ removed, Python pipeline in `src/`, `tests/`, `scripts/`, `config/`, `.gitkeep` in `tools/`, clean `.gitignore`. `tools/` kept as-is rather than renamed to `dependencies/`.
 
 ### Rewrite pipeline in Python
 Replace the C++ pipeline entirely with Python (matching the SBS Downloader repo structure).
