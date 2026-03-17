@@ -92,12 +92,19 @@ Known limitations:
 - "KO" (2 chars) is harder for OCR than longer tier names
 
 ## Next steps
-1. ~~Run `python scripts/ko_detect.py --batch vid1` — get full timestamp list~~ ✅ DONE
+1. ~~Run `python src/ko_detect.py --batch vid1` — get full timestamp list~~ ✅ DONE
 2. ~~Verify vid1 timestamps~~ ✅ DONE — all 7 Quad kills confirmed accurate
-3. Update script output format to emit ranges: `<streak start> - <max tier time> = Quad Kill`
-4. Paste updated vid1 timestamps into YouTube description
-5. Repeat for vid2 (`--batch vid2` — add BATCH2 list to script first)
-6. Eventually rewrite entire pipeline in Python (C++ is lower priority)
+3. ~~Update script output format to range: `<streak start> - <max tier time> = Quad Kill`~~ ✅ DONE
+4. Run `python src/ko_detect.py --batch vid2` → output in `data/output/vid2/vid2_timestamps.txt`
+5. Verify vid2 timestamps (user clicks through YouTube to check each one)
+6. Publish vid2 with new range-format timestamps
+7. Re-run `python src/ko_detect.py --batch vid1` → update vid1 YouTube description to new format
+8. Eventually rewrite entire pipeline in Python (C++ is lower priority)
+
+> **Note:** vid1 was published with old single-timestamp format. Steps 4–6 must be done first,
+> then circle back to update vid1 (step 7).
+
+> **Script location:** `src/ko_detect.py` (not `scripts/` — CLAUDE.md had stale path)
 
 ## Dependencies
 - Python 3.10+
