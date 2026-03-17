@@ -35,9 +35,13 @@ when the player gets consecutive kills: KO → DOUBLE! → TRIPLE! → QUAD! →
 - pytesseract reads the tier text (PSM 8/7/6 fallback)
 - Events tracked with 2s cooldown to avoid double-counting
 
-### Key parameter: timestamps = STREAK START
-YouTube description timestamps = when the FIRST KO banner appears (streak start),
-NOT when the Quad/Penta appears. This lets viewers watch the full build-up.
+### Key parameter: timestamps = STREAK RANGE
+YouTube description timestamps must show a **range**: `<streak start> - <when MAX KO banner appeared>`.
+- Streak start = when the FIRST KO banner appears in the streak
+- Range end = when the highest-tier banner (Quad/Penta/etc.) first appears
+- Format: `1:36 - 1:45 = Quad Kill`
+
+This gives viewers both the context build-up AND the exact moment of the big kill.
 
 ### Threshold: Quad+ only in YouTube description output
 Triple and below are detected internally but not shown in the output .txt.
@@ -64,14 +68,17 @@ Output folder: `C:\Users\David\Videos\MarvelRivals\Output\`
 4. Click each timestamp to verify it lands at the right moment in the video
 5. Adjust manually if any are wrong
 
-### User's manual timestamps (vid1, partial — more exist):
+### Verified vid1 timestamps (complete — all 7 Quad kills confirmed ✅):
 ```
-1:46 - Quad Kill
-2:37 - Quad Kill
-4:06 - Quad Kill
-5:37 - Quad Kill
-(more multikills exist after 5:37 — script should find them all)
+1:36 - 1:45 = Quad Kill
+2:30 - 2:37 = Quad Kill
+3:52 - 4:06 = Quad Kill
+5:23 - 5:37 = Quad Kill
+5:54 - 6:16 = Quad Kill
+8:32 - 8:42 = Quad Kill
+12:58 - 13:07 = Quad Kill
 ```
+All detections verified accurate by manual playback. Script output matched every kill.
 These are approximate — that's fine, viewers just need to be in the right area.
 
 ## Detection status
@@ -85,11 +92,12 @@ Known limitations:
 - "KO" (2 chars) is harder for OCR than longer tier names
 
 ## Next steps
-1. Run `python scripts/ko_detect.py --batch vid1` — get full timestamp list
-2. Paste into YouTube vid1 description, click to verify each one
-3. Fix any wrong timestamps manually
-4. Repeat for vid2 (`--batch vid2` — add BATCH2 list to script first)
-5. Eventually rewrite entire pipeline in Python (C++ is lower priority)
+1. ~~Run `python scripts/ko_detect.py --batch vid1` — get full timestamp list~~ ✅ DONE
+2. ~~Verify vid1 timestamps~~ ✅ DONE — all 7 Quad kills confirmed accurate
+3. Update script output format to emit ranges: `<streak start> - <max tier time> = Quad Kill`
+4. Paste updated vid1 timestamps into YouTube description
+5. Repeat for vid2 (`--batch vid2` — add BATCH2 list to script first)
+6. Eventually rewrite entire pipeline in Python (C++ is lower priority)
 
 ## Dependencies
 - Python 3.10+
