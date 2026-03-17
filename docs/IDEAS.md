@@ -72,6 +72,18 @@ Made trivial once clips are named with their KO tier (see above).
 All 7 Quad kills in vid1 confirmed accurate. Timestamp range format confirmed
 (`<streak start> - <max tier time> = Quad Kill`). Detection is solid.
 
+### Speed up ko_detect.py batch scans
+Batch scans take a long time (~3–9s per clip × 33 clips = up to 5 min). Ideas:
+- **Parallel clip scanning** — `concurrent.futures.ProcessPoolExecutor` (or `ThreadPoolExecutor`).
+  Each clip is independent so embarrassingly parallel. Could cut total time by `N_WORKERS`x.
+- **Per-clip timing logs** — print elapsed time per clip and total batch time so we can see
+  where time is going (FFmpeg extract vs OCR vs I/O). Use `time.perf_counter()`.
+- Note: cache hits are already instant — this only matters for first-run / uncached clips.
+
+### Rename repo/project to reflect Marvel Rivals focus
+The program is Marvel Rivals-specific but the repo is named `CompilationVidMaker` (generic).
+Should be renamed to something like `MarvelRivalsCompiler` or `MarvelRivalsVidMaker`.
+
 ### Pipeline improvements (lower priority backlog)
 - Description format overhaul
 - Group clips by output video in UI
