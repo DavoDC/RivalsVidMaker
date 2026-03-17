@@ -1,30 +1,64 @@
 # CompilationVidMaker — Project Context for Claude
 
 ## What this project does
-C++ console app (VS 2022, C++20, Windows) that batches short Marvel Rivals gameplay clips
-into ~15-min YouTube compilations using FFmpeg. A Python script handles KO detection.
+Python pipeline that batches short Marvel Rivals gameplay clips into ~15-min YouTube
+compilations using FFmpeg. Detects multi-kill banners via OCR (Tesseract) and generates
+timestamped YouTube descriptions automatically.
 
 ## Repo structure
 ```
-data/           cache/          — *.ko.json per-clip KO scan cache (tracked)
-                logs/           — runtime logs (gitignored)
-                output/vid1/    — description.txt + full_vid_scan_test.txt for vid1
-                examples/       — ground_truth/ labelled frames, ko_frames/ reference screenshots
-docs/           MULTIKILL_DETECTION.md, YOUTUBE_API.md, IDEAS.md
-scripts/        ko_detect.py    — KO detection (Python, THIS IS THE ACTIVE FOCUS)
-src/CppProject/ C++ source + config.txt (VS 2022, lower priority)
-tools/          ffmpeg.exe + ffprobe.exe (gitignored, user provides)
+src/
+  main.py               — entry point (run from repo root)
+  config.py             — load config.json
+  pipeline.py           — main orchestrator: scan → batch → detect → encode → describe
+  clip_scanner.py       — scan folder for clips, probe durations in parallel
+  batcher.py            — group clips into ~15-min batches
+  encoder.py            — FFmpeg concat encode (NVENC GPU / libx264 CPU fallback)
+  description_writer.py — write YouTube description .txt files
+  ko_detect.py          — KO banner detection (OCR via Tesseract) — standalone + imported
+scripts/
+  run.bat               — double-click launcher (opens Git Bash terminal)
+  run.sh                — runs python src/main.py from repo root
+tests/
+  test_batcher.py
+  test_clip_scanner.py
+  test_encoder.py
+  test_description_writer.py
+data/
+  cache/                — *.ko.json per-clip KO scan cache (tracked)
+  logs/                 — runtime logs (gitignored)
+  output/               — description.txt files per batch
+  examples/             — ground_truth/ labelled frames, ko_frames/ reference screenshots
+docs/                   MULTIKILL_DETECTION.md, YOUTUBE_API.md, IDEAS.md
+tools/                  ffmpeg.exe + ffprobe.exe (gitignored, user provides)
+config.json             — configuration (paths, batch settings)
+pytest.ini              — test config (testpaths=tests, pythonpath=src)
+```
+
+## How to run
+```
+# Double-click (opens Git Bash terminal):
+scripts/run.bat
+
+# Or directly:
+python src/main.py
+python src/main.py path/to/config.json   # explicit config
+
+# KO detection standalone (still works):
+python src/ko_detect.py                  # ground truth test
+python src/ko_detect.py <clip_path>      # single clip debug
+python src/ko_detect.py --batch vid1     # batch → writes timestamps .txt
+
+# Tests:
+pytest
 ```
 
 ## Development principles
-- **Single language rule** — if a feature requires Python, rewrite the entire app in Python. No mixed languages.
-- **TDD** — write automated tests first for every feature.
-- **One clip first** — get a single clip working perfectly before scaling to batch processing.
+- **Single language rule** — Python only. No mixed languages.
+- **TDD** — write tests first for every feature.
+- **One clip first** — get a single clip working perfectly before scaling to batch.
 
-## Current focus: KO detection (scripts/ko_detect.py)
-Get detection perfect before touching anything else.
-
-### What we're detecting
+## KO detection (src/ko_detect.py)
 The multi-kill banner that appears on the RIGHT side of the screen in Marvel Rivals
 when the player gets consecutive kills: KO → DOUBLE! → TRIPLE! → QUAD! → PENTA! → HEXA!
 
@@ -41,25 +75,27 @@ YouTube description timestamps must show a **range**: `<streak start> - <when MA
 - Range end = when the highest-tier banner (Quad/Penta/etc.) first appears
 - Format: `1:36 - 1:45 = Quad Kill`
 
-This gives viewers both the context build-up AND the exact moment of the big kill.
-
 ### Threshold: Quad+ only in YouTube description output
 Triple and below are detected internally but not shown in the output .txt.
 
 ### Cache
-Results saved to `data/cache/<clip_stem>.ko.json`. Re-runs are instant.
+Results saved to `data/cache/<char>/<clip_stem>.ko.json`. Re-runs are instant.
 Null stored in cache = "no kill detected for this clip" (valid result, not an error).
+
+### configure() for pipeline integration
+`ko_detect.configure(ffmpeg, tesseract, cache_dir)` injects runtime paths from config.json
+so the pipeline isn't hardcoded to THOR. Standalone usage is unaffected.
 
 ## Clips location
 `C:\Users\David\Videos\MarvelRivals\Highlights\THOR\`
-- `vid1_uploaded/`    — 31 clips, compiled video published on YouTube ✅ (new range format, all verified)
-- `vid2_uploaded/`    — 33 clips, compiled video published on YouTube ✅ (new range format, all verified)
+- `vid1_uploaded/`    — 31 clips, compiled video published on YouTube ✅ (all verified)
+- `vid2_uploaded/`    — 33 clips, compiled video published on YouTube ✅ (all verified)
 - `batch3_unused/`    — 5 clips (Mar 5–7 2026), not yet in a video
 
 ## Compiled videos
 Output folder: `C:\Users\David\Videos\MarvelRivals\Output\`
-- `thor_vid1/THOR_batch1.mp4`  (~15m 3s, 31 clips) — published ✅, new range format, 7 Quad kills verified
-- `thor_vid2/THOR_batch2.mp4`  (~15m 5s, 33 clips) — published ✅, new range format, 6 kills verified (incl. Hexa)
+- `thor_vid1/THOR_batch1.mp4`  (~15m 3s, 31 clips) — published ✅, 7 Quad kills verified
+- `thor_vid2/THOR_batch2.mp4`  (~15m 5s, 33 clips) — published ✅, 6 kills verified (incl. Hexa)
   - Title: "THOR OVERLOAD ⚡ Back-to-Back Multikills (Feb–Mar 2026)"
 
 ## YouTube description format (canonical — see `data/examples/descriptions/vid2_canonical_example.txt`)
@@ -81,7 +117,7 @@ HIGHLIGHTS:
 ```
 
 ## YouTube description timestamp workflow
-1. Run `python src/ko_detect.py --batch <vid>`
+1. Run `python src/ko_detect.py --batch <vid>` (or use full pipeline via `run.bat`)
 2. Output written to `data/output/<vid>/<vid>_timestamps.txt`
 3. Build full description using canonical format above
 4. Paste into YouTube description
@@ -98,8 +134,7 @@ HIGHLIGHTS:
 8:32 - 8:42 = Quad Kill
 12:58 - 13:07 = Quad Kill
 ```
-All detections verified accurate by manual playback. Script output matched every kill.
-These are approximate — that's fine, viewers just need to be in the right area.
+All detections verified accurate by manual playback.
 
 ## Detection status
 | Clip | Expected | Detected | Verified |
@@ -115,15 +150,13 @@ Known limitations:
 1. ~~KO detection + range format timestamps~~ ✅ DONE
 2. ~~vid1 published with verified timestamps~~ ✅ DONE
 3. ~~vid2 published with verified timestamps~~ ✅ DONE
-4. Both Thor compilation vids complete and in good state.
-5. Test on a new batch (different character) — see IDEAS.md
-6. Eventually rewrite entire pipeline in Python (C++ is lower priority)
-
-> **Script location:** `src/ko_detect.py` (not `scripts/`)
+4. ~~Rewrite entire pipeline in Python~~ ✅ DONE
+5. Test the new pipeline end-to-end on a real batch (batch3_unused or a new character)
+6. Test on a new batch (different character) — see IDEAS.md
 
 ## Dependencies
 - Python 3.10+
 - `pip install pytesseract Pillow`
 - Tesseract OCR binary: `winget install UB-Mannheim.TesseractOCR`
-  → installs to `C:\Program Files\Tesseract-OCR\tesseract.exe` (expected path, no config)
+  → installs to `C:\Program Files\Tesseract-OCR\tesseract.exe` (matches config.json default)
 - FFmpeg: place `ffmpeg.exe` + `ffprobe.exe` in `tools/`
