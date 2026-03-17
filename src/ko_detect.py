@@ -18,7 +18,8 @@ Usage:
     python src/ko_detect.py --batch vid2            # full batch → writes output txt
 """
 
-import subprocess, os, sys, tempfile, shutil, glob, re, json
+import subprocess, os, sys, tempfile, shutil, glob, re, json, time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from PIL import Image, ImageOps, ImageFilter
 import pytesseract
@@ -50,6 +51,10 @@ TIER_RANK = {t: i for i, t in enumerate(TIERS)}
 
 # Only tiers at this rank or above appear in the YouTube description output
 REPORT_MIN_TIER = "QUAD"
+
+# Parallel workers for batch scanning (FFmpeg + Tesseract are external processes,
+# so threads give real parallelism here)
+N_WORKERS = 4
 
 # ── Image processing ──────────────────────────────────────────────────────────
 
@@ -112,12 +117,22 @@ def cache_path(clip_path: str) -> str:
     return os.path.join(CACHE_DIR, f"{stem}.ko.json")
 
 
-def cache_load(clip_path: str) -> dict | None:
+def cache_exists(clip_path: str) -> bool:
+    return os.path.exists(cache_path(clip_path))
+
+
+def cache_load(clip_path: str) -> tuple[bool, dict | None]:
+    """
+    Returns (hit, result).
+      hit=False → not in cache, needs scanning
+      hit=True, result=None  → cached "no kill detected"
+      hit=True, result=dict  → cached kill data
+    """
     p = cache_path(clip_path)
-    if os.path.exists(p):
-        with open(p) as f:
-            return json.load(f)
-    return None
+    if not os.path.exists(p):
+        return False, None
+    with open(p) as f:
+        return True, json.load(f)
 
 
 def cache_save(clip_path: str, result: dict | None):
@@ -140,11 +155,11 @@ def scan_clip(clip_path: str, debug: bool = False, use_cache: bool = True) -> di
         or None if no kill banner detected.
     """
     if use_cache:
-        cached = cache_load(clip_path)
-        if cached is not None:
+        hit, cached = cache_load(clip_path)
+        if hit:
             if debug:
                 print("  [cache hit]")
-            return cached  # None stored in cache means "no kill detected"
+            return cached
 
     tmpdir = tempfile.mkdtemp(prefix="ko_")
     try:
@@ -215,40 +230,68 @@ def get_clips(clips_dir: str) -> list[str]:
     return [os.path.basename(p) for p in paths]
 
 
+def _scan_worker(clip_path: str) -> tuple[str, dict | None, float, bool]:
+    """Thread worker. Returns (clip_path, result, elapsed_secs, was_cached)."""
+    was_cached = cache_exists(clip_path)
+    t0 = time.perf_counter()
+    result = scan_clip(clip_path, debug=False, use_cache=True)
+    elapsed = time.perf_counter() - t0
+    return clip_path, result, elapsed, was_cached
+
+
 def run_batch(batch_name: str, clips: list[str], clips_dir: str):
+    t_batch = time.perf_counter()
+
     print(f"\n{'=' * 60}")
-    print(f"BATCH: {batch_name}  ({len(clips)} clips)")
+    print(f"BATCH: {batch_name}  ({len(clips)} clips)  [{N_WORKERS} workers]")
     print("=" * 60)
 
+    # ── Phase 1: resolve paths and collect durations (fast, sequential) ────────
+    clip_paths = {}
+    durations  = {}
+    for name in clips:
+        path = os.path.join(clips_dir, name)
+        clip_paths[name] = path
+        if os.path.exists(path):
+            durations[name] = get_duration(path)
+
+    # ── Phase 2: scan all clips in parallel ────────────────────────────────────
+    scan_results = {}  # name → (result, elapsed, was_cached)
+    valid_clips  = [name for name in clips if os.path.exists(clip_paths[name])]
+
+    with ThreadPoolExecutor(max_workers=N_WORKERS) as executor:
+        future_to_name = {
+            executor.submit(_scan_worker, clip_paths[name]): name
+            for name in valid_clips
+        }
+        for future in as_completed(future_to_name):
+            name = future_to_name[future]
+            _, result, elapsed, was_cached = future.result()
+            scan_results[name] = (result, elapsed, was_cached)
+
+    # ── Phase 3: output in order + compute running timestamps ─────────────────
     running    = 0.0
-    highlights = []  # (start_ts, max_ts, tier, clip_name)
+    highlights = []
 
     for i, name in enumerate(clips):
-        path = os.path.join(clips_dir, name)
-        if not os.path.exists(path):
+        path = clip_paths.get(name)
+        if not path or not os.path.exists(path):
             print(f"  [{i+1:2d}/{len(clips)}] MISSING: {name}")
             continue
 
-        dur    = get_duration(path)
-        cached = cache_load(path)
-        if cached is not None:
-            result = cached
-            tag = "[cached]"
-        else:
-            print(f"  [{i+1:2d}/{len(clips)}] Scanning: {name}...", end="", flush=True)
-            result = scan_clip(path, use_cache=False)
-            cache_save(path, result)
-            tag = ""
-
+        result, elapsed, was_cached = scan_results[name]
+        dur      = durations.get(name, 0.0)
         tier_str = result["tier"] if result else "—"
+        tag      = "[cached] " if was_cached else f"[{elapsed:.1f}s]  "
+
         if result:
             video_start_ts = running + result["start_ts"]
             video_max_ts   = running + result["max_ts"]
-            print(f"  [{i+1:2d}/{len(clips)}] {tag} {name}  →  {tier_str}  ({fmt(video_start_ts)}–{fmt(video_max_ts)} in video)")
+            print(f"  [{i+1:2d}/{len(clips)}] {tag}{name}  →  {tier_str}  ({fmt(video_start_ts)}–{fmt(video_max_ts)} in video)")
             if TIER_RANK.get(result["tier"], 0) >= TIER_RANK[REPORT_MIN_TIER]:
                 highlights.append((video_start_ts, video_max_ts, result["tier"], name))
         else:
-            print(f"  [{i+1:2d}/{len(clips)}] {tag} {name}  →  {tier_str}")
+            print(f"  [{i+1:2d}/{len(clips)}] {tag}{name}  →  {tier_str}")
 
         running += dur
 
@@ -267,11 +310,12 @@ def run_batch(batch_name: str, clips: list[str], clips_dir: str):
     with open(out_path, "w") as f:
         f.writelines(lines)
 
+    total = time.perf_counter() - t_batch
     print(f"\n{'─' * 60}")
     print(f"Quad+ highlights ({batch_name}):")
     for start_ts, max_ts, tier, clip in highlights:
         print(f"  {fmt(start_ts)} - {fmt(max_ts)} = {tier.capitalize()} Kill")
-    print(f"\nSaved to: {out_path}")
+    print(f"\nCompleted in {total:.1f}s  |  Saved to: {out_path}")
 
 # ── Entry points ──────────────────────────────────────────────────────────────
 
