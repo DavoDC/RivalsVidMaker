@@ -7,7 +7,7 @@
 
 ### Reorganise repo structure (matches SBS_Download layout)
 The repo is messy — inconsistent folder names, C++ VS project folders mixed in, `tools/`
-instead of `dependencies/`, no `.gitkeep` sentinels, etc. Decide on a clean structure
+instead of `dependencies/`, no `.gitkeep` sentinels (DEFINITELY ADD), etc. Decide on a clean structure
 before the Python rewrite lands so the rewrite drops files in the right places.
 
 **Target layout (mirroring SBS_Download):**
