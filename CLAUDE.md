@@ -52,14 +52,14 @@ Null stored in cache = "no kill detected for this clip" (valid result, not an er
 
 ## Clips location
 `C:\Users\David\Videos\MarvelRivals\Highlights\THOR\`
-- `vid1_uploaded/`    — 31 clips, compiled video published on YouTube (old timestamp format — needs update)
+- `vid1_uploaded/`    — 31 clips, compiled video published on YouTube ✅ (new range format, all verified)
 - `vid2_uploaded/`    — 33 clips, compiled video published on YouTube ✅ (new range format, all verified)
 - `batch3_unused/`    — 5 clips (Mar 5–7 2026), not yet in a video
 
 ## Compiled videos
 Output folder: `C:\Users\David\Videos\MarvelRivals\Output\`
-- `thor_vid1/THOR_batch1.mp4`  (~15m 3s, 31 clips) — published, old timestamp format
-- `thor_vid2/THOR_batch2.mp4`  (~15m 5s, 33 clips) — published ✅, new range format, all 6 kills verified perfect
+- `thor_vid1/THOR_batch1.mp4`  (~15m 3s, 31 clips) — published ✅, new range format, 7 Quad kills verified
+- `thor_vid2/THOR_batch2.mp4`  (~15m 5s, 33 clips) — published ✅, new range format, 6 kills verified (incl. Hexa)
   - Title: "THOR OVERLOAD ⚡ Back-to-Back Multikills (Feb–Mar 2026)"
 
 ## YouTube description format (canonical — see `data/examples/descriptions/vid2_canonical_example.txt`)
@@ -112,14 +112,12 @@ Known limitations:
 - "KO" (2 chars) is harder for OCR than longer tier names
 
 ## Next steps
-1. ~~Run `python src/ko_detect.py --batch vid1` — get full timestamp list~~ ✅ DONE
-2. ~~Verify vid1 timestamps~~ ✅ DONE — all 7 Quad kills confirmed accurate
-3. ~~Update script output format to range: `<streak start> - <max tier time> = Quad Kill`~~ ✅ DONE
-4. ~~Run `python src/ko_detect.py --batch vid2`~~ ✅ DONE
-5. ~~Verify vid2 timestamps~~ ✅ DONE — all 6 kills perfect (including Hexa)
-6. ~~Publish vid2 with new range-format timestamps~~ ✅ DONE
-7. Re-run `python src/ko_detect.py --batch vid1` → update vid1 YouTube description to new range format
-8. Eventually rewrite entire pipeline in Python (C++ is lower priority)
+1. ~~KO detection + range format timestamps~~ ✅ DONE
+2. ~~vid1 published with verified timestamps~~ ✅ DONE
+3. ~~vid2 published with verified timestamps~~ ✅ DONE
+4. Both Thor compilation vids complete and in good state.
+5. Test on a new batch (different character) — see IDEAS.md
+6. Eventually rewrite entire pipeline in Python (C++ is lower priority)
 
 > **Script location:** `src/ko_detect.py` (not `scripts/`)
 
