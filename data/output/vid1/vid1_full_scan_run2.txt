@@ -1,0 +1,54 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+PS C:\Users\David\GitHubRepos\CompilationVidMaker> python src/ko_detect.py --batch vid1
+
+============================================================
+BATCH: vid1  (31 clips)  [4 workers]
+============================================================
+  [ 1/31] [cached] THOR_2026-02-01_23-06-24.mp4  →  DOUBLE  (0:07–0:12 in video)
+  [ 2/31] [cached] THOR_2026-02-05_23-34-58.mp4  →  TRIPLE  (0:49–0:58 in video)
+  [ 3/31] [cached] THOR_2026-02-05_23-35-47.mp4  →  TRIPLE  (1:14–1:18 in video)
+  [ 4/31] [cached] THOR_2026-02-06_21-25-38.mp4  →  QUAD  (1:36–1:45 in video)
+  [ 5/31] [cached] THOR_2026-02-06_21-26-23.mp4  →  TRIPLE  (2:08–2:12 in video)
+  [ 6/31] [cached] THOR_2026-02-06_21-27-07.mp4  →  QUAD  (2:30–2:38 in video)
+  [ 7/31] [cached] THOR_2026-02-06_21-38-51.mp4  →  TRIPLE  (3:03–3:07 in video)
+  [ 8/31] [cached] THOR_2026-02-06_21-39-43.mp4  →  TRIPLE  (3:26–3:30 in video)
+  [ 9/31] [cached] THOR_2026-02-06_22-38-56.mp4  →  QUAD  (3:52–4:05 in video)
+  [10/31] [cached] THOR_2026-02-06_22-39-48.mp4  →  TRIPLE  (4:22–4:33 in video)
+  [11/31] [cached] THOR_2026-02-06_22-42-30.mp4  →  TRIPLE  (4:56–5:06 in video)
+  [12/31] [cached] THOR_2026-02-15_22-39-21.mp4  →  QUAD  (5:23–5:39 in video)
+  [13/31] [cached] THOR_2026-02-15_23-00-22.mp4  →  QUAD  (5:54–6:16 in video)
+  [14/31] [cached] THOR_2026-02-15_23-09-55.mp4  →  TRIPLE  (6:32–6:40 in video)
+  [15/31] [cached] THOR_2026-02-15_23-21-47.mp4  →  TRIPLE  (7:07–7:07 in video)
+  [16/31] [cached] THOR_2026-02-15_23-36-49.mp4  →  TRIPLE  (7:29–7:39 in video)
+  [17/31] [cached] THOR_2026-02-16_00-12-08.mp4  →  TRIPLE  (7:54–8:01 in video)
+  [18/31] [cached] THOR_2026-02-17_23-24-35.mp4  →  QUAD  (8:32–8:43 in video)
+  [19/31] [cached] THOR_2026-02-17_23-25-25.mp4  →  TRIPLE  (8:58–9:05 in video)
+  [20/31] [cached] THOR_2026-02-18_23-19-12.mp4  →  TRIPLE  (9:26–9:30 in video)
+  [21/31] [cached] THOR_2026-02-18_23-20-39.mp4  →  TRIPLE  (9:51–10:00 in video)
+  [22/31] [cached] THOR_2026-02-20_01-02-03.mp4  →  DOUBLE  (10:19–10:19 in video)
+  [23/31] [cached] THOR_2026-02-20_01-10-58.mp4  →  TRIPLE  (10:44–10:44 in video)
+  [24/31] [cached] THOR_2026-02-20_01-15-20.mp4  →  TRIPLE  (11:26–11:37 in video)
+  [25/31] [cached] THOR_2026-02-20_01-18-26.mp4  →  DOUBLE  (12:07–12:07 in video)
+  [26/31] [cached] THOR_2026-02-20_01-19-11.mp4  →  DOUBLE  (12:29–12:29 in video)
+  [27/31] [cached] THOR_2026-02-20_01-20-03.mp4  →  QUAD  (12:58–13:07 in video)
+  [28/31] [cached] THOR_2026-02-20_23-50-11.mp4  →  TRIPLE  (13:27–13:36 in video)
+  [29/31] [cached] THOR_2026-02-20_23-50-59.mp4  →  TRIPLE  (13:55–14:00 in video)
+  [30/31] [cached] THOR_2026-02-20_23-52-42.mp4  →  TRIPLE  (14:19–14:21 in video)
+  [31/31] [cached] THOR_2026-02-21_00-09-43.mp4  →  TRIPLE  (14:41–14:43 in video)
+
+────────────────────────────────────────────────────────────
+Quad+ highlights (vid1):
+  1:36 - 1:45 = Quad Kill
+  2:30 - 2:38 = Quad Kill
+  3:52 - 4:05 = Quad Kill
+  5:23 - 5:39 = Quad Kill
+  5:54 - 6:16 = Quad Kill
+  8:32 - 8:43 = Quad Kill
+  12:58 - 13:07 = Quad Kill
+
+Completed in 2.5s  |  Saved to: C:\Users\David\GitHubRepos\CompilationVidMaker\data\output\vid1\vid1_timestamps.txt
+PS C:\Users\David\GitHubRepos\CompilationVidMaker>
