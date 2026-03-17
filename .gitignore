@@ -11,8 +11,9 @@ venv/
 .coverage
 htmlcov/
 
-# Runtime — user provides these, not tracked
-tools/
+# Runtime — user provides these, contents not tracked but folders are
+tools/*
+!tools/.gitkeep
 
 # Claude Code
 .claude/settings.local.json
