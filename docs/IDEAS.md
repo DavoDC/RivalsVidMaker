@@ -68,9 +68,9 @@ Useful for onboarding Claude in future sessions.
 A "Best of 2025/2026" video pulling only Penta and Hexa clips.
 Made trivial once clips are named with their KO tier (see above).
 
-### Review `full_vid_scan_test.txt`
-Output from a full vid1 batch scan is in `data/output/vid1/full_vid_scan_test.txt`.
-Review findings and incorporate any useful tuning into `ko_detect.py`.
+### ~~Review `full_vid_scan_test.txt`~~ ✅ DONE
+All 7 Quad kills in vid1 confirmed accurate. Timestamp range format confirmed
+(`<streak start> - <max tier time> = Quad Kill`). Detection is solid.
 
 ### Pipeline improvements (lower priority backlog)
 - Description format overhaul

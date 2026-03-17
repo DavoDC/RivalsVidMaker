@@ -103,22 +103,21 @@ Example:
 **What to put in the description:**
 ```
 Multi-Kills:
-3:20  Quad Kill
-7:45  Triple Kill  (only if Quad+ threshold lowered in future)
+1:36 - 1:45 = Quad Kill
+2:30 - 2:37 = Quad Kill
 ```
 
 Only **QUAD and above** are surfaced in the YouTube description (per design decision).
 Lower tiers (KO, Double, Triple) are detected internally to track the streak
 but are not shown to the viewer.
 
-**Window format:** For the description, we want the timestamp of when the QUAD+
-banner **first appears** in the compiled video. A viewer jumping to that timestamp
-will land right on the Quad kill moment.
+**Required range format (confirmed):**
+- Start = timestamp of the FIRST KO banner in the streak (streak start)
+- End = timestamp when the MAX-tier banner (Quad+) first appears
+- Format: `<streak start> - <max tier time> = Quad Kill`
 
-If a wider window is preferred (to show the buildup):
-- Start = timestamp of first KO in the streak
-- End = timestamp when the Quad+ banner disappears
-- Format: `3:20 – 4:05  Quad Kill`
+This format is confirmed correct — gives viewers the build-up context AND the exact
+kill moment. Do NOT output a single timestamp; always use the range.
 
 ## This Clip's Output (When Working Correctly)
 
