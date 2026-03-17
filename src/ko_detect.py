@@ -35,6 +35,29 @@ GROUND_TRUTH = r"C:\Users\David\Videos\MarvelRivals\Highlights\THOR\vid1_uploade
 
 pytesseract.pytesseract.tesseract_cmd = TESSERACT
 
+
+def configure(
+    ffmpeg: str | None = None,
+    tesseract: str | None = None,
+    cache_dir: str | None = None,
+) -> None:
+    """
+    Override module-level paths at runtime.
+
+    Called by pipeline.py so the full pipeline can use config.txt paths
+    rather than the hardcoded defaults above.  Standalone usage (running
+    ko_detect.py directly) is unaffected — defaults still apply.
+    """
+    global FFMPEG, TESSERACT, CACHE_DIR
+    if ffmpeg:
+        FFMPEG = ffmpeg
+    if tesseract:
+        TESSERACT = tesseract
+        pytesseract.pytesseract.tesseract_cmd = tesseract
+    if cache_dir:
+        CACHE_DIR = cache_dir
+
+
 # ── Detection parameters ───────────────────────────────────────────────────────
 
 SCAN_FPS      = 2      # frames/sec to extract
