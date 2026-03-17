@@ -18,3 +18,4 @@ data/cache/temp/
 
 # Ground truth bulk frames — only labelled frames (frame_NNNNNN_*.png) are tracked
 examples/ground_truth/*/frames/frame_??????.png
+.claude/settings.local.json
