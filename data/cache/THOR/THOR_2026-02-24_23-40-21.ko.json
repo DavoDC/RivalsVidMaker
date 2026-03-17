@@ -1,0 +1,1 @@
+{"tier": "TRIPLE", "start_ts": 15.0, "max_ts": 25.0, "end_ts": 27.5, "events": [{"tier": "DOUBLE", "ts": 15.0}, {"tier": "TRIPLE", "ts": 25.0}]}
