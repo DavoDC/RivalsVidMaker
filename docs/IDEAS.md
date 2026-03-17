@@ -78,6 +78,20 @@ Write a reference doc (or update CLAUDE.md) describing the complete workflow:
 clip ingest → KO detection → batching → encode → description → YouTube upload.
 Useful for onboarding Claude in future sessions.
 
+### Test on a different character
+Run the full pipeline on a fresh batch of clips for a non-Thor character (e.g. Squirrel Girl)
+to confirm detection works character-agnostically — different banner colour, different UI skin.
+Good regression check before expanding beyond Thor.
+
+### Automated tests for KO detection
+Add a `tests/` folder with pytest tests covering `scan_clip` and OCR logic. Key questions to resolve:
+- **Test clip strategy:** do we commit a very short clip (~5s) to the repo as a fixture?
+  Pros: fully self-contained, CI-friendly. Cons: binary in git, repo size.
+  Alternative: a tiny synthetic test image of the banner crop (just a PNG, ~50KB) to test
+  OCR in isolation without needing a real video file.
+- Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier
+  correctly from known crop images, cache hit/miss behaviour, range format output.
+
 ---
 
 ## Lower priority / future
