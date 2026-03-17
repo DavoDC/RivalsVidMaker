@@ -153,7 +153,7 @@ Known limitations:
 2. ~~vid1 published with verified timestamps~~ ✅ DONE
 3. ~~vid2 published with verified timestamps~~ ✅ DONE
 4. ~~Rewrite entire pipeline in Python~~ ✅ DONE
-5. Test the new pipeline end-to-end on a real batch (batch3_unused or a new character)
+5. **Test and refine the new Python pipeline end-to-end** — run against THOR/batch3_unused (5 clips, small smoke test), verify scan → batch → detect → encode → describe all work, fix any bugs, iterate until clean
 6. Test on a new batch (different character) — see IDEAS.md
 
 ## Dependencies
