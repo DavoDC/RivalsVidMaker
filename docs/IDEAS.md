@@ -44,14 +44,18 @@ Currently detection runs at batch time. Running it earlier (when clips first lan
 all clips to be processed in parallel, and results are ready before batching begins.
 Encode KO info into the clip filename (see below) at this stage.
 
-### Encode KO tier in clip filename
-After detection, rename clips to embed their max KO classification:
+### Encode KO tier in clip filename (actual file rename at runtime)
+During program execution, physically rename the source clip files in the highlights folder
+to embed their max KO classification:
 
     THOR_2026-03-16_22-18-00.mp4  →  THOR_2026-03-16_22-18-00_QUAD.mp4
 
+This is a real `os.rename()` on disk — not just a label in the description output.
+The HIGHLIGHTS section of the description then naturally reflects the renamed files.
+
 Benefits:
-- Instantly reviewable — open clip, filename tells you what to expect
-- Description generation can read tier from filename (no re-scan needed)
+- Instantly reviewable on disk — filename tells you what to expect before opening
+- Description generation reads tier from filename (no re-scan needed)
 - Enables future "Best of" compilations: filter by `_PENTA` or `_HEXA` without
   re-processing anything
 
