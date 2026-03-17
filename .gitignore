@@ -1,21 +1,18 @@
-# Visual Studio
-.vs/
-x64/
-*.user
-*.suo
-*.VC.db
-*.VC.opendb
-Project/x64/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
 
-# Runtime folders (not tracked — user populates these)
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Runtime — user provides these, not tracked
 tools/
-Clips/
-/Output/
-data/logs/
 
-# KO scan temp frames (cache .cache files ARE tracked)
-data/cache/temp/
-
-# Ground truth bulk frames — only labelled frames (frame_NNNNNN_*.png) are tracked
-examples/ground_truth/*/frames/frame_??????.png
+# Claude Code
 .claude/settings.local.json
