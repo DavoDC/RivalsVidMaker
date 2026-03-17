@@ -55,6 +55,20 @@ Benefits:
 - Enables future "Best of" compilations: filter by `_PENTA` or `_HEXA` without
   re-processing anything
 
+### Full automation: generate video + title + description from clips
+The ideal end state for this program: point it at a folder of clips and it outputs a ready-to-paste
+YouTube upload — compiled video, title, description, and timestamps — with zero manual work.
+Currently the description and title are written by hand after running the script.
+Reference format: `docs/YOUTUBE_TITLE_AND_DESC.md`.
+
+### Show KO tier in HIGHLIGHTS list
+In the generated description, append the detected tier to each clip filename:
+```
+HIGHLIGHTS:
+6. THOR_2026-02-21_20-47-21.mp4 [HEXA]
+```
+Makes it easy to spot which clip is which without watching the video.
+
 ### Document full pipeline end-to-end
 Write a reference doc (or update CLAUDE.md) describing the complete workflow:
 clip ingest → KO detection → batching → encode → description → YouTube upload.
