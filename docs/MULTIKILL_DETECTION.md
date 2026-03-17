@@ -17,7 +17,6 @@
 > 1–5 frames earlier. Use these as approximate reference points, not precise onset times.
 
 
-
 | Filename | Frame # | Timestamp | Label |
 |---|---|---|---|
 | `frame_000304_KO_prompt_starting.png` | 304 | 0:05 | Game action begins — banner not yet visible |
