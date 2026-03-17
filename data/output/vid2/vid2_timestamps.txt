@@ -1,0 +1,9 @@
+Multi-kill timestamps — vid2
+Format: <streak start> - <max kill time> = Kill tier
+
+1:31 - 1:52 = Hexa Kill
+4:13 - 4:19 = Quad Kill
+6:09 - 6:14 = Quad Kill
+7:48 - 7:55 = Quad Kill
+8:18 - 8:25 = Quad Kill
+10:47 - 10:58 = Quad Kill

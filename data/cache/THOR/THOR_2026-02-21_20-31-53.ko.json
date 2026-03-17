@@ -1,0 +1,1 @@
+{"tier": "HEXA", "start_ts": 5.5, "max_ts": 27.0, "end_ts": 28.0, "events": [{"tier": "KO", "ts": 5.5}, {"tier": "DOUBLE", "ts": 8.0}, {"tier": "TRIPLE", "ts": 11.5}, {"tier": "QUAD", "ts": 14.0}, {"tier": "PENTA", "ts": 20.0}, {"tier": "HEXA", "ts": 27.0}]}
