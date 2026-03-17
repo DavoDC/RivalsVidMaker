@@ -2,26 +2,8 @@
 
 ## High-priority / structural
 
-### Consolidate docs/ folder (no data loss)
-The `docs/` folder has too many files with significant duplication. Target: 3 files.
-
-**Files to delete (fully superseded):**
-- `PRIORITIES.md` — entirely covered by CLAUDE.md's "Current focus" section
-- `compilationvidmaker.md` — old project overview + old bugs; ~90% superseded by CLAUDE.md.
-  One unique item (YouTube API lower-priority list) is already captured in IDEAS.md.
-
-**Files to relocate (wrong folder):**
-- `vid1_timestamps.txt` → `data/` (it's generated output, not a doc)
-- `full_vid_scan_test.txt` → `data/logs/` or delete (raw terminal output log)
-
-**Files to merge then delete:**
-- `NOTES.md` — KO banner position, colour table, reference screenshot index, scan params.
-  Unique content should be merged into `GROUND_TRUTH.md`, then `NOTES.md` deleted.
-
-**Files to keep (each has unique content):**
-- `GROUND_TRUTH.md` — ground truth reference for KO detection (absorbs NOTES.md)
-- `CompilationVidMaker-Research.md` — YouTube API deep-dive research, not duplicated anywhere
-- `IDEAS.md` — this file
+### ~~Consolidate docs/ folder~~ ✅ DONE
+`docs/` is now 3 files: `GROUND_TRUTH.md`, `CompilationVidMaker-Research.md`, `IDEAS.md`.
 
 ### Reorganise repo structure (matches SBS_Download layout)
 The repo is messy — inconsistent folder names, C++ VS project folders mixed in, `tools/`
@@ -87,5 +69,11 @@ A "Best of 2025/2026" video pulling only Penta and Hexa clips.
 Made trivial once clips are named with their KO tier (see above).
 
 ### Review `full_vid_scan_test.txt`
-Output from a full-video scan test is in `docs/full_vid_scan_test.txt`.
+Output from a full vid1 batch scan is in `data/output/vid1/full_vid_scan_test.txt`.
 Review findings and incorporate any useful tuning into `ko_detect.py`.
+
+### Pipeline improvements (lower priority backlog)
+- Description format overhaul
+- Group clips by output video in UI
+- Skip-if-exists logic (don't re-encode already-built batches)
+- Time estimation (how long will this batch take?)

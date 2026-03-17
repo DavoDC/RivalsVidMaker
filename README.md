@@ -1,73 +1,67 @@
 # Compilation Vid Maker (CVM)
 
-A C++ console program that automates building ~15-minute YouTube compilation videos from short gameplay clips.
+Automates building ~15-minute YouTube compilation videos from short Marvel Rivals gameplay clips.
 
 ## What it does
 
-1. **Scans** a `Clips/` folder for video files
-2. **Batches** clips into ~15-minute groups based on duration
-3. **Encodes** each batch into a single MP4 using FFmpeg with GPU acceleration (NVENC on NVIDIA, CPU fallback)
-4. **Generates** a YouTube description `.txt` per batch with:
-   - List of original clip filenames
-   - Timestamps for any multi-kill events detected in filenames (Quadra / Penta / Hexa Kill)
+1. **Scans** clips, **batches** them into ~15-minute groups by duration
+2. **Encodes** each batch into a single MP4 using FFmpeg (NVENC GPU acceleration, CPU fallback)
+3. **Detects** multi-kill events (Quad / Penta / Hexa) in each clip via OCR
+4. **Generates** a YouTube description `.txt` per batch with clickable multi-kill timestamps
+
+## Current state
+
+- **KO detection** (`scripts/ko_detect.py`) — active focus, Python + pytesseract OCR
+- **Encoder / batcher** (`src/CppProject/`) — C++ (VS 2022), lower priority, planned Python rewrite
 
 ## Setup
 
-1. Download [FFmpeg](https://github.com/GyanD/codexffmpeg/releases) and place `ffmpeg.exe` + `ffprobe.exe` in the `FFMPEG/` folder
-2. Drop your clips into the `Clips/` folder
-3. Open `Project/CompilationVidMaker.sln` in Visual Studio and build (Release x64)
-4. Run the executable — encoded videos and descriptions appear in `Output/`
-
-## Folder structure
+### KO detection (Python)
 
 ```
-CompilationVidMaker/
-├── Code/        Source files
-├── Project/     Visual Studio solution and project
-├── FFMPEG/      Place ffmpeg.exe and ffprobe.exe here
-├── Clips/       Drop input clips here
-└── Output/      Encoded MP4s and description .txt files go here
+pip install pytesseract Pillow
+winget install UB-Mannheim.TesseractOCR
+```
+
+Place `ffmpeg.exe` + `ffprobe.exe` in `tools/`.
+
+### Encoder (C++)
+
+1. Open `src/CppProject/CompilationVidMaker.sln` in Visual Studio 2022
+2. Build Release x64
+3. Edit `src/CppProject/config.txt` with your paths
+
+## Usage
+
+```bash
+# Detect multi-kill events in a batch of clips
+python scripts/ko_detect.py --batch vid1
+
+# Output: data/output/vid1/description.txt
+```
+
+## Repo structure
+
+```
+data/
+  cache/          per-clip KO scan cache (*.ko.json)
+  output/         generated description files
+  examples/       reference screenshots and ground truth frames
+docs/
+  MULTIKILL_DETECTION.md   KO detection reference + ground truth
+  YOUTUBE_API.md           YouTube API research + upload architecture
+  IDEAS.md                 future work
+scripts/
+  ko_detect.py    KO detection script (active focus)
+src/CppProject/   C++ encoder/batcher (lower priority)
+tools/            ffmpeg.exe + ffprobe.exe (not tracked — provide your own)
 ```
 
 ## Requirements
 
 - Windows
-- Visual Studio 2022 (v143 toolset, C++20)
-- FFmpeg (ffmpeg.exe + ffprobe.exe) — place in `tools/`
-- NVIDIA GPU recommended (NVENC) — falls back to CPU automatically
-
-### KO detection script (`scripts/ko_detect.py`)
-
-Additional requirements for the Python OCR-based kill detection:
-
-- Python 3.10+
-- [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) — install via:
-  ```
-  winget install UB-Mannheim.TesseractOCR
-  ```
-  Installs to `C:\Program Files\Tesseract-OCR\` (expected path, no config needed)
-- Python packages: `pip install pytesseract Pillow`
-
-## Kill detection
-
-Clip filenames are scanned for multi-kill keywords (case-insensitive):
-- `quadra` / `quad` → **Quadra Kill**
-- `penta` → **Penta Kill**
-- `hexa` → **Hexa Kill**
-
-Detected kills are added as timestamps to the YouTube description.
-
-## Architecture
-
-Modelled after [CoverVidMaker](https://github.com/DavoDC/CoverVidMaker). Core classes:
-
-| Class | Role |
-|---|---|
-| `Command` | Wraps Windows `CreateProcessA` to run FFmpeg/FFprobe |
-| `Clip` | Single video clip with path and duration |
-| `ClipList` | Scans `Clips/` folder, queries durations via FFprobe |
-| `Batcher` | Groups clips into ~15-min batches |
-| `KillDetector` | Scans filenames for kill tier keywords, records timestamps |
-| `Encoder` | FFmpeg NVENC encode per batch (concat demuxer) |
-| `DescriptionWriter` | Writes YouTube description `.txt` per batch |
-| `Processor` | Orchestrates the full pipeline |
+- Python 3.10+ with `pytesseract`, `Pillow`
+- [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki)
+- FFmpeg (`ffmpeg.exe` + `ffprobe.exe`) in `tools/`
+- Visual Studio 2022 (C++ encoder only)
+- NVIDIA GPU recommended (NVENC) — falls back to CPU

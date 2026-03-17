@@ -10,7 +10,7 @@ Project/x64/
 # Runtime folders (not tracked — user populates these)
 tools/
 Clips/
-Output/
+/Output/
 data/logs/
 
 # KO scan temp frames (cache .cache files ARE tracked)
