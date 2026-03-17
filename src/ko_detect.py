@@ -4,13 +4,18 @@ ko_detect.py — Multi-kill tier detection for Marvel Rivals clips.
 Uses FFmpeg (2fps extraction) + Tesseract OCR to read the kill banner
 on the right side of the screen.
 
-Timestamps reported = start of the kill streak (first KO banner),
-so viewers can watch the full streak from beginning to the Quad/Penta/Hexa.
+Output format (YouTube description timestamps):
+    <streak start> - <max tier time> = Quad Kill
+    e.g. 1:36 - 1:45 = Quad Kill
+
+Streak start = when FIRST KO banner appears (gives viewers the build-up).
+Max tier time = when the Quad/Penta/Hexa banner first appears.
 
 Usage:
-    python scripts/ko_detect.py                         # test ground truth clip
-    python scripts/ko_detect.py <clip_path>             # single clip (debug)
-    python scripts/ko_detect.py --batch vid1            # full batch → writes output txt
+    python src/ko_detect.py                         # test ground truth clip
+    python src/ko_detect.py <clip_path>             # single clip (debug)
+    python src/ko_detect.py --batch vid1            # full batch → writes output txt
+    python src/ko_detect.py --batch vid2            # full batch → writes output txt
 """
 
 import subprocess, os, sys, tempfile, shutil, glob, re, json
@@ -23,7 +28,7 @@ import pytesseract
 FFMPEG       = r"C:\Users\David\GitHubRepos\CompilationVidMaker\tools\ffmpeg.exe"
 TESSERACT    = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 CLIPS_BASE   = r"C:\Users\David\Videos\MarvelRivals\Highlights\THOR"
-CACHE_DIR    = r"C:\Users\David\GitHubRepos\CompilationVidMaker\data\cache"
+CACHE_DIR    = r"C:\Users\David\GitHubRepos\CompilationVidMaker\data\cache\THOR"
 OUTPUT_DIR   = r"C:\Users\David\GitHubRepos\CompilationVidMaker\data"
 GROUND_TRUTH = r"C:\Users\David\Videos\MarvelRivals\Highlights\THOR\vid1_uploaded\THOR_2026-02-06_22-38-56.mp4"
 
@@ -198,19 +203,16 @@ def fmt(secs: float) -> str:
 
 # ── Batch ─────────────────────────────────────────────────────────────────────
 
-BATCH1 = [
-    "THOR_2026-02-01_23-06-24.mp4","THOR_2026-02-05_23-34-58.mp4","THOR_2026-02-05_23-35-47.mp4",
-    "THOR_2026-02-06_21-25-38.mp4","THOR_2026-02-06_21-26-23.mp4","THOR_2026-02-06_21-27-07.mp4",
-    "THOR_2026-02-06_21-38-51.mp4","THOR_2026-02-06_21-39-43.mp4","THOR_2026-02-06_22-38-56.mp4",
-    "THOR_2026-02-06_22-39-48.mp4","THOR_2026-02-06_22-42-30.mp4","THOR_2026-02-15_22-39-21.mp4",
-    "THOR_2026-02-15_23-00-22.mp4","THOR_2026-02-15_23-09-55.mp4","THOR_2026-02-15_23-21-47.mp4",
-    "THOR_2026-02-15_23-36-49.mp4","THOR_2026-02-16_00-12-08.mp4","THOR_2026-02-17_23-24-35.mp4",
-    "THOR_2026-02-17_23-25-25.mp4","THOR_2026-02-18_23-19-12.mp4","THOR_2026-02-18_23-20-39.mp4",
-    "THOR_2026-02-20_01-02-03.mp4","THOR_2026-02-20_01-10-58.mp4","THOR_2026-02-20_01-15-20.mp4",
-    "THOR_2026-02-20_01-18-26.mp4","THOR_2026-02-20_01-19-11.mp4","THOR_2026-02-20_01-20-03.mp4",
-    "THOR_2026-02-20_23-50-11.mp4","THOR_2026-02-20_23-50-59.mp4","THOR_2026-02-20_23-52-42.mp4",
-    "THOR_2026-02-21_00-09-43.mp4",
-]
+BATCH_DIRS = {
+    "vid1": "vid1_uploaded",
+    "vid2": "vid2_uploaded",
+}
+
+
+def get_clips(clips_dir: str) -> list[str]:
+    """Return sorted list of .mp4 filenames in a directory (alphabetical = chronological)."""
+    paths = sorted(glob.glob(os.path.join(clips_dir, "*.mp4")))
+    return [os.path.basename(p) for p in paths]
 
 
 def run_batch(batch_name: str, clips: list[str], clips_dir: str):
@@ -219,7 +221,7 @@ def run_batch(batch_name: str, clips: list[str], clips_dir: str):
     print("=" * 60)
 
     running    = 0.0
-    highlights = []  # (video_ts, tier, clip_name)
+    highlights = []  # (start_ts, max_ts, tier, clip_name)
 
     for i, name in enumerate(clips):
         path = os.path.join(clips_dir, name)
@@ -240,33 +242,35 @@ def run_batch(batch_name: str, clips: list[str], clips_dir: str):
 
         tier_str = result["tier"] if result else "—"
         if result:
-            video_ts = running + result["start_ts"]
-            print(f"  [{i+1:2d}/{len(clips)}] {tag} {name}  →  {tier_str}  (streak starts {fmt(video_ts)} in video)")
+            video_start_ts = running + result["start_ts"]
+            video_max_ts   = running + result["max_ts"]
+            print(f"  [{i+1:2d}/{len(clips)}] {tag} {name}  →  {tier_str}  ({fmt(video_start_ts)}–{fmt(video_max_ts)} in video)")
             if TIER_RANK.get(result["tier"], 0) >= TIER_RANK[REPORT_MIN_TIER]:
-                highlights.append((video_ts, result["tier"], name))
+                highlights.append((video_start_ts, video_max_ts, result["tier"], name))
         else:
             print(f"  [{i+1:2d}/{len(clips)}] {tag} {name}  →  {tier_str}")
 
         running += dur
 
     # ── Write output file ──────────────────────────────────────────────────────
-    out_path = os.path.join(OUTPUT_DIR, f"{batch_name}_timestamps.txt")
+    out_dir  = os.path.join(OUTPUT_DIR, "output", batch_name)
+    out_path = os.path.join(out_dir, f"{batch_name}_timestamps.txt")
     lines = [f"Multi-kill timestamps — {batch_name}\n"]
-    lines.append("(Timestamps = start of kill streak, so viewers see the full build-up)\n\n")
+    lines.append("Format: <streak start> - <max kill time> = Kill tier\n\n")
     if highlights:
-        for ts, tier, clip in highlights:
-            lines.append(f"{fmt(ts)} - {tier.capitalize()} Kill\n")
+        for start_ts, max_ts, tier, clip in highlights:
+            lines.append(f"{fmt(start_ts)} - {fmt(max_ts)} = {tier.capitalize()} Kill\n")
     else:
         lines.append("(no Quad+ kills detected)\n")
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
     with open(out_path, "w") as f:
         f.writelines(lines)
 
     print(f"\n{'─' * 60}")
     print(f"Quad+ highlights ({batch_name}):")
-    for ts, tier, clip in highlights:
-        print(f"  {fmt(ts)} - {tier.capitalize()} Kill")
+    for start_ts, max_ts, tier, clip in highlights:
+        print(f"  {fmt(start_ts)} - {fmt(max_ts)} = {tier.capitalize()} Kill")
     print(f"\nSaved to: {out_path}")
 
 # ── Entry points ──────────────────────────────────────────────────────────────
@@ -306,7 +310,12 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     if not args:
         run_ground_truth()
-    elif args[0] == "--batch" and len(args) > 1 and args[1] == "vid1":
-        run_batch("vid1", BATCH1, os.path.join(CLIPS_BASE, "vid1_uploaded"))
+    elif args[0] == "--batch" and len(args) > 1:
+        batch = args[1]
+        if batch not in BATCH_DIRS:
+            print(f"Unknown batch: {batch}. Known batches: {list(BATCH_DIRS)}")
+            sys.exit(1)
+        clips_dir = os.path.join(CLIPS_BASE, BATCH_DIRS[batch])
+        run_batch(batch, get_clips(clips_dir), clips_dir)
     else:
         run_single(args[0])
