@@ -26,11 +26,11 @@ import pytesseract
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-FFMPEG       = r"C:\Users\David\GitHubRepos\CompilationVidMaker\tools\ffmpeg.exe"
+FFMPEG       = r"C:\Users\David\GitHubRepos\RivalsVidMaker\tools\ffmpeg.exe"
 TESSERACT    = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 CLIPS_BASE   = r"C:\Users\David\Videos\MarvelRivals\Highlights\THOR"
-CACHE_DIR    = r"C:\Users\David\GitHubRepos\CompilationVidMaker\data\cache\THOR"
-OUTPUT_DIR   = r"C:\Users\David\GitHubRepos\CompilationVidMaker\data"
+CACHE_DIR    = r"C:\Users\David\GitHubRepos\RivalsVidMaker\data\cache\THOR"
+OUTPUT_DIR   = r"C:\Users\David\GitHubRepos\RivalsVidMaker\data"
 GROUND_TRUTH = r"C:\Users\David\Videos\MarvelRivals\Highlights\THOR\vid1_uploaded\THOR_2026-02-06_22-38-56.mp4"
 
 pytesseract.pytesseract.tesseract_cmd = TESSERACT

@@ -1,5 +1,5 @@
 """
-main.py — Entry point for CompilationVidMaker.
+main.py — Entry point for RivalsVidMaker.
 
 Usage:
     python src/main.py              # uses config.txt in the current directory
@@ -35,8 +35,7 @@ def main() -> None:
     log_file = setup_logging()
 
     print("=" * 50)
-    print("  CompilationVidMaker")
-    print("  Marvel Rivals clip compiler")
+    print("  RivalsVidMaker")
     print("=" * 50)
     print(f"  Log: {log_file}\n")
 

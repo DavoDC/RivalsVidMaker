@@ -1,6 +1,6 @@
 # YouTube Publishing — Research & Design
 
-**Project:** CompilationVidMaker (CVM) — Marvel Rivals gameplay compilations
+**Project:** RivalsVidMaker — Marvel Rivals gameplay compilations
 **Date:** 2026-03-08
 
 ---

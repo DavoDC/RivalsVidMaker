@@ -3,7 +3,7 @@
 ## High-priority / structural
 
 ### ~~Consolidate docs/ folder~~ ✅ DONE
-`docs/` is now 3 files: `GROUND_TRUTH.md`, `CompilationVidMaker-Research.md`, `IDEAS.md`.
+`docs/` is now 3 files: `GROUND_TRUTH.md`, `YOUTUBE_API.md`, `IDEAS.md`.
 
 ### ~~Reorganise repo structure~~ ✅ DONE
 C++ removed, Python pipeline in `src/`, `tests/`, `scripts/`, `config/`, `.gitkeep` in `tools/`, clean `.gitignore`. `tools/` kept as-is rather than renamed to `dependencies/`.
