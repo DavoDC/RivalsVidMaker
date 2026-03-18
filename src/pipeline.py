@@ -69,7 +69,7 @@ def run(config: Config) -> None:
         raise FileNotFoundError(f"Clips path not found: {config.clips_path}")
 
     # Discover character subfolders (one level deep)
-    char_folders = sorted(e for e in config.clips_path.iterdir() if e.is_directory())
+    char_folders = sorted(e for e in config.clips_path.iterdir() if e.is_dir())
     if not char_folders:
         # No subfolders — treat clipsPath itself as the single character folder
         char_folders = [config.clips_path]
