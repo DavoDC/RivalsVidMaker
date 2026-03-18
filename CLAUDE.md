@@ -1,4 +1,4 @@
-# CompilationVidMaker — Project Context for Claude
+# RivalsVidMaker — Project Context for Claude
 
 ## What this project does
 Python pipeline that batches short Marvel Rivals gameplay clips into ~15-min YouTube
