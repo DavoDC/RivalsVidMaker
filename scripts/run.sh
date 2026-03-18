@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /c/Users/David/GitHubRepos/CompilationVidMaker
+cd /c/Users/David/GitHubRepos/RivalsVidMaker
 python src/main.py
 echo ""
 echo "Done. Press any key to exit."
