@@ -97,6 +97,24 @@ def _tbl_line(widths, left, mid, right) -> str:
     return left + mid.join("─" * (w + 2) for w in widths) + right
 
 
+def _estimate_seconds(folder: Path, cache_dir: Path, total_dur: float) -> float:
+    """Rough pipeline estimate: KO scan (~6s uncached, ~0.5s cached) + encode (~0.4× duration)."""
+    char_cache = cache_dir / folder.name
+    ko_est = 0.0
+    for p in folder.iterdir():
+        if p.is_file() and p.suffix.lower() in VIDEO_EXTS:
+            cached = (char_cache / (p.stem + ".ko.json")).exists()
+            ko_est += 0.5 if cached else 6.0
+    encode_est = total_dur * 0.4
+    return ko_est + encode_est
+
+
+def _fmt_estimate(seconds: float) -> str:
+    s = int(seconds)
+    m, sec = divmod(s, 60)
+    return f"~{m}m {sec:02d}s" if m else f"~{sec}s"
+
+
 def _prompt_choice(max_choice: int) -> int:
     while True:
         try:
@@ -134,10 +152,13 @@ def run(config: Config) -> None:
     for folder, (count, dur) in zip(char_folders, summaries):
         logging.debug("  %s: %d clips, %s", folder.name, count, _fmt_duration(dur))
 
-    # --- Step 4: character selection menu ---
+    # --- Step 4: character selection menu + confirmation ---
     rows = []
+    estimates = []
     for i, (folder, (count, dur)) in enumerate(zip(char_folders, summaries), 1):
         batches_n = math.ceil(dur / config.target_batch_seconds) if dur > 0 else 0
+        est = _estimate_seconds(folder, config.cache_dir, dur)
+        estimates.append(est)
         rows.append((
             str(i),
             folder.name,
@@ -146,23 +167,36 @@ def run(config: Config) -> None:
             f"~{batches_n}" if batches_n else "—",
             _menu_status(dur, config.target_batch_seconds),
             _date_range(folder),
+            _fmt_estimate(est),
         ))
-        logging.debug("Menu item %d: %s — %d clips, %s", i, folder.name, count, _fmt_duration(dur))
+        logging.debug("Menu item %d: %s — %d clips, %s, est %s",
+                      i, folder.name, count, _fmt_duration(dur), _fmt_estimate(est))
 
-    col_headers = ("#", "Character", "Clips", "Duration", "Batches", "Status",     "Date Range")
-    col_aligns  = ("r",  "l",         "r",     "r",         "r",       "l",         "l")
+    col_headers = ("#", "Character", "Clips", "Duration", "Batches", "Status",     "Date Range",  "Est. Time")
+    col_aligns  = ("r",  "l",         "r",     "r",         "r",       "l",         "l",           "r")
     col_widths  = [max(len(col_headers[c]), max(len(r[c]) for r in rows)) for c in range(len(col_headers))]
 
-    print()
-    print(_tbl_line(col_widths, "┌", "┬", "┐"))
-    print(_tbl_row(col_headers, col_widths, col_aligns))
-    for row in rows:
-        print(_tbl_line(col_widths, "├", "┼", "┤"))
-        print(_tbl_row(row, col_widths, col_aligns))
-    print(_tbl_line(col_widths, "└", "┴", "┘"))
+    def _print_table():
+        print()
+        print(_tbl_line(col_widths, "┌", "┬", "┐"))
+        print(_tbl_row(col_headers, col_widths, col_aligns))
+        for row in rows:
+            print(_tbl_line(col_widths, "├", "┼", "┤"))
+            print(_tbl_row(row, col_widths, col_aligns))
+        print(_tbl_line(col_widths, "└", "┴", "┘"))
 
-    choice = _prompt_choice(len(char_folders))
-    char_path = char_folders[choice - 1]
+    _print_table()
+
+    while True:
+        choice = _prompt_choice(len(char_folders))
+        char_path = char_folders[choice - 1]
+        _, (count, _dur) = list(zip(char_folders, summaries))[choice - 1]
+        est_str = _fmt_estimate(estimates[choice - 1])
+        _print_table()
+        raw = input(f"\nProcess {count} {char_path.name} clips? ({est_str} estimated)  [y/N]: ").strip().lower()
+        if raw in ("y", "yes"):
+            break
+
     logging.info("Selected: %s", char_path.name)
 
     # --- Step 5: process selected character ---
@@ -188,14 +222,6 @@ def run(config: Config) -> None:
         logging.info("")
         logging.info("--- %s  Batch %d/%d  (%s) ---",
                      char_name, batch.number, len(batches), batch.duration_str)
-
-        if batch.total_duration < config.min_batch_seconds:
-            min_m = config.min_batch_seconds // 60
-            logging.info(
-                "  SKIP — too short (%s), minimum is %dm. Not worth uploading.",
-                batch.duration_str, min_m,
-            )
-            continue
 
         logging.info("  Scanning for KO events...")
         highlights = _collect_highlights(batch, config)
