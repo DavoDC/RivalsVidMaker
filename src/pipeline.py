@@ -81,10 +81,10 @@ def _date_range(folder: Path) -> str:
     return _d(lo) if lo.date() == hi.date() else f"{_d(lo)} → {_d(hi)}"
 
 
-def _menu_status(dur: float, target: int, minimum: int) -> str:
-    if dur >= target:   return "✓ Ready"
-    if dur >= minimum:  return "~ Almost"
-    if dur > 0:         return "✗ Too short"
+def _menu_status(dur: float, target: int) -> str:
+    if dur >= target:        return "✓ Ready"
+    if dur >= target * 0.75: return "~ Almost"   # 11m15s+ at default 15m target
+    if dur > 0:              return "✗ Too short"
     return "— No clips"
 
 
@@ -144,7 +144,7 @@ def run(config: Config) -> None:
             str(count) if count else "0",
             _fmt_duration(dur) if count else "—",
             f"~{batches_n}" if batches_n else "—",
-            _menu_status(dur, config.target_batch_seconds, config.min_batch_seconds),
+            _menu_status(dur, config.target_batch_seconds),
             _date_range(folder),
         ))
         logging.debug("Menu item %d: %s — %d clips, %s", i, folder.name, count, _fmt_duration(dur))
