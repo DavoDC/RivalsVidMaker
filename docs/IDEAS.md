@@ -116,4 +116,10 @@ Should be renamed to something like `MarvelRivalsCompiler` or `MarvelRivalsVidMa
 - Description format overhaul
 - Group clips by output video in UI
 - Skip-if-exists logic (don't re-encode already-built batches)
-- Time estimation (how long will this batch take?)
+- **Time estimation** — before starting a batch, show the user a rough estimate of how long
+  the full run will take, broken into stages:
+  - *KO scanning* — ~3–9s per uncached clip (cached = instant); estimate from clip count and cache hits
+  - *Encoding* — rough heuristic from total batch duration (e.g. ~1× realtime for NVENC GPU)
+  - *Total* — sum of above, formatted as "~4 min" or "~12 min"
+  Shown after the menu selection and before processing begins, so the user knows whether to
+  wait or walk away.
