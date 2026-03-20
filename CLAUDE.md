@@ -96,9 +96,16 @@ sitting directly in the `Highlights/` root into per-character subfolders.
 - Skips any file whose character name cannot be parsed (logged as WARNING).
 - Skips if the destination already exists — never overwrites (logged as WARNING).
 
-**Special subfolders** (`vid1_uploaded/`, `vid2_uploaded/`, `batch3_unused/`, etc.)
-live inside character folders and are managed manually or by later pipeline stages.
-The sorter never enters or modifies them.
+**Subfolder convention — character folders only contain two things:**
+1. Raw clip files (`.mp4`) — not yet in any compiled video. The pipeline reads these.
+2. `vidN_uploaded/` subfolders — clips that have already been compiled and published to YouTube.
+
+A clip moves into a `vidN_uploaded/` subfolder only **after** its compiled video is published.
+Clips that haven't been in a video yet must stay loose in the character folder, never in a subfolder.
+`batch3_unused/` was a mistake — those clips had never been in a video, so they didn't belong
+in a subfolder. They were moved back to `THOR/` root and the subfolder deleted.
+
+The sorter never enters or modifies existing subfolders.
 
 ## Clips location
 `C:\Users\David\Videos\MarvelRivals\Highlights\`
@@ -107,7 +114,7 @@ The sorter never enters or modifies them.
 - Unsorted clips dropped here are auto-sorted into character subfolders on next run.
 - `THOR\vid1_uploaded\`   — 31 clips, compiled video published on YouTube ✅ (all verified)
 - `THOR\vid2_uploaded\`   — 33 clips, compiled video published on YouTube ✅ (all verified)
-- `THOR\batch3_unused\`   — 5 clips (Mar 5–7 2026), not yet in a video
+- THOR currently has 9 uncompiled clips sitting in `THOR\` root (ready for next batch)
 
 ## Compiled videos
 Output folder: `C:\Users\David\Videos\MarvelRivals\Output\`
