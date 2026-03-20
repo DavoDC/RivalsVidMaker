@@ -5,6 +5,7 @@ Replaces C++: DescriptionWriter.cpp
 Uses the canonical format documented in CLAUDE.md.
 """
 
+import logging
 from pathlib import Path
 
 from batcher import Batch
@@ -62,5 +63,5 @@ def write_description(
         lines.append(f"{i}. {clip.name}\n")
 
     out_path.write_text("".join(lines), encoding="utf-8")
-    print(f"  Description → {out_path}")
+    logging.info("  Description → %s", out_path)
     return out_path
