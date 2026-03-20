@@ -4,6 +4,7 @@ clip_scanner.py — Scan a folder for video clips and probe their durations in p
 Replaces C++: ClipList.cpp
 """
 
+import logging
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -37,6 +38,18 @@ def probe_duration(path: Path, ffprobe: Path) -> float:
         return 0.0
 
 
+def summarize_folder(folder: Path, ffprobe: Path, workers: int = 8) -> tuple[int, float]:
+    """Return (clip_count, total_duration_seconds) without printing. Fast parallel probe."""
+    paths = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTS]
+    if not paths:
+        return 0, 0.0
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        durations = list(pool.map(lambda p: probe_duration(p, ffprobe), paths))
+    count = sum(1 for d in durations if d > 0)
+    total = sum(d for d in durations if d > 0)
+    return count, total
+
+
 def scan_folder(folder: Path, ffprobe: Path, workers: int = 8) -> list[Clip]:
     """
     Return all video clips in a folder, sorted alphabetically (= chronological
@@ -51,7 +64,7 @@ def scan_folder(folder: Path, ffprobe: Path, workers: int = 8) -> list[Clip]:
     if not paths:
         return []
 
-    print(f"  Found {len(paths)} video file(s). Probing durations...")
+    logging.info("  Found %d video file(s). Probing durations...", len(paths))
 
     # Probe all durations in parallel — ffprobe is an external process so
     # threads give real concurrency here.
@@ -67,9 +80,10 @@ def scan_folder(folder: Path, ffprobe: Path, workers: int = 8) -> list[Clip]:
             dur = future.result()
             if dur > 0:
                 ordered[i] = Clip(path=paths[i], duration=dur)
+                logging.debug("  Probed %s — %.1fs", paths[i].name, dur)
             else:
-                print(f"  WARNING: could not probe duration for {paths[i].name} — skipping.")
+                logging.warning("Could not probe duration for %s — skipping.", paths[i].name)
 
     clips = [c for c in ordered if c is not None]
-    print(f"  Loaded {len(clips)} clip(s).")
+    logging.info("  Loaded %d clip(s).", len(clips))
     return clips

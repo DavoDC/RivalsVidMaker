@@ -5,6 +5,7 @@ Replaces C++: Encoder.cpp
 Uses NVENC (GPU) if available, falls back to libx264 (CPU).
 """
 
+import logging
 import subprocess
 import tempfile
 from pathlib import Path
@@ -49,8 +50,9 @@ def encode(batch: Batch, char_name: str, output_dir: Path, ffmpeg: Path) -> Path
         else ["-c:v", "libx264", "-preset", "fast", "-crf", "18"]
     )
 
-    print(f"  Encoder: {'NVENC (GPU)' if use_nvenc else 'libx264 (CPU)'}")
-    print(f"  Encoding {char_name} batch {batch.number} ({batch.duration_str})...")
+    encoder_label = "NVENC (GPU)" if use_nvenc else "libx264 (CPU)"
+    logging.info("  Encoder: %s", encoder_label)
+    logging.info("  Encoding %s batch %d (%s)...", char_name, batch.number, batch.duration_str)
 
     cmd = [
         str(ffmpeg), "-y",
@@ -60,11 +62,14 @@ def encode(batch: Batch, char_name: str, output_dir: Path, ffmpeg: Path) -> Path
         "-movflags", "+faststart",
         str(out_path),
     ]
+    logging.debug("  FFmpeg cmd: %s", " ".join(cmd))
 
     try:
-        subprocess.run(cmd, check=True, capture_output=True)
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        if result.stderr:
+            logging.debug("  FFmpeg stderr:\n%s", result.stderr.strip())
     finally:
         Path(concat_list).unlink(missing_ok=True)
 
-    print(f"  Encoded → {out_path}")
+    logging.info("  Encoded → %s", out_path)
     return out_path
