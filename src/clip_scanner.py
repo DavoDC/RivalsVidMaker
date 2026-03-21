@@ -64,7 +64,7 @@ def scan_folder(folder: Path, ffprobe: Path, workers: int = 8) -> list[Clip]:
     if not paths:
         return []
 
-    logging.info("  Found %d video file(s). Probing durations...", len(paths))
+    logging.info("Found %d video file(s). Probing durations...", len(paths))
 
     # Probe all durations in parallel — ffprobe is an external process so
     # threads give real concurrency here.
@@ -85,5 +85,5 @@ def scan_folder(folder: Path, ffprobe: Path, workers: int = 8) -> list[Clip]:
                 logging.warning("Could not probe duration for %s — skipping.", paths[i].name)
 
     clips = [c for c in ordered if c is not None]
-    logging.info("  Loaded %d clip(s).", len(clips))
+    logging.info("Loaded %d clip(s).", len(clips))
     return clips
