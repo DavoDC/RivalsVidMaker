@@ -76,8 +76,8 @@ other HUD elements (kill feed is top-right, health bar is bottom-centre).
 **Steps per clip:**
 1. Use FFmpeg to extract frames at 2fps (sufficient; banners last 2-4s each)
 2. Crop each frame to the banner region (right 25%, y 40-62%)
-3. Pre-process crop: convert to greyscale, threshold to high-contrast B&W
-4. Run `pytesseract.image_to_string()` on the crop
+3. Pre-process crop: scale 3x, invert (white text → dark for Tesseract), sharpen
+4. Run `pytesseract.image_to_string()` with PSM 8 → PSM 7 → PSM 6 fallback
 5. Check if result contains any of: `KO`, `DOUBLE`, `TRIPLE`, `QUAD`, `PENTA`, `HEXA`
 6. Apply 2s cooldown between distinct events (prevents double-counting same banner)
 7. Record event tier + timestamp
@@ -91,33 +91,15 @@ For context on a full 15-min compiled video at native fps (not used — we scan 
 
 ## YouTube Description Timestamp Goal
 
-**The user wants start + end timestamps relative to the COMPILED VIDEO, not the clip.**
+Timestamps in the description are **relative to the compiled video, not the clip.**
 
-For each clip, the compiled video timestamp = `running_video_offset + clip_event_timestamp`.
-
-Example:
-- Clip starts at 3:20 in the compiled video (running offset)
-- Quad kill banner appears at 0:40 within the clip
-- YouTube description entry: `3:20 → 4:05  QUAD KILL`
-
-**What to put in the description:**
 ```
-Multi-Kills:
-1:36 - 1:45 = Quad Kill
-2:30 - 2:37 = Quad Kill
+compiled video timestamp = running_video_offset + clip_event_timestamp
 ```
 
-Only **QUAD and above** are surfaced in the YouTube description (per design decision).
-Lower tiers (KO, Double, Triple) are detected internally to track the streak
-but are not shown to the viewer.
+Example: clip starts at 3:20 in the compiled video, Quad kill at 0:40 within the clip → description entry at 4:00.
 
-**Required range format (confirmed):**
-- Start = timestamp of the FIRST KO banner in the streak (streak start)
-- End = timestamp when the MAX-tier banner (Quad+) first appears
-- Format: `<streak start> - <max tier time> = Quad Kill`
-
-This format is confirmed correct — gives viewers the build-up context AND the exact
-kill moment. Do NOT output a single timestamp; always use the range.
+Timestamp range format and threshold (Quad+ only): see `docs/YOUTUBE_TITLE_AND_DESC.md`.
 
 ## This Clip's Output (When Working Correctly)
 
@@ -138,6 +120,10 @@ Clips verified correct by watching the actual video after running `ko_detect.py`
 | `THOR_2026-02-17_23-25-25.mp4` | TRIPLE | TRIPLE | 0:06 → 0:14 | ✅ |
 
 **Notes on misses:** DOUBLE was missed in the TRIPLE clip (banner visible ~1s, fell between 2fps sample points). This is acceptable — intermediate tiers don't affect the final classification as long as the highest tier is caught.
+
+**Known limitations:**
+- Short banners (<1s) may be missed at 2fps — mostly affects KO/DOUBLE, not Quad+
+- `KO` (2 chars) is harder for Tesseract than longer tier names like `TRIPLE` or `QUAD`
 
 ## Notes / Gotchas
 
