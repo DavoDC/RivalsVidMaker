@@ -1,0 +1,10 @@
+2026-03-21 19:43:52,510  DEBUG     sort_clips: no unsorted video files in C:\Users\David\Videos\MarvelRivals\Highlights
+2026-03-21 19:43:52,511  INFO      Scanning clips...
+2026-03-21 19:43:52,917  DEBUG       DOCTOR_STRANGE: 3 clips, 1m 16s
+2026-03-21 19:43:52,917  DEBUG       JEFF_THE_LAND_SHARK: 1 clips, 0m 16s
+2026-03-21 19:43:52,917  DEBUG       SQUIRREL_GIRL: 11 clips, 5m 2s
+2026-03-21 19:43:52,917  DEBUG       THOR: 18 clips, 9m 30s
+2026-03-21 19:43:52,918  DEBUG     Menu item 1: DOCTOR_STRANGE — 3 clips, 1m 16s, est ~48s
+2026-03-21 19:43:52,918  DEBUG     Menu item 2: JEFF_THE_LAND_SHARK — 1 clips, 0m 16s, est ~12s
+2026-03-21 19:43:52,920  DEBUG     Menu item 3: SQUIRREL_GIRL — 11 clips, 5m 2s, est ~3m 07s
+2026-03-21 19:43:52,922  DEBUG     Menu item 4: THOR — 18 clips, 9m 30s, est ~5m 36s

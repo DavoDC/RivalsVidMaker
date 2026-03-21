@@ -1,0 +1,10 @@
+2026-03-21 19:45:55,458  INFO      Sorting clips... 0 file(s) moved.
+2026-03-21 19:45:55,458  INFO      Scanning clips...
+2026-03-21 19:45:55,837  DEBUG       DOCTOR_STRANGE: 3 clips, 1m 16s
+2026-03-21 19:45:55,838  DEBUG       JEFF_THE_LAND_SHARK: 1 clips, 0m 16s
+2026-03-21 19:45:55,838  DEBUG       SQUIRREL_GIRL: 11 clips, 5m 2s
+2026-03-21 19:45:55,838  DEBUG       THOR: 18 clips, 9m 30s
+2026-03-21 19:45:55,838  DEBUG     Menu item 1: DOCTOR_STRANGE — 3 clips, 1m 16s, est ~48s
+2026-03-21 19:45:55,839  DEBUG     Menu item 2: JEFF_THE_LAND_SHARK — 1 clips, 0m 16s, est ~12s
+2026-03-21 19:45:55,840  DEBUG     Menu item 3: SQUIRREL_GIRL — 11 clips, 5m 2s, est ~3m 07s
+2026-03-21 19:45:55,842  DEBUG     Menu item 4: THOR — 18 clips, 9m 30s, est ~5m 36s
