@@ -142,55 +142,21 @@ Long-term archive for Quad+ clips. Never deleted automatically.
 - No subfolders required — flat structure is fine.
 
 ## KO detection (src/ko_detect.py)
-The multi-kill banner that appears on the RIGHT side of the screen in Marvel Rivals
-when the player gets consecutive kills: KO → DOUBLE! → TRIPLE! → QUAD! → PENTA! → HEXA!
+Detects multi-kill banners (KO → DOUBLE → TRIPLE → QUAD → PENTA → HEXA) via OCR.
+Full technical reference: `docs/MULTIKILL_DETECTION.md`.
 
-### Approach: OCR via pytesseract + Tesseract
-- FFmpeg extracts frames at 2fps, skipping first 2s
-- Each frame is cropped to the banner region (right 25%, y 40–62%)
-- Crop is scaled 3x, inverted (white text → dark for Tesseract), sharpened
-- pytesseract reads the tier text (PSM 8/7/6 fallback)
-- Events tracked with 2s cooldown to avoid double-counting
+- 2fps frame extraction, banner crop: right 25%, y 40–62%, 2s cooldown between events
+- **Threshold:** Quad+ only in YouTube description output; Triple and below detected internally
+- **Cache:** `data/cache/<char>/<clip_stem>.ko.json` — re-runs are instant; null = no kill (valid)
+- **`ko_detect.configure(ffmpeg, tesseract, cache_dir)`** — injects runtime paths from config.json so the pipeline isn't hardcoded to THOR. Standalone usage is unaffected.
 
-### Key parameter: timestamps = STREAK RANGE
-YouTube description timestamps must show a **range**: `<streak start> - <when MAX KO banner appeared>`.
-- Streak start = when the FIRST KO banner appears in the streak
-- Range end = when the highest-tier banner (Quad/Penta/etc.) first appears
-- Format: `1:36 - 1:45 = Quad Kill`
-
-### Threshold: Quad+ only in YouTube description output
-Triple and below are detected internally but not shown in the output .txt.
-
-### Cache
-Results saved to `data/cache/<char>/<clip_stem>.ko.json`. Re-runs are instant.
-Null stored in cache = "no kill detected for this clip" (valid result, not an error).
-
-### configure() for pipeline integration
-`ko_detect.configure(ffmpeg, tesseract, cache_dir)` injects runtime paths from config.json
-so the pipeline isn't hardcoded to THOR. Standalone usage is unaffected.
-
-## YouTube description format (canonical — see `data/examples/descriptions/vid2_canonical_example.txt`)
-
-```
-TITLE:
-<CHARACTER> <tagline> ⚡ <subtitle> (<date range>)
-
-DESCRIPTION:
-<one punchy line with emojis, ends with "in Marvel Rivals">
-
-TIMESTAMPS:
-<streak start> - <max kill time> = <Tier> Kill
-(Quad+ only)
-
-HIGHLIGHTS:
-1. CLIP_FILENAME.mp4
-...
-```
+## YouTube description format
+Full format reference, title/description examples: `docs/YOUTUBE_TITLE_AND_DESC.md`.
 
 ## YouTube description timestamp workflow
 1. Run `python src/ko_detect.py --batch <vid>` (or use full pipeline via `run.bat`)
 2. Output written to `data/output/<vid>/<vid>_timestamps.txt`
-3. Build full description using canonical format above
+3. Build full description using canonical format (see `docs/YOUTUBE_TITLE_AND_DESC.md`)
 4. Paste into YouTube description
 5. Click each timestamp to verify it lands at the right moment in the video
 6. Adjust manually if any are wrong
@@ -208,14 +174,7 @@ HIGHLIGHTS:
 All detections verified accurate by manual playback.
 
 ## Detection status
-| Clip | Expected | Detected | Verified |
-|---|---|---|---|
-| THOR_2026-02-06_22-38-56.mp4 | QUAD | QUAD, streak 0:06–0:22 | ✅ |
-| THOR_2026-02-17_23-25-25.mp4 | TRIPLE | TRIPLE, streak 0:06–0:14 | ✅ |
-
-Known limitations:
-- Short banners (<1s) may be missed at 2fps — mostly affects KO/DOUBLE, not Quad+
-- "KO" (2 chars) is harder for OCR than longer tier names
+Validated clips and known limitations: `docs/MULTIKILL_DETECTION.md`.
 
 ## Next steps
 1. ~~KO detection + range format timestamps~~ ✅ DONE
