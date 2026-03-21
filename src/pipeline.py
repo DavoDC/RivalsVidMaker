@@ -118,7 +118,7 @@ def _fmt_estimate(seconds: float) -> str:
 def _prompt_choice(max_choice: int) -> int:
     while True:
         try:
-            raw = input("\nEnter choice: ").strip()
+            raw = input("Enter choice: ").strip()
             choice = int(raw)
             if 1 <= choice <= max_choice:
                 return choice
@@ -167,20 +167,18 @@ def run(config: Config) -> None:
             f"~{batches_n}" if batches_n else "—",
             _menu_status(dur, config.target_batch_seconds),
             _date_range(folder),
-            _fmt_estimate(est),
         ))
         logging.debug("Menu item %d: %s — %d clips, %s, est %s",
                       i, folder.name, count, _fmt_duration(dur), _fmt_estimate(est))
 
-    col_headers = ("#", "Character", "Clips", "Duration", "Batches", "Status",     "Date Range",  "Est. Time")
-    col_aligns  = ("r",  "l",         "r",     "r",         "r",       "l",         "l",           "r")
+    col_headers = ("#", "Character", "Clips", "Duration", "Batches", "Status", "Date Range")
+    col_aligns  = ("r",  "l",         "r",     "r",         "r",       "l",     "l")
     col_widths  = [max(len(col_headers[c]), max(len(r[c]) for r in rows)) for c in range(len(col_headers))]
 
-    def _print_table():
-        print()
+    def _print_table(highlight_row=None):
         print(_tbl_line(col_widths, "┌", "┬", "┐"))
         print(_tbl_row(col_headers, col_widths, col_aligns))
-        for row in rows:
+        for row in (rows if highlight_row is None else [rows[highlight_row]]):
             print(_tbl_line(col_widths, "├", "┼", "┤"))
             print(_tbl_row(row, col_widths, col_aligns))
         print(_tbl_line(col_widths, "└", "┴", "┘"))
@@ -192,8 +190,8 @@ def run(config: Config) -> None:
         char_path = char_folders[choice - 1]
         _, (count, _dur) = list(zip(char_folders, summaries))[choice - 1]
         est_str = _fmt_estimate(estimates[choice - 1])
-        _print_table()
-        raw = input(f"\nProcess {count} {char_path.name} clips? ({est_str} estimated)  [y/N]: ").strip().lower()
+        _print_table(highlight_row=choice - 1)
+        raw = input(f"Are you sure you want to make this video? Estimated processing time is {est_str}. [y/N]: ").strip().lower()
         if raw in ("y", "yes"):
             break
 
@@ -216,9 +214,30 @@ def run(config: Config) -> None:
     for b in batches:
         logging.info("  Batch %d: %d clip(s), %s", b.number, len(b.clips), b.duration_str)
 
+    if len(batches) > 1:
+        print(f"Generate all {len(batches)} batches, or just one?")
+        print("  [A] All batches")
+        for b in batches:
+            print(f"  [{b.number}] Batch {b.number} only  ({b.duration_str})")
+        while True:
+            raw = input(f"Enter choice [A/1-{len(batches)}]: ").strip().lower()
+            if raw in ("a", "all", ""):
+                batches_to_run = batches
+                break
+            try:
+                n = int(raw)
+                if 1 <= n <= len(batches):
+                    batches_to_run = [batches[n - 1]]
+                    break
+            except ValueError:
+                pass
+            print(f"  Invalid — enter A or a number between 1 and {len(batches)}.")
+    else:
+        batches_to_run = batches
+
     total_batches = 0
 
-    for batch in batches:
+    for batch in batches_to_run:
         logging.info("")
         logging.info("--- %s  Batch %d/%d  (%s) ---",
                      char_name, batch.number, len(batches), batch.duration_str)

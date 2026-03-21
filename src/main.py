@@ -55,7 +55,7 @@ def main() -> None:
     print("=" * _WIDTH)
     print("RivalsVidMaker".center(_WIDTH))
     print("=" * _WIDTH)
-    print(f"Log: {log_file}\n")
+    print(f"Log: {log_file}")
 
     config_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("config/config.json")
 

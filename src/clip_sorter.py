@@ -66,10 +66,9 @@ def sort_clips(clips_path: Path) -> int:
     ]
 
     if not video_files:
-        logging.debug("sort_clips: no unsorted video files in %s", clips_path)
+        logging.info("Sorting clips... 0 file(s) moved.")
         return 0
 
-    logging.info("Sorting clips — %d unsorted file(s) found in root...", len(video_files))
     moved = 0
 
     for src in sorted(video_files):
@@ -92,9 +91,6 @@ def sort_clips(clips_path: Path) -> int:
         shutil.move(str(src), str(dest))
         moved += 1
 
-    if moved:
-        logging.info("Sorting clips — %d file(s) moved.", moved)
-    else:
-        logging.info("Sorting clips — nothing to move.")
+    logging.info("Sorting clips... %d file(s) moved.", moved)
 
     return moved
