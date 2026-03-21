@@ -1,0 +1,15 @@
+2026-03-21 19:42:58,260  INFO      Sorting clips — 4 unsorted file(s) found in root...
+2026-03-21 19:42:58,261  DEBUG       Moving: THOR_2026-03-20_22-46-05.mp4 → THOR/
+2026-03-21 19:42:58,262  DEBUG       Moving: THOR_2026-03-20_22-49-33.mp4 → THOR/
+2026-03-21 19:42:58,263  DEBUG       Moving: THOR_2026-03-21_18-59-39.mp4 → THOR/
+2026-03-21 19:42:58,264  DEBUG       Moving: THOR_2026-03-21_19-01-59.mp4 → THOR/
+2026-03-21 19:42:58,264  INFO      Sorting clips — 4 file(s) moved.
+2026-03-21 19:42:58,264  INFO      Scanning clips...
+2026-03-21 19:42:58,683  DEBUG       DOCTOR_STRANGE: 3 clips, 1m 16s
+2026-03-21 19:42:58,683  DEBUG       JEFF_THE_LAND_SHARK: 1 clips, 0m 16s
+2026-03-21 19:42:58,683  DEBUG       SQUIRREL_GIRL: 11 clips, 5m 2s
+2026-03-21 19:42:58,683  DEBUG       THOR: 18 clips, 9m 30s
+2026-03-21 19:42:58,684  DEBUG     Menu item 1: DOCTOR_STRANGE — 3 clips, 1m 16s, est ~48s
+2026-03-21 19:42:58,685  DEBUG     Menu item 2: JEFF_THE_LAND_SHARK — 1 clips, 0m 16s, est ~12s
+2026-03-21 19:42:58,686  DEBUG     Menu item 3: SQUIRREL_GIRL — 11 clips, 5m 2s, est ~3m 07s
+2026-03-21 19:42:58,689  DEBUG     Menu item 4: THOR — 18 clips, 9m 30s, est ~5m 36s
