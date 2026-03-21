@@ -32,19 +32,32 @@ def _collect_highlights(batch, config: Config) -> list[tuple[float, float, str, 
     highlights = []
     running = 0.0
 
-    for clip in batch.clips:
-        logging.debug("  KO scan: %s (offset %.1fs)", clip.name, running)
+    total = len(batch.clips)
+    for idx, clip in enumerate(batch.clips, 1):
+        print(f"KO scan [{idx}/{total}]: {clip.name}", end="", flush=True)
+        logging.debug("KO scan: %s (offset %.1fs)", clip.name, running)
+        t_clip = time.perf_counter()
         result = ko_detect.scan_clip(str(clip.path), use_cache=True)
+        elapsed = time.perf_counter() - t_clip
+        elapsed_str = f"{int(elapsed)//60}m{int(elapsed)%60:02d}s" if elapsed >= 60 else f"{elapsed:.1f}s"
+
+        tier_found = None
         if result:
             tier = result["tier"]
-            logging.debug("    detected %s  start=%.1f  max=%.1f", tier, result["start_ts"], result["max_ts"])
+            logging.debug("detected %s  start=%.1f  max=%.1f", tier, result["start_ts"], result["max_ts"])
+            tier_found = tier
             if ko_detect.TIER_RANK.get(tier, 0) >= ko_detect.TIER_RANK[ko_detect.REPORT_MIN_TIER]:
                 video_start = running + result["start_ts"]
                 video_max = running + result["max_ts"]
                 highlights.append((video_start, video_max, tier, clip.name))
-                logging.info("    %s @ %s–%s", tier, fmt_ts(video_start), fmt_ts(video_max))
         else:
-            logging.debug("    no kill detected")
+            logging.debug("no kill detected")
+
+        suffix = f" — {tier_found}" if tier_found else ""
+        print(f" -> Done (took {elapsed_str}){suffix}")
+        logging.debug("KO scan [%d/%d]: %s — %.1fs%s", idx, total, clip.name, elapsed, f" {tier_found}" if tier_found else "")
+        if tier_found and ko_detect.TIER_RANK.get(tier_found, 0) >= ko_detect.TIER_RANK[ko_detect.REPORT_MIN_TIER]:
+            logging.info("%s @ %s–%s", tier_found, fmt_ts(highlights[-1][0]), fmt_ts(highlights[-1][1]))
         running += clip.duration
 
     return highlights
@@ -212,7 +225,7 @@ def run(config: Config) -> None:
     batches = make_batches(clips, config.target_batch_seconds)
     logging.info("Batching: %d batch(es)", len(batches))
     for b in batches:
-        logging.info("  Batch %d: %d clip(s), %s", b.number, len(b.clips), b.duration_str)
+        logging.info("Batch %d: %d clip(s), %s", b.number, len(b.clips), b.duration_str)
 
     if len(batches) > 1:
         print(f"Generate all {len(batches)} batches, or just one?")
@@ -242,23 +255,28 @@ def run(config: Config) -> None:
         logging.info("--- %s  Batch %d/%d  (%s) ---",
                      char_name, batch.number, len(batches), batch.duration_str)
 
-        logging.info("  Scanning for KO events...")
+        logging.info("Scanning for KO events...")
+        t_ko = time.perf_counter()
         highlights = _collect_highlights(batch, config)
+        logging.debug("KO scan took %.1fs", time.perf_counter() - t_ko)
         if not highlights:
-            logging.info("  (no Quad+ kills detected)")
+            logging.info("(no Quad+ kills detected)")
         else:
-            logging.info("  %d Quad+ kill(s) found.", len(highlights))
+            logging.info("%d Quad+ kill(s) found.", len(highlights))
 
         out_dir = config.output_path / char_name / f"batch{batch.number}"
+        t_enc = time.perf_counter()
         encode(batch, char_name, out_dir, config.ffmpeg)
+        logging.debug("Encode took %.1fs", time.perf_counter() - t_enc)
         write_description(batch, char_name, highlights, out_dir)
 
         total_batches += 1
 
     elapsed = time.perf_counter() - t0
+    est_total = sum(estimates[i] for i, f in enumerate(char_folders) if f == char_path)
     logging.info("")
     logging.info("=" * 50)
-    logging.info("Done.  %d batch(es) encoded in %.1fs", total_batches, elapsed)
+    logging.info("Done.  %d batch(es) encoded in %.1fs  (estimated %.1fs)", total_batches, elapsed, est_total)
     logging.info("Output: %s", config.output_path)
 
     print("\a", end="", flush=True)
