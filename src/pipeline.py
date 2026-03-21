@@ -5,6 +5,7 @@ pipeline.py — Main orchestrator: sort → scan → batch → detect → encode
 import logging
 import math
 import re
+import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -19,9 +20,13 @@ from description_writer import fmt_ts, write_description
 from encoder import encode
 
 
-def _collect_highlights(batch, config: Config) -> list[tuple[float, float, str, str]]:
+def _collect_highlights(batch, config: Config) -> tuple[list[tuple[float, float, str, str]], dict[str, str]]:
     """
-    Scan each clip for KO events and return Quad+ highlights with compilation timestamps.
+    Scan each clip for KO events.
+
+    Returns:
+      highlights — Quad+ kills with compilation timestamps, for the description.
+      clip_tiers — {clip.name: tier} for every clip where any kill was detected.
     """
     ko_detect.configure(
         ffmpeg=str(config.ffmpeg),
@@ -30,6 +35,7 @@ def _collect_highlights(batch, config: Config) -> list[tuple[float, float, str, 
     )
 
     highlights = []
+    clip_tiers: dict[str, str] = {}
     running = 0.0
 
     total = len(batch.clips)
@@ -46,6 +52,7 @@ def _collect_highlights(batch, config: Config) -> list[tuple[float, float, str, 
             tier = result["tier"]
             logging.debug("detected %s  start=%.1f  max=%.1f", tier, result["start_ts"], result["max_ts"])
             tier_found = tier
+            clip_tiers[clip.name] = tier
             if ko_detect.TIER_RANK.get(tier, 0) >= ko_detect.TIER_RANK[ko_detect.REPORT_MIN_TIER]:
                 video_start = running + result["start_ts"]
                 video_max = running + result["max_ts"]
@@ -60,7 +67,7 @@ def _collect_highlights(batch, config: Config) -> list[tuple[float, float, str, 
             logging.info("%s @ %s–%s", tier_found, fmt_ts(highlights[-1][0]), fmt_ts(highlights[-1][1]))
         running += clip.duration
 
-    return highlights
+    return highlights, clip_tiers
 
 
 def _fmt_duration(seconds: float) -> str:
@@ -126,6 +133,44 @@ def _fmt_estimate(seconds: float) -> str:
     s = int(seconds)
     m, sec = divmod(s, 60)
     return f"~{m}m {sec:02d}s" if m else f"~{sec}s"
+
+
+def _batch_slug(char_name: str, batch, total_batches: int) -> str:
+    """Build the output folder/file stem: CHAR_MMM[-MMM]_YYYY[_BATCH{n}]."""
+    pat = re.compile(r'_(\d{4})-(\d{2})-(\d{2})_')
+    dates = []
+    for clip in batch.clips:
+        m = pat.search(clip.name)
+        if m:
+            try:
+                dates.append(datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+            except ValueError:
+                pass
+    if dates:
+        lo, hi = min(dates), max(dates)
+        lo_str = _MONTH[lo.month - 1]
+        if lo.month == hi.month and lo.year == hi.year:
+            date_part = f"{lo_str}_{hi.year}"
+        else:
+            date_part = f"{lo_str}-{_MONTH[hi.month - 1]}_{hi.year}"
+    else:
+        date_part = "UNKNOWN"
+    slug = f"{char_name}_{date_part}"
+    if total_batches > 1:
+        slug += f"_BATCH{batch.number}"
+    return slug
+
+
+def _move_clips(batch, clip_tiers: dict[str, str], clips_dir: Path) -> None:
+    """Move source clips into clips_dir, appending _TIER suffix where detected."""
+    clips_dir.mkdir(parents=True, exist_ok=True)
+    for clip in batch.clips:
+        tier = clip_tiers.get(clip.name)
+        stem = clip.path.stem + (f"_{tier}" if tier else "")
+        dest = clips_dir / (stem + clip.path.suffix)
+        shutil.move(str(clip.path), str(dest))
+        logging.debug("Moved clip → %s", dest.name)
+    logging.info("Clips → %s", clips_dir)
 
 
 def _prompt_choice(max_choice: int) -> int:
@@ -257,18 +302,20 @@ def run(config: Config) -> None:
 
         logging.info("Scanning for KO events...")
         t_ko = time.perf_counter()
-        highlights = _collect_highlights(batch, config)
+        highlights, clip_tiers = _collect_highlights(batch, config)
         logging.debug("KO scan took %.1fs", time.perf_counter() - t_ko)
         if not highlights:
             logging.info("(no Quad+ kills detected)")
         else:
             logging.info("%d Quad+ kill(s) found.", len(highlights))
 
-        out_dir = config.output_path / char_name / f"batch{batch.number}"
+        slug = _batch_slug(char_name, batch, len(batches))
+        out_dir = config.output_path / slug
         t_enc = time.perf_counter()
-        encode(batch, char_name, out_dir, config.ffmpeg)
+        encode(batch, char_name, out_dir, config.ffmpeg, out_stem=slug)
         logging.debug("Encode took %.1fs", time.perf_counter() - t_enc)
-        write_description(batch, char_name, highlights, out_dir)
+        write_description(batch, char_name, highlights, out_dir, out_stem=slug)
+        _move_clips(batch, clip_tiers, out_dir / "clips")
 
         total_batches += 1
 

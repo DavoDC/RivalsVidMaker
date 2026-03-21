@@ -22,7 +22,7 @@ def check_nvenc(ffmpeg: Path) -> bool:
     return "h264_nvenc" in (result.stdout + result.stderr)
 
 
-def encode(batch: Batch, char_name: str, output_dir: Path, ffmpeg: Path) -> Path:
+def encode(batch: Batch, char_name: str, output_dir: Path, ffmpeg: Path, out_stem: str | None = None) -> Path:
     """
     Concatenate all clips in the batch into a single MP4.
 
@@ -30,8 +30,10 @@ def encode(batch: Batch, char_name: str, output_dir: Path, ffmpeg: Path) -> Path
     Uses a temporary concat list file that is cleaned up after encoding.
     Passing -y to ffmpeg makes re-running idempotent (overwrites existing output).
     """
+    if out_stem is None:
+        out_stem = f"{char_name}_batch{batch.number}"
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_path = output_dir / f"{char_name}_batch{batch.number}.mp4"
+    out_path = output_dir / f"{out_stem}.mp4"
 
     # Write the ffmpeg concat list to a temp file
     with tempfile.NamedTemporaryFile(
@@ -52,7 +54,7 @@ def encode(batch: Batch, char_name: str, output_dir: Path, ffmpeg: Path) -> Path
 
     encoder_label = "NVENC (GPU)" if use_nvenc else "libx264 (CPU)"
     logging.debug("Encoder: %s", encoder_label)
-    logging.info("Encoding %s batch %d (%s)...", char_name, batch.number, batch.duration_str)
+    logging.info("Encoding %s (%s)...", out_stem, batch.duration_str)
 
     cmd = [
         str(ffmpeg), "-y",
