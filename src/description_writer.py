@@ -25,9 +25,10 @@ def write_description(
     char_name: str,
     highlights: list[Highlight],
     output_dir: Path,
+    out_stem: str | None = None,
 ) -> Path:
     """
-    Write a description.txt to output_dir.
+    Write a description .txt to output_dir named {out_stem}_description.txt.
 
     highlights: list of (video_start_ts, video_max_ts, tier, clip_name)
                 for Quad+ kills only, in video order.
@@ -35,8 +36,10 @@ def write_description(
     Returns the path to the written file.
     Running twice with the same inputs produces identical output (idempotent).
     """
+    if out_stem is None:
+        out_stem = f"{char_name}_batch{batch.number}"
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_path = output_dir / "description.txt"
+    out_path = output_dir / f"{out_stem}_description.txt"
 
     lines: list[str] = []
 
