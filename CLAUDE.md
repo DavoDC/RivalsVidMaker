@@ -91,36 +91,55 @@ sitting directly in the `Highlights/` root into per-character subfolders.
 
 **Safety guarantees:**
 - Uses `shutil.move()` — atomic rename on the same filesystem, no copy+delete risk.
-- Only touches files **directly in** `clips_path/` root. Existing subfolders
-  (e.g. `THOR/`, `THOR/vid1_uploaded/`) are never read or modified.
+- Only touches files **directly in** `clips_path/` root. Existing subfolders are never entered.
 - Skips any file whose character name cannot be parsed (logged as WARNING).
 - Skips if the destination already exists — never overwrites (logged as WARNING).
 
-**Subfolder convention — character folders only contain two things:**
-1. Raw clip files (`.mp4`) — not yet in any compiled video. The pipeline reads these.
-2. `vidN_uploaded/` subfolders — clips that have already been compiled and published to YouTube.
+**Character folder convention — Highlights subfolders contain ONLY raw `.mp4` clips.**
+No further subfolders. Once a clip is compiled into a video it moves to
+`Output\CHARACTER_DATE\clips\` — it does NOT stay in Highlights.
+Highlights is a pure intake zone: new clips arrive → get sorted → stay until compiled.
 
-A clip moves into a `vidN_uploaded/` subfolder only **after** its compiled video is published.
-Clips that haven't been in a video yet must stay loose in the character folder, never in a subfolder.
-`batch3_unused/` was a mistake — those clips had never been in a video, so they didn't belong
-in a subfolder. They were moved back to `THOR/` root and the subfolder deleted.
+## Video folder structure
+Root: `C:\Users\David\Videos\MarvelRivals\`
 
-The sorter never enters or modifies existing subfolders.
+### Highlights\
+Default save path for Marvel Rivals (set in-game). New clips land here automatically.
 
-## Clips location
-`C:\Users\David\Videos\MarvelRivals\Highlights\`
-- This is the **default save path for Marvel Rivals highlight clips** (set in-game).
-  New clips appear here automatically after recording. The pipeline reads from this folder.
-- Unsorted clips dropped here are auto-sorted into character subfolders on next run.
-- `THOR\vid1_uploaded\`   — 31 clips, compiled video published on YouTube ✅ (all verified)
-- `THOR\vid2_uploaded\`   — 33 clips, compiled video published on YouTube ✅ (all verified)
-- THOR currently has 9 uncompiled clips sitting in `THOR\` root (ready for next batch)
+- Structure: `Highlights\CHARACTER\*.mp4` — **no further subfolders**.
+- Unsorted clips in the root are auto-sorted into character subfolders on each run.
+- Character folders contain only raw uncompiled clips. Once compiled, clips move out to Output.
+- Current state:
+  - `THOR\` — 9 uncompiled clips (ready for next batch)
 
-## Compiled videos
-Output folder: `C:\Users\David\Videos\MarvelRivals\Output\`
-- `thor_vid1/THOR_batch1.mp4`  (~15m 3s, 31 clips) — published ✅, 7 Quad kills verified
-- `thor_vid2/THOR_batch2.mp4`  (~15m 5s, 33 clips) — published ✅, 6 kills verified (incl. Hexa)
+### Output\
+All compiled videos live here. One subfolder per published video.
+
+**Naming convention:** `CHARACTER_MMM-MMM_YYYY` (e.g. `THOR_FEB-MAR_2026`)
+- Single month: `THOR_FEB_2026`
+- Multi-month: `THOR_FEB-MAR_2026`
+
+**Each output folder contains exactly:**
+1. `CHARACTER_DATE.mp4` — the compiled video
+2. `CHARACTER_DATE_description.txt` — YouTube title, description, and timestamps
+3. `clips\` — the source clip files used in this video (renamed with KO tier suffix)
+
+When the user confirms the YouTube video is in good shape, the cleanup process:
+- Moves Quad+ clips from `clips\` → `ClipArchive\` (preserved for future Best-of)
+- Deletes the remaining clips from `clips\` (after explicit user confirmation listing each file)
+- The compiled `.mp4` may also be deleted to save disk space (user confirms)
+
+**Legacy folders (pre-convention, before program was fully set up):**
+- `thor_vid1\` — 31 clips in root, published ✅, 7 Quad kills verified — clips not yet renamed with KO tier
+- `thor_vid2\vid2_clips\` — 33 clips, published ✅, 6 kills verified (incl. Hexa) — clips not yet renamed
   - Title: "THOR OVERLOAD ⚡ Back-to-Back Multikills (Feb–Mar 2026)"
+  These need KO-tier renaming done as a one-off migration (see IDEAS.md).
+
+### ClipArchive\
+Long-term archive for Quad+ clips. Never deleted automatically.
+- Purpose: source material for a future "Best of 202X" compilation.
+- Clips land here during Output cleanup (after YouTube confirmation).
+- No subfolders required — flat structure is fine.
 
 ## KO detection (src/ko_detect.py)
 The multi-kill banner that appears on the RIGHT side of the screen in Marvel Rivals
