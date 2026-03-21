@@ -51,8 +51,8 @@ def encode(batch: Batch, char_name: str, output_dir: Path, ffmpeg: Path) -> Path
     )
 
     encoder_label = "NVENC (GPU)" if use_nvenc else "libx264 (CPU)"
-    logging.info("  Encoder: %s", encoder_label)
-    logging.info("  Encoding %s batch %d (%s)...", char_name, batch.number, batch.duration_str)
+    logging.debug("Encoder: %s", encoder_label)
+    logging.info("Encoding %s batch %d (%s)...", char_name, batch.number, batch.duration_str)
 
     cmd = [
         str(ffmpeg), "-y",
@@ -71,5 +71,5 @@ def encode(batch: Batch, char_name: str, output_dir: Path, ffmpeg: Path) -> Path
     finally:
         Path(concat_list).unlink(missing_ok=True)
 
-    logging.info("  Encoded → %s", out_path)
+    logging.info("Encoded → %s", out_path)
     return out_path
