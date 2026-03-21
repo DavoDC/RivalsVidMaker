@@ -1,5 +1,87 @@
 # Ideas & Future Work
 
+## Architecture: state-driven pipeline (major redesign)
+
+### State-driven pipeline with clear stages
+Replace the current linear run-once pipeline with a stage-aware model where the program
+tracks which stage each clip/batch is in and only progresses clips forward when the user
+confirms. Stages:
+
+```
+intake → KO detection → (batch) selection → compilation → cleanup
+```
+
+On startup, the program scans all three video folders and displays a clear status table
+showing every character group and what state their clips are in — how many are uncompiled,
+what batches are pending, what Output folders exist and whether they've been confirmed on
+YouTube. The user then selects which stage to advance, rather than the program running the
+whole pipeline automatically.
+
+**Safety and idempotency requirements:**
+- Safe to re-run without duplicating work or re-processing already-handled clips.
+- Dry-run mode for all destructive actions (any deletion or move that can't be undone).
+- Explicit user confirmation required before any deletion or file move — list every file
+  that will be affected before proceeding.
+- Partial failure resilience: if the program is interrupted mid-stage (e.g. encode crashes),
+  re-running must pick up from the last safe checkpoint, not restart from scratch.
+
+### State log (JSON)
+A simple per-session or persistent JSON file tracking which clips have been processed,
+which stage they're in, and what their KO detection results are. Used to:
+- Skip re-processing clips that have already been through KO detection.
+- Know which clips belong to which output batch.
+- Track whether an Output folder has been YouTube-confirmed.
+
+Keyed by clip filename + modified time (or file hash) so it survives renames gracefully.
+Stored alongside the cache (e.g. `data/state.json`).
+
+### Caching layer (persistent, keyed, invalidation-aware)
+KO detection is expensive (~3–9s per clip). Cache results in a persistent JSON store keyed
+by `(filename, file_modified_time)` or file hash. On re-run, skip any clip whose key matches
+— use the cached result directly.
+
+Cache invalidation: if a file is modified or replaced, its key changes and it gets
+re-processed. The cache must never silently serve stale results.
+
+Null in cache = "scanned, no kill found" — a valid result, not a missing entry.
+Cache must integrate with the state log so the two never contradict each other.
+Already partially implemented (`data/cache/<char>/<clip_stem>.ko.json`) — this idea
+upgrades it to be keyed on file identity rather than just filename.
+
+### Startup state display
+On launch, show a table of every character group and its clip pipeline status:
+```
+Character    Uncompiled clips    Pending batch    Output folder      YouTube confirmed
+THOR         9 clips (12m 34s)   —                THOR_FEB-MAR_2026  ✅
+STORM        4 clips (5m 12s)    —                —                  —
+```
+User picks what to do next. Nothing runs automatically without selection.
+
+### Output folder cleanup workflow
+After the user confirms a YouTube video is live and looks good:
+1. Program lists every clip in `Output\CHARACTER_DATE\clips\` with its KO tier.
+2. Identifies Quad+ clips — proposes moving them to `ClipArchive\`.
+3. Identifies remaining clips — proposes deletion.
+4. Shows compiled `.mp4` size — asks whether to delete to save disk space.
+5. User confirms each action (or confirms all at once via dry-run preview).
+6. Only then are files moved/deleted. No silent cleanup.
+
+### Clip KO-tier rename at compilation stage
+When clips are moved into `Output\CHARACTER_DATE\clips\` at compile time, physically rename
+each file to embed its max detected KO tier:
+
+    THOR_2026-03-16_22-18-00.mp4  →  THOR_2026-03-16_22-18-00_QUAD.mp4
+    THOR_2026-02-21_20-47-21.mp4  →  THOR_2026-02-21_20-47-21_HEXA.mp4
+    THOR_2026-03-01_19-05-00.mp4  →  THOR_2026-03-01_19-05-00_NONE.mp4  (or no suffix)
+
+This is a real `os.rename()` on the clips in the Output clips folder — not a label.
+The HIGHLIGHTS section of the description naturally reflects the renamed files.
+Makes it trivial to identify Quad+ clips for archiving without re-scanning.
+
+**Legacy migration needed:** `thor_vid1\` and `thor_vid2\vid2_clips\` were compiled before
+this program was fully set up. Their clips need a one-off KO-tier rename pass so they follow
+the same convention (Quad+ can then be identified and moved to ClipArchive).
+
 ## High-priority / structural
 
 ### ~~Consolidate docs/ folder~~ ✅ DONE
@@ -18,20 +100,9 @@ Currently detection runs at batch time. Running it earlier (when clips first lan
 all clips to be processed in parallel, and results are ready before batching begins.
 Encode KO info into the clip filename (see below) at this stage.
 
-### Encode KO tier in clip filename (actual file rename at runtime)
-During program execution, physically rename the source clip files in the highlights folder
-to embed their max KO classification:
-
-    THOR_2026-03-16_22-18-00.mp4  →  THOR_2026-03-16_22-18-00_QUAD.mp4
-
-This is a real `os.rename()` on disk — not just a label in the description output.
-The HIGHLIGHTS section of the description then naturally reflects the renamed files.
-
-Benefits:
-- Instantly reviewable on disk — filename tells you what to expect before opening
-- Description generation reads tier from filename (no re-scan needed)
-- Enables future "Best of" compilations: filter by `_PENTA` or `_HEXA` without
-  re-processing anything
+### ~~Encode KO tier in clip filename~~ → see Architecture section above
+Detailed design moved to "Clip KO-tier rename at compilation stage" in the Architecture
+section. Key decision: rename happens when clips move to `Output\clips\`, not in Highlights.
 
 ### Auto-download FFmpeg if missing
 On startup, check whether `ffmpeg.exe` / `ffprobe.exe` exist at the configured path.
@@ -106,7 +177,8 @@ Batch scans take a long time (~3–9s per clip × 33 clips = up to 5 min). Ideas
   Each clip is independent so embarrassingly parallel. Could cut total time by `N_WORKERS`x.
 - **Per-clip timing logs** — print elapsed time per clip and total batch time so we can see
   where time is going (FFmpeg extract vs OCR vs I/O). Use `time.perf_counter()`.
-- Note: cache hits are already instant — this only matters for first-run / uncached clips.
+- Note: with the new persistent cache (see Architecture section), cache hits are instant —
+  parallelism only matters for first-run / cache-miss clips.
 
 ### Rename repo/project to reflect Marvel Rivals focus
 The program is Marvel Rivals-specific but the repo is named `CompilationVidMaker` (generic).
