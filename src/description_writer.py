@@ -26,12 +26,16 @@ def write_description(
     highlights: list[Highlight],
     output_dir: Path,
     out_stem: str | None = None,
+    clip_tiers: dict[str, str] | None = None,
 ) -> Path:
     """
     Write a description .txt to output_dir named {out_stem}_description.txt.
 
-    highlights: list of (video_start_ts, video_max_ts, tier, clip_name)
-                for Quad+ kills only, in video order.
+    highlights:  list of (video_start_ts, video_max_ts, tier, clip_name)
+                 for Quad+ kills only, in video order.
+    clip_tiers:  optional {clip.name: tier} for ALL detected kills (including
+                 Triple and below). When provided, each clip in the HIGHLIGHTS
+                 list is annotated with its max detected tier, e.g. "clip.mp4 [QUAD]".
 
     Returns the path to the written file.
     Running twice with the same inputs produces identical output (idempotent).
@@ -41,6 +45,7 @@ def write_description(
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / f"{out_stem}_description.txt"
 
+    tiers = clip_tiers or {}
     lines: list[str] = []
 
     lines.append("=== TITLE ===\n")
@@ -63,7 +68,9 @@ def write_description(
 
     lines.append("=== HIGHLIGHTS ===\n")
     for i, clip in enumerate(batch.clips, 1):
-        lines.append(f"{i}. {clip.name}\n")
+        tier = tiers.get(clip.name)
+        tier_suffix = f" [{tier}]" if tier else ""
+        lines.append(f"{i}. {clip.name}{tier_suffix}\n")
 
     out_path.write_text("".join(lines), encoding="utf-8")
     logging.info("Description → %s", out_path)
