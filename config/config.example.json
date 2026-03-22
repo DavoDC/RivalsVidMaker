@@ -1,6 +1,7 @@
 {
   "clips_path": "C:\\Users\\YourName\\Videos\\MarvelRivals\\Highlights",
   "output_path": "C:\\Users\\YourName\\Videos\\MarvelRivals\\Output",
+  "archive_path": "C:\\Users\\YourName\\Videos\\MarvelRivals\\ClipArchive",
   "ffmpeg_path": "tools",
   "tesseract_path": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
   "cache_dir": "data\\cache",

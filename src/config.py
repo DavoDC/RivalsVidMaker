@@ -11,6 +11,7 @@ from pathlib import Path
 class Config:
     clips_path: Path
     output_path: Path
+    archive_path: Path
     ffmpeg: Path
     ffprobe: Path
     cache_dir: Path
@@ -26,10 +27,12 @@ def load(path: Path = Path("config/config.json")) -> Config:
 
     raw = json.loads(path.read_text(encoding="utf-8"))
 
+    clips_path = Path(raw["clips_path"])
     ffmpeg_dir = Path(raw["ffmpeg_path"])
     return Config(
-        clips_path=Path(raw["clips_path"]),
+        clips_path=clips_path,
         output_path=Path(raw["output_path"]),
+        archive_path=Path(raw.get("archive_path", str(clips_path.parent / "ClipArchive"))),
         ffmpeg=ffmpeg_dir / "ffmpeg.exe",
         ffprobe=ffmpeg_dir / "ffprobe.exe",
         cache_dir=Path(raw.get("cache_dir", "data/cache")),
