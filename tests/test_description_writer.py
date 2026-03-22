@@ -102,3 +102,57 @@ class TestWriteDescription:
         out2 = write_description(batch, "THOR", highlights, tmp_path)
         assert out1 == out2
         assert out1.read_text() == out2.read_text()
+
+
+class TestWriteDescriptionClipTiers:
+    """Tests for the clip_tiers annotation feature in the HIGHLIGHTS list."""
+
+    def _batch_with_known_names(self) -> Batch:
+        clips = [
+            Clip(path=Path(f"/videos/THOR_clip_{i}.mp4"), duration=30.0)
+            for i in range(3)
+        ]
+        return Batch(number=1, clips=clips)
+
+    def test_clip_tier_annotated_in_highlights(self, tmp_path):
+        batch = self._batch_with_known_names()
+        tiers = {"THOR_clip_0.mp4": "QUAD"}
+        content = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers).read_text()
+        assert "THOR_clip_0.mp4 [QUAD]" in content
+
+    def test_clip_without_tier_has_no_annotation(self, tmp_path):
+        batch = self._batch_with_known_names()
+        tiers = {"THOR_clip_0.mp4": "QUAD"}  # only clip_0 has a tier
+        content = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers).read_text()
+        # clip_1 and clip_2 have no tier — no bracket suffix
+        assert "THOR_clip_1.mp4 [" not in content
+        assert "THOR_clip_2.mp4 [" not in content
+
+    def test_all_clips_annotated(self, tmp_path):
+        batch = self._batch_with_known_names()
+        tiers = {
+            "THOR_clip_0.mp4": "QUAD",
+            "THOR_clip_1.mp4": "TRIPLE",
+            "THOR_clip_2.mp4": "HEXA",
+        }
+        content = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers).read_text()
+        assert "THOR_clip_0.mp4 [QUAD]" in content
+        assert "THOR_clip_1.mp4 [TRIPLE]" in content
+        assert "THOR_clip_2.mp4 [HEXA]" in content
+
+    def test_no_clip_tiers_produces_no_annotation(self, tmp_path):
+        batch = self._batch_with_known_names()
+        content = write_description(batch, "THOR", [], tmp_path).read_text()
+        assert "[" not in content
+
+    def test_empty_clip_tiers_dict_produces_no_annotation(self, tmp_path):
+        batch = self._batch_with_known_names()
+        content = write_description(batch, "THOR", [], tmp_path, clip_tiers={}).read_text()
+        assert "[" not in content
+
+    def test_clip_tiers_idempotent(self, tmp_path):
+        batch = self._batch_with_known_names()
+        tiers = {"THOR_clip_0.mp4": "QUAD"}
+        out1 = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers)
+        out2 = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers)
+        assert out1.read_text() == out2.read_text()
