@@ -112,14 +112,10 @@ Replace the C++ pipeline entirely with Python (matching the SBS Downloader repo 
 Encoder, batcher, clip list, description writer — all in Python alongside `ko_detect.py` (in 'src' folder).
 Simpler to maintain, easier to iterate on.
 
-### Pre-process mode: KO scan all clips upfront
-Add a menu option to scan all clips across all character folders for KO events without
-running the full pipeline. Goal: warm the cache so that any future compilation run is
-instant on the detection step. Useful to kick off overnight or before a session where
-you want to quickly pick a batch and encode without waiting.
-
-Distinct from the normal pipeline flow — does not batch, encode, or move any files.
-Just scans and writes cache entries. Progress shown per character group.
+### ~~Pre-process mode: KO scan all clips upfront~~ ✅ DONE
+New `src/preprocess.py` module + `[P]` option in the main menu. Scans all clips
+across all character folders, writes cache entries, and reports progress. Does
+not batch, encode, or move any files.
 
 ### Run KO detection at clip-ingest stage
 Currently detection runs at batch time. Running it earlier (when clips first land) allows
@@ -129,6 +125,34 @@ Encode KO info into the clip filename (see below) at this stage.
 ### ~~Encode KO tier in clip filename~~ → see Architecture section above
 Detailed design moved to "Clip KO-tier rename at compilation stage" in the Architecture
 section. Key decision: rename happens when clips move to `Output\clips\`, not in Highlights.
+
+### Skip-if-exists for encoding
+Before encoding a batch, check whether the output `.mp4` already exists. If it
+does, print a notice and skip (rather than silently overwriting with the `-y`
+flag). Re-encode can be forced with a `--force` flag or CLI option.
+This prevents accidentally re-encoding a video that took minutes to produce.
+
+### Dry-run mode
+A `--dry-run` flag that prints everything the pipeline *would* do without
+moving any files or running FFmpeg. Useful for:
+- Previewing which clips will go into each batch before committing.
+- Checking that KO detection results are sensible before encoding.
+- Safe to run in any state — no files are touched.
+
+### Cleanup command (post-YouTube workflow)
+An interactive cleanup subcommand for after a video is confirmed live on YouTube:
+1. List every clip in `Output\CHARACTER_DATE\clips\` with its KO tier.
+2. Identify Quad+ clips — confirm moving them to `ClipArchive\`.
+3. Identify remaining clips — confirm deletion with a per-file list.
+4. Show compiled `.mp4` size — ask whether to delete.
+5. Nothing happens until the user types `yes`.
+This maps directly to the "Output folder cleanup workflow" in the Architecture
+section and closes the loop on the full pipeline.
+
+### Session history in startup display
+In the Output table, add a "Days since encoded" column derived from the folder's
+modification time. Lets you see at a glance which output folders are old and
+ready to be cleaned up vs recently created.
 
 ### Auto-download FFmpeg if missing
 On startup, check whether `ffmpeg.exe` / `ffprobe.exe` exist at the configured path.
@@ -158,13 +182,9 @@ Terminal output at the end of the run points the user at the file:
 
 Faster than writing prompts from scratch each upload.
 
-### Show KO tier in HIGHLIGHTS list
-In the generated description, append the detected tier to each clip filename:
-```
-HIGHLIGHTS:
-6. THOR_2026-02-21_20-47-21.mp4 [HEXA]
-```
-Makes it easy to spot which clip is which without watching the video.
+### ~~Show KO tier in HIGHLIGHTS list~~ ✅ DONE
+`write_description()` now accepts `clip_tiers` and annotates each clip line:
+`6. THOR_2026-02-21_20-47-21.mp4 [HEXA]`
 
 ### Document full pipeline end-to-end
 Write a reference doc (or update CLAUDE.md) describing the complete workflow:
@@ -197,14 +217,11 @@ Made trivial once clips are named with their KO tier (see above).
 All 7 Quad kills in vid1 confirmed accurate. Timestamp range format confirmed
 (`<streak start> - <max tier time> = Quad Kill`). Detection is solid.
 
-### Speed up ko_detect.py batch scans
-Batch scans take a long time (~3–9s per clip × 33 clips = up to 5 min). Ideas:
-- **Parallel clip scanning** — `concurrent.futures.ProcessPoolExecutor` (or `ThreadPoolExecutor`).
-  Each clip is independent so embarrassingly parallel. Could cut total time by `N_WORKERS`x.
-- **Per-clip timing logs** — print elapsed time per clip and total batch time so we can see
-  where time is going (FFmpeg extract vs OCR vs I/O). Use `time.perf_counter()`.
-- Note: with the new persistent cache (see Architecture section), cache hits are instant —
-  parallelism only matters for first-run / cache-miss clips.
+### ~~Speed up ko_detect.py batch scans~~ ✅ DONE
+`_collect_highlights` in `pipeline.py` now scans clips in parallel using
+`ThreadPoolExecutor` (N_WORKERS=4). Each clip writes to its own cache file so
+there are no write conflicts. Cache hits are printed as `[cached]`. Per-clip
+timing is logged.
 
 ### Rename repo/project to reflect Marvel Rivals focus
 The program is Marvel Rivals-specific but the repo is named `CompilationVidMaker` (generic).
