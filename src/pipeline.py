@@ -7,7 +7,7 @@ import math
 import re
 import shutil
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
@@ -18,15 +18,34 @@ from clip_sorter import sort_clips
 from config import Config
 from description_writer import fmt_ts, write_description
 from encoder import encode
+from preprocess import preprocess_all
 
 
-def _collect_highlights(batch, config: Config) -> tuple[list[tuple[float, float, str, str]], dict[str, str]]:
+# ── KO scan helpers ──────────────────────────────────────────────────────────
+
+def _ko_scan_one(clip_path: str, clip_name: str) -> tuple[str, dict | None, float, bool]:
+    """Thread worker for a single clip KO scan.
+
+    Returns (clip_name, result, elapsed_secs, was_cached).
+    was_cached is checked *before* calling scan_clip so the flag is accurate
+    even when multiple threads are scanning simultaneously.
     """
-    Scan each clip for KO events.
+    was_cached = ko_detect.cache_exists(clip_path)
+    t0 = time.perf_counter()
+    result = ko_detect.scan_clip(clip_path, use_cache=True)
+    elapsed = time.perf_counter() - t0
+    return clip_name, result, elapsed, was_cached
+
+
+def _collect_highlights(
+    batch, config: Config
+) -> tuple[list[tuple[float, float, str, str]], dict[str, str]]:
+    """
+    Scan each clip for KO events in parallel.
 
     Returns:
-      highlights — Quad+ kills with compilation timestamps, for the description.
-      clip_tiers — {clip.name: tier} for every clip where any kill was detected.
+      highlights  — Quad+ kills with compilation timestamps, for the description.
+      clip_tiers  — {clip.name: tier} for every clip where any kill was detected.
     """
     ko_detect.configure(
         ffmpeg=str(config.ffmpeg),
@@ -34,41 +53,68 @@ def _collect_highlights(batch, config: Config) -> tuple[list[tuple[float, float,
         cache_dir=str(config.cache_dir / batch.clips[0].path.parent.name),
     )
 
-    highlights = []
-    clip_tiers: dict[str, str] = {}
-    running = 0.0
-
     total = len(batch.clips)
-    for idx, clip in enumerate(batch.clips, 1):
-        print(f"KO scan [{idx}/{total}]: {clip.name}", end="", flush=True)
-        logging.debug("KO scan: %s (offset %.1fs)", clip.name, running)
-        t_clip = time.perf_counter()
-        result = ko_detect.scan_clip(str(clip.path), use_cache=True)
-        elapsed = time.perf_counter() - t_clip
-        elapsed_str = f"{int(elapsed)//60}m{int(elapsed)%60:02d}s" if elapsed >= 60 else f"{elapsed:.1f}s"
 
-        tier_found = None
+    # Compute running video offsets upfront (clip order determines timestamps)
+    offsets: dict[str, float] = {}
+    running = 0.0
+    for clip in batch.clips:
+        offsets[clip.name] = running
+        running += clip.duration
+
+    # Scan all clips in parallel — FFmpeg + Tesseract are external processes,
+    # so threads give real concurrency. Each clip writes to its own cache file.
+    scan_results: dict[str, tuple[dict | None, float, bool]] = {}
+    done = 0
+
+    with ThreadPoolExecutor(max_workers=ko_detect.N_WORKERS) as pool:
+        future_to_clip = {
+            pool.submit(_ko_scan_one, str(clip.path), clip.name): clip
+            for clip in batch.clips
+        }
+        for future in as_completed(future_to_clip):
+            done += 1
+            clip = future_to_clip[future]
+            clip_name, result, elapsed, was_cached = future.result()
+            scan_results[clip_name] = (result, elapsed, was_cached)
+
+            elapsed_str = (
+                f"{int(elapsed) // 60}m{int(elapsed) % 60:02d}s"
+                if elapsed >= 60
+                else f"{elapsed:.1f}s"
+            )
+            tier_found = result["tier"] if result else None
+            cache_tag = "[cached] " if was_cached else ""
+            suffix = f" — {tier_found}" if tier_found else ""
+            print(f"KO scan [{done}/{total}]: {cache_tag}{clip_name} -> Done ({elapsed_str}){suffix}")
+            logging.debug(
+                "KO scan: %s — %.1fs%s", clip_name, elapsed,
+                f" {tier_found}" if tier_found else "",
+            )
+            if tier_found and ko_detect.TIER_RANK.get(tier_found, 0) >= ko_detect.TIER_RANK[ko_detect.REPORT_MIN_TIER]:
+                video_start = offsets[clip_name] + result["start_ts"]
+                video_max = offsets[clip_name] + result["max_ts"]
+                logging.info("%s @ %s–%s", tier_found, fmt_ts(video_start), fmt_ts(video_max))
+
+    # Build ordered highlights + clip_tiers using original clip order
+    highlights: list[tuple[float, float, str, str]] = []
+    clip_tiers: dict[str, str] = {}
+
+    for clip in batch.clips:
+        result, _, _ = scan_results.get(clip.name, (None, 0.0, False))
         if result:
             tier = result["tier"]
-            logging.debug("detected %s  start=%.1f  max=%.1f", tier, result["start_ts"], result["max_ts"])
-            tier_found = tier
             clip_tiers[clip.name] = tier
+            logging.debug("detected %s  start=%.1f  max=%.1f", tier, result["start_ts"], result["max_ts"])
             if ko_detect.TIER_RANK.get(tier, 0) >= ko_detect.TIER_RANK[ko_detect.REPORT_MIN_TIER]:
-                video_start = running + result["start_ts"]
-                video_max = running + result["max_ts"]
+                video_start = offsets[clip.name] + result["start_ts"]
+                video_max = offsets[clip.name] + result["max_ts"]
                 highlights.append((video_start, video_max, tier, clip.name))
-        else:
-            logging.debug("no kill detected")
-
-        suffix = f" — {tier_found}" if tier_found else ""
-        print(f" -> Done (took {elapsed_str}){suffix}")
-        logging.debug("KO scan [%d/%d]: %s — %.1fs%s", idx, total, clip.name, elapsed, f" {tier_found}" if tier_found else "")
-        if tier_found and ko_detect.TIER_RANK.get(tier_found, 0) >= ko_detect.TIER_RANK[ko_detect.REPORT_MIN_TIER]:
-            logging.info("%s @ %s–%s", tier_found, fmt_ts(highlights[-1][0]), fmt_ts(highlights[-1][1]))
-        running += clip.duration
 
     return highlights, clip_tiers
 
+
+# ── Formatting helpers ────────────────────────────────────────────────────────
 
 def _fmt_duration(seconds: float) -> str:
     s = int(seconds)
@@ -79,7 +125,9 @@ def _fmt_duration(seconds: float) -> str:
     return f"{m}m {s}s"
 
 
-_MONTH = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+_MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
 
 def _date_range(folder: Path) -> str:
     """Parse clip filenames to find the earliest and latest recording dates."""
@@ -96,8 +144,10 @@ def _date_range(folder: Path) -> str:
     if not dates:
         return "—"
     lo, hi = min(dates), max(dates)
+
     def _d(d: datetime) -> str:
         return f"{d.day} {_MONTH[d.month - 1]} '{d.year % 100:02d}"
+
     return _d(lo) if lo.date() == hi.date() else f"{_d(lo)} → {_d(hi)}"
 
 
@@ -106,15 +156,6 @@ def _menu_status(dur: float, target: int) -> str:
     if dur >= target * 0.75: return "~ Almost"   # 11m15s+ at default 15m target
     if dur > 0:              return "✗ Too short"
     return "— No clips"
-
-
-def _tbl_row(cells, widths, aligns) -> str:
-    parts = [c.rjust(w) if a == "r" else c.ljust(w) for c, w, a in zip(cells, widths, aligns)]
-    return "│ " + " │ ".join(parts) + " │"
-
-
-def _tbl_line(widths, left, mid, right) -> str:
-    return left + mid.join("─" * (w + 2) for w in widths) + right
 
 
 def _estimate_seconds(folder: Path, cache_dir: Path, total_dur: float) -> float:
@@ -161,6 +202,8 @@ def _batch_slug(char_name: str, batch, total_batches: int) -> str:
     return slug
 
 
+# ── File operations ───────────────────────────────────────────────────────────
+
 def _move_clips(batch, clip_tiers: dict[str, str], clips_dir: Path) -> None:
     """Move source clips into clips_dir, appending _TIER suffix where detected."""
     clips_dir.mkdir(parents=True, exist_ok=True)
@@ -172,6 +215,152 @@ def _move_clips(batch, clip_tiers: dict[str, str], clips_dir: Path) -> None:
         logging.debug("Moved clip → %s", dest.name)
     logging.info("Clips → %s", clips_dir)
 
+
+# ── Table drawing ─────────────────────────────────────────────────────────────
+
+def _tbl_row(cells, widths, aligns) -> str:
+    parts = [c.rjust(w) if a == "r" else c.ljust(w) for c, w, a in zip(cells, widths, aligns)]
+    return "│ " + " │ ".join(parts) + " │"
+
+
+def _tbl_line(widths, left, mid, right) -> str:
+    return left + mid.join("─" * (w + 2) for w in widths) + right
+
+
+def _print_table(rows, col_headers, col_aligns, highlight_row=None):
+    """Print a Unicode box-drawing table. If highlight_row is set, only that row is printed."""
+    col_widths = [
+        max(len(col_headers[c]), max((len(r[c]) for r in rows), default=0))
+        for c in range(len(col_headers))
+    ]
+    print(_tbl_line(col_widths, "┌", "┬", "┐"))
+    print(_tbl_row(col_headers, col_widths, col_aligns))
+    display_rows = rows if highlight_row is None else [rows[highlight_row]]
+    for row in display_rows:
+        print(_tbl_line(col_widths, "├", "┼", "┤"))
+        print(_tbl_row(row, col_widths, col_aligns))
+    print(_tbl_line(col_widths, "└", "┴", "┘"))
+
+
+# ── Folder state scanners ─────────────────────────────────────────────────────
+
+def _scan_output_folder(output_path: Path) -> list[dict]:
+    """Scan Output directory. Returns a list of dicts, one per subfolder."""
+    if not output_path.exists():
+        return []
+    rows = []
+    for folder in sorted(output_path.iterdir()):
+        if not folder.is_dir():
+            continue
+        mp4s = list(folder.glob("*.mp4"))
+        descs = list(folder.glob("*_description.txt"))
+        clips_dir = folder / "clips"
+        rows.append({
+            "name": folder.name,
+            "has_video": bool(mp4s),
+            "has_desc": bool(descs),
+            "has_clips": clips_dir.is_dir(),
+        })
+    return rows
+
+
+def _scan_archive_folder(archive_path: Path) -> tuple[int, dict[str, int]]:
+    """
+    Scan ClipArchive directory.
+
+    Returns (total_clip_count, {char_name: clip_count}).
+    Clips are attributed to a character by parsing the filename convention.
+    """
+    if not archive_path.exists():
+        return 0, {}
+    from clip_sorter import extract_character
+    char_counts: dict[str, int] = {}
+    total = 0
+    for p in archive_path.iterdir():
+        if p.is_file() and p.suffix.lower() in VIDEO_EXTS:
+            total += 1
+            char = extract_character(p.stem)
+            if char:
+                char_counts[char] = char_counts.get(char, 0) + 1
+            else:
+                char_counts["unknown"] = char_counts.get("unknown", 0) + 1
+    return total, char_counts
+
+
+def _print_multizone_status(config: Config) -> None:
+    """Print the full MarvelRivals folder status before the character menu."""
+    _W = 56
+    print("=" * _W)
+    print("MarvelRivals — Folder Status".center(_W))
+    print("=" * _W)
+
+    # ── HIGHLIGHTS ──────────────────────────────────────────────────────────
+    print("\n── HIGHLIGHTS ──")
+    char_folders = sorted(e for e in config.clips_path.iterdir() if e.is_dir()) \
+        if config.clips_path.exists() else []
+    if char_folders:
+        with ThreadPoolExecutor() as pool:
+            summaries = list(pool.map(
+                lambda f: summarize_folder(f, config.ffprobe), char_folders
+            ))
+        h_rows = []
+        for folder, (count, dur) in zip(char_folders, summaries):
+            cached = sum(
+                1 for p in folder.iterdir()
+                if p.is_file() and p.suffix.lower() in VIDEO_EXTS
+                and (config.cache_dir / folder.name / (p.stem + ".ko.json")).exists()
+            )
+            h_rows.append((
+                folder.name,
+                str(count) if count else "0",
+                _fmt_duration(dur) if count else "—",
+                f"{cached}/{count}" if count else "—",
+                _date_range(folder),
+            ))
+        _print_table(
+            h_rows,
+            col_headers=("Character", "Clips", "Duration", "KO cached", "Date range"),
+            col_aligns=("l", "r", "r", "r", "l"),
+        )
+    else:
+        print("  (no character folders found)")
+
+    # ── OUTPUT ──────────────────────────────────────────────────────────────
+    print("\n── OUTPUT ──")
+    output_rows = _scan_output_folder(config.output_path)
+    if output_rows:
+        o_rows = [
+            (
+                r["name"],
+                "✅" if r["has_video"] else "—",
+                "✅" if r["has_desc"] else "—",
+                "✅" if r["has_clips"] else "—",
+            )
+            for r in output_rows
+        ]
+        _print_table(
+            o_rows,
+            col_headers=("Folder", "Video", "Desc", "Clips"),
+            col_aligns=("l", "l", "l", "l"),
+        )
+    else:
+        print("  (no output folders found)")
+
+    # ── ARCHIVE ─────────────────────────────────────────────────────────────
+    print("\n── ARCHIVE ──")
+    total_archived, char_counts = _scan_archive_folder(config.archive_path)
+    if total_archived:
+        breakdown = ", ".join(
+            f"{char} ({n})" for char, n in sorted(char_counts.items())
+        )
+        print(f"  {total_archived} clip(s) archived: {breakdown}")
+    else:
+        print("  (archive is empty or folder does not exist)")
+
+    print()
+
+
+# ── Input helpers ─────────────────────────────────────────────────────────────
 
 def _prompt_choice(max_choice: int) -> int:
     while True:
@@ -185,6 +374,8 @@ def _prompt_choice(max_choice: int) -> int:
         print(f"  Invalid — enter a number between 1 and {max_choice}.")
 
 
+# ── Main pipeline ─────────────────────────────────────────────────────────────
+
 def run(config: Config) -> None:
     t0 = time.perf_counter()
 
@@ -196,12 +387,15 @@ def run(config: Config) -> None:
     # --- Step 1: sort any unsorted clips into character subfolders ---
     sort_clips(config.clips_path)
 
-    # --- Step 2: discover character subfolders ---
+    # --- Step 2: show full folder status (Highlights + Output + Archive) ---
+    _print_multizone_status(config)
+
+    # --- Step 3: discover character subfolders ---
     char_folders = sorted(e for e in config.clips_path.iterdir() if e.is_dir())
     if not char_folders:
         char_folders = [config.clips_path]
 
-    # --- Step 3: scan all folders in parallel for clip counts + durations ---
+    # --- Step 4: scan Highlights folders for the character selection menu ---
     logging.info("Scanning clips...")
     with ThreadPoolExecutor() as pool:
         summaries = list(pool.map(
@@ -210,7 +404,7 @@ def run(config: Config) -> None:
     for folder, (count, dur) in zip(char_folders, summaries):
         logging.debug("  %s: %d clips, %s", folder.name, count, _fmt_duration(dur))
 
-    # --- Step 4: character selection menu + confirmation ---
+    # --- Step 5: character selection menu ---
     rows = []
     estimates = []
     for i, (folder, (count, dur)) in enumerate(zip(char_folders, summaries), 1):
@@ -233,7 +427,7 @@ def run(config: Config) -> None:
     col_aligns  = ("r",  "l",         "r",     "r",         "r",       "l",     "l")
     col_widths  = [max(len(col_headers[c]), max(len(r[c]) for r in rows)) for c in range(len(col_headers))]
 
-    def _print_table(highlight_row=None):
+    def _print_char_table(highlight_row=None):
         print(_tbl_line(col_widths, "┌", "┬", "┐"))
         print(_tbl_row(col_headers, col_widths, col_aligns))
         for row in (rows if highlight_row is None else [rows[highlight_row]]):
@@ -241,21 +435,42 @@ def run(config: Config) -> None:
             print(_tbl_row(row, col_widths, col_aligns))
         print(_tbl_line(col_widths, "└", "┴", "┘"))
 
-    _print_table()
+    _print_char_table()
+    print(f"  [P] Pre-process all clips (warm KO cache)")
+    print()
 
+    # --- Step 6: main menu loop (character number or P for pre-process) ---
     while True:
-        choice = _prompt_choice(len(char_folders))
-        char_path = char_folders[choice - 1]
-        _, (count, _dur) = list(zip(char_folders, summaries))[choice - 1]
-        est_str = _fmt_estimate(estimates[choice - 1])
-        _print_table(highlight_row=choice - 1)
-        raw = input(f"Are you sure you want to make this video? Estimated processing time is {est_str}. [y/N]: ").strip().lower()
-        if raw in ("y", "yes"):
-            break
+        raw = input(f"Enter choice (1-{len(char_folders)} or P): ").strip().lower()
+
+        if raw in ("p", "pre", "preprocess"):
+            logging.info("Pre-processing all clips...")
+            preprocess_all(config)
+            # Refresh the display and re-show the menu after pre-processing
+            _print_char_table()
+            print(f"  [P] Pre-process all clips (warm KO cache)")
+            print()
+            continue
+
+        try:
+            choice = int(raw)
+            if 1 <= choice <= len(char_folders):
+                break
+        except ValueError:
+            pass
+        print(f"  Invalid — enter a number between 1 and {len(char_folders)}, or P.")
+
+    char_path = char_folders[choice - 1]
+    est_str = _fmt_estimate(estimates[choice - 1])
+    _print_char_table(highlight_row=choice - 1)
+    raw = input(f"Make this video? Estimated processing time: {est_str}. [y/N]: ").strip().lower()
+    if raw not in ("y", "yes"):
+        logging.info("Cancelled.")
+        return
 
     logging.info("Selected: %s", char_path.name)
 
-    # --- Step 5: process selected character ---
+    # --- Step 7: process selected character ---
     char_name = char_path.name
     logging.info("")
     logging.info("=" * 50)
@@ -314,7 +529,8 @@ def run(config: Config) -> None:
         t_enc = time.perf_counter()
         encode(batch, char_name, out_dir, config.ffmpeg, out_stem=slug)
         logging.debug("Encode took %.1fs", time.perf_counter() - t_enc)
-        write_description(batch, char_name, highlights, out_dir, out_stem=slug)
+        write_description(batch, char_name, highlights, out_dir, out_stem=slug,
+                          clip_tiers=clip_tiers)
         _move_clips(batch, clip_tiers, out_dir / "clips")
 
         total_batches += 1
