@@ -49,12 +49,29 @@ Already partially implemented (`data/cache/<char>/<clip_stem>.ko.json`) — this
 upgrades it to be keyed on file identity rather than just filename.
 
 ### Startup state display
-On launch, show a table of every character group and its clip pipeline status:
+On launch, show the state of ALL folders under `C:\Users\David\Videos\MarvelRivals\` —
+not just Highlights — with a separate titled table for each:
+
+**Highlights** — clips waiting to be compiled:
 ```
-Character    Uncompiled clips    Pending batch    Output folder      YouTube confirmed
-THOR         9 clips (12m 34s)   —                THOR_FEB-MAR_2026  ✅
-STORM        4 clips (5m 12s)    —                —                  —
+Character    Clips    Total duration    KO scanned?
+THOR         9        12m 34s           ✅ all cached
+STORM        4        5m 12s            — not scanned
 ```
+
+**Output** — compiled videos and their status:
+```
+Folder               Video              YouTube confirmed
+THOR_FEB-MAR_2026    THOR_FEB-MAR_...   ✅
+STORM_MAR_2026       STORM_MAR_...      — pending
+```
+
+**ClipArchive** — archived Quad+ clips:
+```
+Clips    Characters
+12       THOR (7), STORM (5)
+```
+
 User picks what to do next. Nothing runs automatically without selection.
 
 ### Output folder cleanup workflow
@@ -94,6 +111,15 @@ C++ removed, Python pipeline in `src/`, `tests/`, `scripts/`, `config/`, `.gitke
 Replace the C++ pipeline entirely with Python (matching the SBS Downloader repo structure).
 Encoder, batcher, clip list, description writer — all in Python alongside `ko_detect.py` (in 'src' folder).
 Simpler to maintain, easier to iterate on.
+
+### Pre-process mode: KO scan all clips upfront
+Add a menu option to scan all clips across all character folders for KO events without
+running the full pipeline. Goal: warm the cache so that any future compilation run is
+instant on the detection step. Useful to kick off overnight or before a session where
+you want to quickly pick a batch and encode without waiting.
+
+Distinct from the normal pipeline flow — does not batch, encode, or move any files.
+Just scans and writes cache entries. Progress shown per character group.
 
 ### Run KO detection at clip-ingest stage
 Currently detection runs at batch time. Running it earlier (when clips first land) allows
@@ -183,6 +209,11 @@ Batch scans take a long time (~3–9s per clip × 33 clips = up to 5 min). Ideas
 ### Rename repo/project to reflect Marvel Rivals focus
 The program is Marvel Rivals-specific but the repo is named `CompilationVidMaker` (generic).
 Should be renamed to something like `MarvelRivalsCompiler` or `MarvelRivalsVidMaker`.
+
+### Arrow-key menu navigation
+Replace number-typed menu selection with arrow-key navigation (highlight + Enter to confirm).
+Cleaner UX — no mismatch errors, no need to read option numbers. Use `curses` or a library
+like `simple-term-menu` / `inquirer` for the interactive prompt.
 
 ### Pipeline improvements (lower priority backlog)
 - Description format overhaul
