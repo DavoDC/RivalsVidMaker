@@ -3,6 +3,9 @@
 **Project:** RivalsVidMaker — Marvel Rivals gameplay compilations
 **Date:** 2026-03-08
 
+> Note: References to "CVM" throughout this doc are legacy naming (CompilationVidMaker).
+> This project is now RivalsVidMaker. The API research and architecture notes remain valid.
+
 ---
 
 ## 1. YouTube Data API v3 Capabilities

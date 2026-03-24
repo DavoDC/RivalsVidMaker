@@ -8,15 +8,18 @@ timestamped YouTube descriptions automatically.
 ## Repo structure
 ```
 src/
-  main.py               — entry point (run from repo root)
+  main.py               — entry point (run from repo root); supports --force flag
   config.py             — load config/config.json
   pipeline.py           — main orchestrator: sort → scan → batch → detect → encode → describe
   clip_sorter.py        — auto-sort unsorted clips from Highlights/ root into character subfolders
   clip_scanner.py       — scan folder for clips, probe durations in parallel
   batcher.py            — group clips into ~15-min batches
-  encoder.py            — FFmpeg concat encode (NVENC GPU / libx264 CPU fallback)
+  encoder.py            — FFmpeg concat encode (NVENC GPU / libx264 CPU fallback); skip-if-exists
   description_writer.py — write YouTube description .txt files
   ko_detect.py          — KO banner detection (OCR via Tesseract) — standalone + imported
+  ai_prompt.py          — generate pre-filled AI prompts markdown file after each pipeline run
+  cleanup.py            — interactive post-YouTube cleanup (move Quad+ to archive, delete rest)
+  preprocess.py         — pre-process mode: warm KO cache for all clips without encoding
 scripts/
   run.bat               — double-click launcher (opens Git Bash terminal)
   run.sh                — runs python src/main.py from repo root
@@ -26,6 +29,9 @@ tests/
   test_clip_sorter.py
   test_encoder.py
   test_description_writer.py
+  test_ko_cache.py
+  test_ai_prompt.py
+  test_cleanup.py
 data/
   cache/                — *.ko.json per-clip KO scan cache (tracked)
   logs/                 — runtime logs (gitignored)
@@ -47,6 +53,8 @@ scripts/run.bat
 # Or directly:
 python src/main.py
 python src/main.py path/to/config.json   # explicit config
+python src/main.py --force               # re-encode even if output already exists
+python src/main.py --cleanup             # interactive post-YouTube cleanup mode
 
 # KO detection standalone (still works):
 python src/ko_detect.py                  # ground truth test
@@ -147,7 +155,8 @@ Full technical reference: `docs/MULTIKILL_DETECTION.md`.
 
 - 2fps frame extraction, banner crop: right 25%, y 40–62%, 2s cooldown between events
 - **Threshold:** Quad+ only in YouTube description output; Triple and below detected internally
-- **Cache:** `data/cache/<char>/<clip_stem>.ko.json` — re-runs are instant; null = no kill (valid)
+- **Cache:** `data/cache/<char>/<YYYY-MM>/<clip_stem>.ko.json` — re-runs are instant; null = no kill (valid)
+- **Cache keying:** each entry stores `file_mtime`; if the clip file changes, the cache is automatically invalidated and the clip is re-scanned
 - **`ko_detect.configure(ffmpeg, tesseract, cache_dir)`** — injects runtime paths from config.json so the pipeline isn't hardcoded to THOR. Standalone usage is unaffected.
 
 ## YouTube description format
@@ -181,10 +190,13 @@ Validated clips and known limitations: `docs/MULTIKILL_DETECTION.md`.
 2. ~~vid1 published with verified timestamps~~ ✅ DONE
 3. ~~vid2 published with verified timestamps~~ ✅ DONE
 4. ~~Rewrite entire pipeline in Python~~ ✅ DONE
-5. **Test and refine the new Python pipeline end-to-end** — run against THOR clips
-   (batch3_unused has 5 clips, good smoke test), verify sort → scan → batch → detect →
-   encode → describe all work, fix any bugs, iterate until clean
-6. Test on a new batch (different character) — see IDEAS.md
+5. ~~Skip-if-exists for encoding~~ ✅ DONE — `encoder.py` checks before running FFmpeg; `--force` flag re-encodes
+6. ~~Fix cache keying by (filename, mtime)~~ ✅ DONE — stale caches detected and re-scanned
+7. ~~AI prompt generation~~ ✅ DONE — `src/ai_prompt.py` writes `<slug>_ai_prompts.md` after each pipeline run
+8. ~~Cleanup command~~ ✅ DONE — `src/cleanup.py`; run via `python src/main.py --cleanup`; lists clips with KO tiers, confirms archive/delete/video steps interactively
+9. **Test the pipeline end-to-end** — run against THOR clips, verify sort → scan → batch → detect →
+   encode → describe → AI prompts all work; fix any runtime bugs
+10. Test on a new batch (different character) — see IDEAS.md
 
 ## Dependencies
 - Python 3.10+

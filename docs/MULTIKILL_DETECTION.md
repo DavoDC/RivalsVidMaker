@@ -103,12 +103,13 @@ Timestamp range format and threshold (Quad+ only): see `docs/YOUTUBE_TITLE_AND_D
 
 ## This Clip's Output (When Working Correctly)
 
-Given this clip is part of batch1 (vid1), and its position in the batch needs
-to be computed from cumulative durations of preceding clips, the exact compiled
-video timestamp is TBD. But within the clip itself:
+This clip is the first clip in vid1 (batch1). Within the clip itself:
 
-- **Quad kill at: 0:40** (frame 1192)
-- **Sequence window: 0:10 – 0:45**
+- **Quad kill at: 0:20** (frame 1192, at 2fps scan)
+- **Sequence window: 0:06 – 0:22** (KO banner first appears at ~0:06, Quad banner at ~0:20)
+
+In the compiled video, this clip is clip 1 with no preceding offset. Verified timestamp:
+`0:06 - 0:22 = Quad Kill` (confirmed accurate by manual playback — see CLAUDE.md).
 
 ## Validated Test Clips
 
