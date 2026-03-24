@@ -1,5 +1,9 @@
 # Rivals Vid Maker
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/G2G31WKOCN)
+
+
+
 Automates building ~15-minute YouTube compilation videos from short [Marvel Rivals](https://www.marvelrivals.com/) gameplay clips.
 
 ## What it does
