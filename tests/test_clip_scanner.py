@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from clip_scanner import Clip, probe_duration, scan_folder
+from clip_scanner import Clip, probe_duration, scan_folder, summarize_folder
 
 
 class TestProbeDuration:
@@ -95,3 +95,46 @@ class TestScanFolder:
             clips = scan_folder(tmp_path, Path("ffprobe"))
 
         assert len(clips) == 5
+
+
+class TestSummarizeFolder:
+
+    def test_empty_folder_returns_zeros(self, tmp_path):
+        count, total = summarize_folder(tmp_path, Path("ffprobe"))
+        assert count == 0
+        assert total == 0.0
+
+    def test_single_clip(self, tmp_path):
+        (tmp_path / "clip.mp4").touch()
+        with patch("clip_scanner.probe_duration", return_value=45.0):
+            count, total = summarize_folder(tmp_path, Path("ffprobe"))
+        assert count == 1
+        assert total == pytest.approx(45.0)
+
+    def test_multiple_clips_summed(self, tmp_path):
+        for name in ["a.mp4", "b.mp4", "c.mp4"]:
+            (tmp_path / name).touch()
+        with patch("clip_scanner.probe_duration", return_value=30.0):
+            count, total = summarize_folder(tmp_path, Path("ffprobe"))
+        assert count == 3
+        assert total == pytest.approx(90.0)
+
+    def test_zero_duration_clips_excluded_from_count_and_total(self, tmp_path):
+        (tmp_path / "good.mp4").touch()
+        (tmp_path / "bad.mp4").touch()
+
+        def fake_probe(path, _):
+            return 60.0 if path.name == "good.mp4" else 0.0
+
+        with patch("clip_scanner.probe_duration", side_effect=fake_probe):
+            count, total = summarize_folder(tmp_path, Path("ffprobe"))
+
+        assert count == 1
+        assert total == pytest.approx(60.0)
+
+    def test_non_video_files_ignored(self, tmp_path):
+        (tmp_path / "clip.mp4").touch()
+        (tmp_path / "notes.txt").touch()
+        with patch("clip_scanner.probe_duration", return_value=10.0):
+            count, total = summarize_folder(tmp_path, Path("ffprobe"))
+        assert count == 1
