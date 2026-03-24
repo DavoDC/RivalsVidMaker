@@ -156,3 +156,22 @@ class TestWriteDescriptionClipTiers:
         out1 = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers)
         out2 = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers)
         assert out1.read_text() == out2.read_text()
+
+
+class TestWriteDescriptionOutStem:
+    """Tests for the out_stem override parameter."""
+
+    def test_default_stem_uses_char_and_batch_number(self, tmp_path):
+        batch = make_batch(number=2)
+        out = write_description(batch, "THOR", [], tmp_path)
+        assert out.name == "THOR_batch2_description.txt"
+
+    def test_custom_stem_used_in_filename(self, tmp_path):
+        batch = make_batch()
+        out = write_description(batch, "THOR", [], tmp_path, out_stem="THOR_Feb_2026")
+        assert out.name == "THOR_Feb_2026_description.txt"
+
+    def test_custom_stem_does_not_affect_content_char_name(self, tmp_path):
+        batch = make_batch()
+        out = write_description(batch, "STORM", [], tmp_path, out_stem="STORM_Mar_2026")
+        assert "STORM" in out.read_text()
