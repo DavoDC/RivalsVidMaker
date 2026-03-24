@@ -27,6 +27,14 @@ def load(path: Path = Path("config/config.json")) -> Config:
 
     raw = json.loads(path.read_text(encoding="utf-8"))
 
+    required = ("clips_path", "output_path", "ffmpeg_path")
+    missing = [k for k in required if k not in raw]
+    if missing:
+        raise KeyError(
+            f"config.json is missing required field(s): {', '.join(missing)}\n"
+            f"  See config/config.example.json for the expected format."
+        )
+
     clips_path = Path(raw["clips_path"])
     ffmpeg_dir = Path(raw["ffmpeg_path"])
     return Config(

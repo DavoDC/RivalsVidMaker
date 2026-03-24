@@ -22,18 +22,32 @@ def check_nvenc(ffmpeg: Path) -> bool:
     return "h264_nvenc" in (result.stdout + result.stderr)
 
 
-def encode(batch: Batch, char_name: str, output_dir: Path, ffmpeg: Path, out_stem: str | None = None) -> Path:
+def encode(
+    batch: Batch,
+    char_name: str,
+    output_dir: Path,
+    ffmpeg: Path,
+    out_stem: str | None = None,
+    force: bool = False,
+) -> Path:
     """
     Concatenate all clips in the batch into a single MP4.
 
     Returns the path to the encoded file.
     Uses a temporary concat list file that is cleaned up after encoding.
-    Passing -y to ffmpeg makes re-running idempotent (overwrites existing output).
+
+    If the output file already exists and force=False, encoding is skipped and
+    the existing file path is returned.  Pass force=True to re-encode anyway.
     """
     if out_stem is None:
         out_stem = f"{char_name}_batch{batch.number}"
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / f"{out_stem}.mp4"
+
+    if out_path.exists() and not force:
+        logging.warning("Output already exists: %s. Use --force to re-encode.", out_path)
+        print(f"[WARNING] Output already exists: {out_path}. Use --force to re-encode.")
+        return out_path
 
     # Write the ffmpeg concat list to a temp file
     with tempfile.NamedTemporaryFile(
@@ -67,9 +81,12 @@ def encode(batch: Batch, char_name: str, output_dir: Path, ffmpeg: Path, out_ste
     logging.debug("  FFmpeg cmd: %s", " ".join(cmd))
 
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True)
         if result.stderr:
             logging.debug("  FFmpeg stderr:\n%s", result.stderr.strip())
+        if result.returncode != 0:
+            logging.error("FFmpeg failed (exit %d):\n%s", result.returncode, result.stderr.strip())
+            raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
     finally:
         Path(concat_list).unlink(missing_ok=True)
 
