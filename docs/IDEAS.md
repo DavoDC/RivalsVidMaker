@@ -35,82 +35,36 @@ which stage they're in, and what their KO detection results are. Used to:
 Keyed by clip filename + modified time (or file hash) so it survives renames gracefully.
 Stored alongside the cache (e.g. `data/state.json`).
 
-### Caching layer (persistent, keyed, invalidation-aware)
-KO detection is expensive (~3–9s per clip). Cache results in a persistent JSON store keyed
-by `(filename, file_modified_time)` or file hash. On re-run, skip any clip whose key matches
-— use the cached result directly.
+### ~~Caching layer (persistent, keyed, invalidation-aware)~~ ✅ DONE
+Cache results stored in `data/cache/<char>/<YYYY-MM>/<stem>.ko.json` keyed by
+`(filename, file_mtime)`. On re-run, stale entries (mtime mismatch) are re-scanned.
+Null = "scanned, no kill found" — valid result, not a missing entry.
 
-Cache invalidation: if a file is modified or replaced, its key changes and it gets
-re-processed. The cache must never silently serve stale results.
+### ~~Startup state display~~ ✅ DONE
+`_print_multizone_status()` in `pipeline.py` shows all three folders (Highlights,
+Output, Archive) in separate tables on launch.
 
-Null in cache = "scanned, no kill found" — a valid result, not a missing entry.
-Cache must integrate with the state log so the two never contradict each other.
-Already partially implemented (`data/cache/<char>/<clip_stem>.ko.json`) — this idea
-upgrades it to be keyed on file identity rather than just filename.
+### ~~Output folder cleanup workflow~~ ✅ DONE (skeleton)
+`src/cleanup.py` — interactive cleanup with dry_run=True support. Lists clips with KO
+tiers, proposes Quad+ → ClipArchive moves and remaining clip deletion, asks per-action
+confirmation. Not yet wired into the main menu.
 
-### Startup state display
-On launch, show the state of ALL folders under `C:\Users\David\Videos\MarvelRivals\` —
-not just Highlights — with a separate titled table for each:
-
-**Highlights** — clips waiting to be compiled:
-```
-Character    Clips    Total duration    KO scanned?
-THOR         9        12m 34s           ✅ all cached
-STORM        4        5m 12s            — not scanned
-```
-
-**Output** — compiled videos and their status:
-```
-Folder               Video              YouTube confirmed
-THOR_FEB-MAR_2026    THOR_FEB-MAR_...   ✅
-STORM_MAR_2026       STORM_MAR_...      — pending
-```
-
-**ClipArchive** — archived Quad+ clips:
-```
-Clips    Characters
-12       THOR (7), STORM (5)
-```
-
-User picks what to do next. Nothing runs automatically without selection.
-
-### Output folder cleanup workflow
-After the user confirms a YouTube video is live and looks good:
-1. Program lists every clip in `Output\CHARACTER_DATE\clips\` with its KO tier.
-2. Identifies Quad+ clips — proposes moving them to `ClipArchive\`.
-3. Identifies remaining clips — proposes deletion.
-4. Shows compiled `.mp4` size — asks whether to delete to save disk space.
-5. User confirms each action (or confirms all at once via dry-run preview).
-6. Only then are files moved/deleted. No silent cleanup.
-
-### Clip KO-tier rename at compilation stage
-When clips are moved into `Output\CHARACTER_DATE\clips\` at compile time, physically rename
-each file to embed its max detected KO tier:
-
-    THOR_2026-03-16_22-18-00.mp4  →  THOR_2026-03-16_22-18-00_QUAD.mp4
-    THOR_2026-02-21_20-47-21.mp4  →  THOR_2026-02-21_20-47-21_HEXA.mp4
-    THOR_2026-03-01_19-05-00.mp4  →  THOR_2026-03-01_19-05-00_NONE.mp4  (or no suffix)
-
-This is a real `os.rename()` on the clips in the Output clips folder — not a label.
-The HIGHLIGHTS section of the description naturally reflects the renamed files.
-Makes it trivial to identify Quad+ clips for archiving without re-scanning.
-
-**Legacy migration needed:** `thor_vid1\` and `thor_vid2\vid2_clips\` were compiled before
-this program was fully set up. Their clips need a one-off KO-tier rename pass so they follow
-the same convention (Quad+ can then be identified and moved to ClipArchive).
+### ~~Clip KO-tier rename at compilation stage~~ ✅ DONE
+`_move_clips()` in `pipeline.py` renames clips on move:
+`THOR_2026-03-16_22-18-00.mp4 → THOR_2026-03-16_22-18-00_QUAD.mp4`.
+Legacy vid1/vid2 clips still need a one-off migration pass (see Deferred section).
 
 ## High-priority / structural
 
 ### ~~Consolidate docs/ folder~~ ✅ DONE
-`docs/` is now 3 files: `GROUND_TRUTH.md`, `YOUTUBE_API.md`, `IDEAS.md`.
+`docs/` is now 4 files: `MULTIKILL_DETECTION.md`, `YOUTUBE_API.md`, `YOUTUBE_TITLE_AND_DESC.md`, `IDEAS.md`.
 
 ### ~~Reorganise repo structure~~ ✅ DONE
 C++ removed, Python pipeline in `src/`, `tests/`, `scripts/`, `config/`, `.gitkeep` in `tools/`, clean `.gitignore`. `tools/` kept as-is rather than renamed to `dependencies/`.
 
-### Rewrite pipeline in Python
-Replace the C++ pipeline entirely with Python (matching the SBS Downloader repo structure).
-Encoder, batcher, clip list, description writer — all in Python alongside `ko_detect.py` (in 'src' folder).
-Simpler to maintain, easier to iterate on.
+### ~~Rewrite pipeline in Python~~ ✅ DONE
+All pipeline stages (encoder, batcher, clip list, description writer) are in Python
+alongside `ko_detect.py` in `src/`. C++ removed entirely.
 
 ### ~~Pre-process mode: KO scan all clips upfront~~ ✅ DONE
 New `src/preprocess.py` module + `[P]` option in the main menu. Scans all clips
@@ -126,11 +80,10 @@ Encode KO info into the clip filename (see below) at this stage.
 Detailed design moved to "Clip KO-tier rename at compilation stage" in the Architecture
 section. Key decision: rename happens when clips move to `Output\clips\`, not in Highlights.
 
-### Skip-if-exists for encoding
-Before encoding a batch, check whether the output `.mp4` already exists. If it
-does, print a notice and skip (rather than silently overwriting with the `-y`
-flag). Re-encode can be forced with a `--force` flag or CLI option.
-This prevents accidentally re-encoding a video that took minutes to produce.
+### ~~Skip-if-exists for encoding~~ ✅ DONE
+`encode()` in `src/encoder.py` checks if the output `.mp4` exists before running FFmpeg.
+If it does, logs WARNING and returns the existing path. Pass `force_encode=True` to
+re-encode. Pipeline menu mentions `--force` option.
 
 ### Dry-run mode
 A `--dry-run` flag that prints everything the pipeline *would* do without
@@ -139,25 +92,13 @@ moving any files or running FFmpeg. Useful for:
 - Checking that KO detection results are sensible before encoding.
 - Safe to run in any state — no files are touched.
 
-### Cleanup command (post-YouTube workflow)
-An interactive cleanup subcommand for after a video is confirmed live on YouTube:
-1. List every clip in `Output\CHARACTER_DATE\clips\` with its KO tier.
-2. Identify Quad+ clips — confirm moving them to `ClipArchive\`.
-3. Identify remaining clips — confirm deletion with a per-file list.
-4. Show compiled `.mp4` size — ask whether to delete.
-5. Nothing happens until the user types `yes`.
-This maps directly to the "Output folder cleanup workflow" in the Architecture
-section and closes the loop on the full pipeline.
+### ~~Cleanup command (post-YouTube workflow)~~ ✅ DONE (skeleton)
+`src/cleanup.py` — see Architecture section above.
 
 ### Session history in startup display
 In the Output table, add a "Days since encoded" column derived from the folder's
 modification time. Lets you see at a glance which output folders are old and
 ready to be cleaned up vs recently created.
-
-### Auto-download FFmpeg if missing
-On startup, check whether `ffmpeg.exe` / `ffprobe.exe` exist at the configured path.
-If not, automatically download and extract the latest FFmpeg Windows build (same pattern
-as `C:\Users\David\GitHubRepos\SBS_Download`). No manual setup required for new machines.
 
 ### Startup clip availability check + video recommendations
 On launch, scan the highlights folder, group clips by character, tally total duration per group,
@@ -172,24 +113,20 @@ YouTube upload — compiled video, title, description, and timestamps — with z
 Currently the description and title are written by hand after running the script.
 Reference format: `docs/YOUTUBE_TITLE_AND_DESC.md`.
 
-### AI prompt generation for title & description
-At the end of the pipeline (after timestamps are written), generate a markdown file containing
-pre-filled AI prompts the user can paste into Claude/ChatGPT to produce the YouTube title and description.
-Prompts include: character name, clip count, date range, detected KO tiers, and canonical format reference.
-Terminal output at the end of the run points the user at the file:
-
-    ✅ Done! AI prompts saved → data/output/vid3/vid3_ai_prompts.md
-
-Faster than writing prompts from scratch each upload.
+### ~~AI prompt generation for title & description~~ ✅ DONE
+`src/ai_prompt.py` — writes `data/output/<slug>/<slug>_ai_prompts.md` after each
+pipeline run. Includes character/clip count/date range/kill tier context and pre-filled
+prompts (title, one-liner, and combined) following the canonical format in
+`docs/YOUTUBE_TITLE_AND_DESC.md`. Wired into `pipeline.py` after description writing.
 
 ### ~~Show KO tier in HIGHLIGHTS list~~ ✅ DONE
 `write_description()` now accepts `clip_tiers` and annotates each clip line:
 `6. THOR_2026-02-21_20-47-21.mp4 [HEXA]`
 
-### Document full pipeline end-to-end
-Write a reference doc (or update CLAUDE.md) describing the complete workflow:
-clip ingest → KO detection → batching → encode → description → YouTube upload.
-Useful for onboarding Claude in future sessions.
+### ~~Document full pipeline end-to-end~~ ✅ DONE
+CLAUDE.md documents the complete workflow: clip ingest → sort → KO detection →
+batching → encode → description. `docs/MANUAL_TESTING.md` covers end-to-end
+testing steps.
 
 ### Test on a different character
 Run the full pipeline on a fresh batch of clips for a non-Thor character (e.g. Squirrel Girl)
@@ -235,7 +172,6 @@ like `simple-term-menu` / `inquirer` for the interactive prompt.
 ### Pipeline improvements (lower priority backlog)
 - Description format overhaul
 - Group clips by output video in UI
-- Skip-if-exists logic (don't re-encode already-built batches)
 - **Time estimation** — before starting a batch, show the user a rough estimate of how long
   the full run will take, broken into stages:
   - *KO scanning* — ~3–9s per uncached clip (cached = instant); estimate from clip count and cache hits
@@ -243,3 +179,18 @@ like `simple-term-menu` / `inquirer` for the interactive prompt.
   - *Total* — sum of above, formatted as "~4 min" or "~12 min"
   Shown after the menu selection and before processing begins, so the user knows whether to
   wait or walk away.
+
+---
+
+## Deferred / future (no near-term action needed)
+
+### Auto-download FFmpeg if missing
+On startup, check whether `ffmpeg.exe` / `ffprobe.exe` exist at the configured path.
+If not, automatically download and extract the latest FFmpeg Windows build (same pattern
+as `C:\Users\David\GitHubRepos\SBS_Download`). No manual setup required for new machines.
+
+### Legacy KO-tier rename migration
+`thor_vid1\` and `thor_vid2\vid2_clips\` were compiled before this program was fully set up.
+Their clips need a one-off KO-tier rename pass so they follow the convention
+(Quad+ can then be identified and moved to ClipArchive).
+Low urgency — these videos are already published; just useful for archiving.
