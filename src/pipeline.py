@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 import ko_detect
+from ai_prompt import write_ai_prompts
 from batcher import make_batches
 from clip_scanner import VIDEO_EXTS, scan_folder, summarize_folder
 from clip_sorter import sort_clips
@@ -207,13 +208,21 @@ def _batch_slug(char_name: str, batch, total_batches: int) -> str:
 def _move_clips(batch, clip_tiers: dict[str, str], clips_dir: Path) -> None:
     """Move source clips into clips_dir, appending _TIER suffix where detected."""
     clips_dir.mkdir(parents=True, exist_ok=True)
+    moved = 0
     for clip in batch.clips:
         tier = clip_tiers.get(clip.name)
         stem = clip.path.stem + (f"_{tier}" if tier else "")
         dest = clips_dir / (stem + clip.path.suffix)
-        shutil.move(str(clip.path), str(dest))
-        logging.debug("Moved clip → %s", dest.name)
-    logging.info("Clips → %s", clips_dir)
+        if dest.exists():
+            logging.warning("Clip destination already exists, skipping: %s", dest.name)
+            continue
+        try:
+            shutil.move(str(clip.path), str(dest))
+            logging.debug("Moved clip → %s", dest.name)
+            moved += 1
+        except OSError as e:
+            logging.error("Failed to move %s → %s: %s", clip.name, dest.name, e)
+    logging.info("Clips → %s  (%d moved)", clips_dir, moved)
 
 
 # ── Table drawing ─────────────────────────────────────────────────────────────
@@ -376,7 +385,7 @@ def _prompt_choice(max_choice: int) -> int:
 
 # ── Main pipeline ─────────────────────────────────────────────────────────────
 
-def run(config: Config) -> None:
+def run(config: Config, force_encode: bool = False) -> None:
     t0 = time.perf_counter()
 
     config.output_path.mkdir(parents=True, exist_ok=True)
@@ -437,6 +446,10 @@ def run(config: Config) -> None:
 
     _print_char_table()
     print(f"  [P] Pre-process all clips (warm KO cache)")
+    if force_encode:
+        print("  [--force mode: existing output files will be re-encoded]")
+    else:
+        print("  (existing output files are skipped — use --force to re-encode)")
     print()
 
     # --- Step 6: main menu loop (character number or P for pre-process) ---
@@ -527,16 +540,32 @@ def run(config: Config) -> None:
         slug = _batch_slug(char_name, batch, len(batches))
         out_dir = config.output_path / slug
         t_enc = time.perf_counter()
-        encode(batch, char_name, out_dir, config.ffmpeg, out_stem=slug)
+        encode(batch, char_name, out_dir, config.ffmpeg, out_stem=slug, force=force_encode)
         logging.debug("Encode took %.1fs", time.perf_counter() - t_enc)
-        write_description(batch, char_name, highlights, out_dir, out_stem=slug,
-                          clip_tiers=clip_tiers)
+        desc_path = write_description(batch, char_name, highlights, out_dir, out_stem=slug,
+                                      clip_tiers=clip_tiers)
+
+        # Tally detected KO tiers for the AI prompts context block
+        ko_tier_counts: dict[str, int] = {}
+        for tier in clip_tiers.values():
+            ko_tier_counts[tier] = ko_tier_counts.get(tier, 0) + 1
+        prompts_path = write_ai_prompts(
+            out_dir=out_dir,
+            char_name=char_name,
+            clip_count=len(batch.clips),
+            date_range=_date_range(char_path),
+            ko_tiers=ko_tier_counts,
+            description_path=desc_path,
+            out_stem=slug,
+        )
+        print(f"AI prompts \u2192 {prompts_path}")
+
         _move_clips(batch, clip_tiers, out_dir / "clips")
 
         total_batches += 1
 
     elapsed = time.perf_counter() - t0
-    est_total = sum(estimates[i] for i, f in enumerate(char_folders) if f == char_path)
+    est_total = estimates[char_folders.index(char_path)]
     logging.info("")
     logging.info("=" * 50)
     logging.info("Done.  %d batch(es) encoded in %.1fs  (estimated %.1fs)", total_batches, elapsed, est_total)
