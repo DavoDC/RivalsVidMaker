@@ -1,13 +1,33 @@
-# Compilation Vid Maker (CVM)
+# Rivals Vid Maker
 
-Automates building ~15-minute YouTube compilation videos from short Marvel Rivals gameplay clips.
+Automates building ~15-minute YouTube compilation videos from short [Marvel Rivals](https://www.marvelrivals.com/) gameplay clips.
 
 ## What it does
 
-1. **Scans** a character's clip folder and batches clips into ~15-minute groups by duration
-2. **Detects** multi-kill events (Quad / Penta / Hexa) in each clip via OCR (Tesseract)
-3. **Encodes** each batch into a single MP4 using FFmpeg (NVENC GPU, CPU fallback)
+1. **Scans** a character's clip folder and batches clips into ~15-minute groups by total duration
+2. **Detects** multi-kill events (Quad / Penta / Hexa kills) in each clip via OCR (Tesseract)
+3. **Encodes** each batch into a single MP4 using FFmpeg (NVENC GPU-accelerated, CPU fallback)
 4. **Generates** a YouTube description `.txt` per batch with clickable multi-kill timestamps
+
+## Project Structure
+
+```
+RivalsVidMaker/
+├── config/
+│   ├── config.example.json  # Template - copy to config.json and fill in your paths
+│   └── config.json          # Your paths and batch settings (gitignored)
+├── src/
+│   ├── main.py              # CLI entrypoint
+│   ├── batcher.py           # Clip scanning and duration-based batching
+│   ├── ocr.py               # Tesseract OCR multi-kill detection
+│   ├── encoder.py           # FFmpeg encoding (NVENC / CPU fallback)
+│   └── description.py       # YouTube description + timestamp generation
+├── scripts/
+│   └── run.bat              # Windows launcher
+├── tests/                   # Pytest test suite
+├── tools/                   # FFmpeg binaries (gitignored)
+└── data/                    # Runtime cache (gitignored)
+```
 
 ## Setup
 
@@ -18,7 +38,7 @@ winget install UB-Mannheim.TesseractOCR
 
 Place `ffmpeg.exe` + `ffprobe.exe` in `tools/`.
 
-Edit `config/config.json` (copy from `config/config.example.json`):
+Copy and edit the config:
 
 ```json
 {
@@ -35,15 +55,26 @@ Edit `config/config.json` (copy from `config/config.example.json`):
 ## Usage
 
 ```bash
-scripts/run.bat              # Windows launcher (Git Bash terminal)
-python src/main.py           # or run directly
+scripts/run.bat     # Windows launcher
+python src/main.py  # or run directly
 
-pytest                       # run tests
+pytest              # run tests
 ```
+
+## Tech
+
+- **Language:** Python 3.10+
+- **Video encoding:** [FFmpeg](https://ffmpeg.org/) with NVENC GPU acceleration (NVIDIA) - auto-falls back to CPU
+- **OCR:** [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) via pytesseract for kill-event detection
+- **Testing:** Pytest test suite
 
 ## Requirements
 
 - Windows, Python 3.10+
 - [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki)
 - FFmpeg in `tools/`
-- NVIDIA GPU recommended (NVENC) — falls back to CPU automatically
+- NVIDIA GPU recommended (NVENC) - falls back to CPU automatically
+
+## Development
+
+**Started:** March 2026 · **Status:** Actively developed
