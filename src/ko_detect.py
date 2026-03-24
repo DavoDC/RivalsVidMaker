@@ -18,6 +18,7 @@ Usage:
     python src/ko_detect.py --batch vid2            # full batch → writes output txt
 """
 
+import logging
 import subprocess, os, sys, tempfile, shutil, glob, re, json, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -130,7 +131,7 @@ def get_duration(clip_path: str) -> float:
     )
     try:
         return float(r.stdout.strip())
-    except:
+    except ValueError:
         return 0.0
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
@@ -140,6 +141,14 @@ def _month_from_stem(stem: str) -> str | None:
     Returns None if the filename doesn't contain a parseable date."""
     m = re.search(r"(\d{4}-\d{2})-\d{2}", stem)
     return m.group(1) if m else None
+
+
+def _file_mtime(clip_path: str) -> float:
+    """Return the file's last-modified timestamp, or 0.0 if the file is missing."""
+    try:
+        return os.path.getmtime(clip_path)
+    except OSError:
+        return 0.0
 
 
 def cache_path(clip_path: str) -> str:
@@ -156,27 +165,74 @@ def cache_path(clip_path: str) -> str:
 
 
 def cache_exists(clip_path: str) -> bool:
-    return os.path.exists(cache_path(clip_path))
+    """Return True only if a valid, up-to-date cache entry exists for this clip.
+
+    Validity check: the file_mtime stored in the cache entry must match the
+    clip file's current mtime.  A stale entry (clip replaced or modified)
+    returns False so the clip is re-scanned.
+    """
+    hit, _ = cache_load(clip_path)
+    return hit
 
 
 def cache_load(clip_path: str) -> tuple[bool, dict | None]:
     """
     Returns (hit, result).
-      hit=False → not in cache, needs scanning
+      hit=False → not in cache or entry is stale, needs scanning
       hit=True, result=None  → cached "no kill detected"
-      hit=True, result=dict  → cached kill data
+      hit=True, result=dict  → cached kill data (file_mtime key stripped before returning)
+
+    Stale entries (file_mtime mismatch) are treated as cache misses and logged at DEBUG.
     """
     p = cache_path(clip_path)
     if not os.path.exists(p):
         return False, None
-    with open(p) as f:
-        return True, json.load(f)
+    try:
+        with open(p) as f:
+            entry = json.load(f)
+    except (OSError, ValueError):
+        return False, None
+
+    if not isinstance(entry, dict):
+        # Legacy bare-null entries have no mtime — treat as miss so they're rewritten
+        logging.debug("Cache legacy null entry, re-scanning: %s", os.path.basename(clip_path))
+        return False, None
+
+    stored_mtime = entry.get("file_mtime")
+    if stored_mtime is None:
+        # Legacy entry without mtime — accept as-is (backward compatible)
+        result = {k: v for k, v in entry.items() if k != "file_mtime"}
+        return True, result or None
+
+    current_mtime = _file_mtime(clip_path)
+    if stored_mtime != current_mtime:
+        logging.debug("Cache stale (mtime mismatch), re-scanning: %s", os.path.basename(clip_path))
+        return False, None
+
+    # Strip the internal file_mtime key before returning to callers
+    result = {k: v for k, v in entry.items() if k != "file_mtime"}
+    # A null-result entry has _null_result=True and no other meaningful keys
+    if result.get("_null_result"):
+        return True, None
+    return True, result if result else None
 
 
 def cache_save(clip_path: str, result: dict | None):
-    os.makedirs(os.path.dirname(cache_path(clip_path)), exist_ok=True)
-    with open(cache_path(clip_path), "w") as f:
-        json.dump(result, f)
+    """Write result to the cache.
+
+    All entries (including null = no kill found) store file_mtime so future
+    loads can detect if the clip file has been replaced or modified.
+    Null results are stored as {"_null_result": true, "file_mtime": <mtime>}.
+    """
+    p = cache_path(clip_path)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    if result is None:
+        entry: dict = {"_null_result": True, "file_mtime": _file_mtime(clip_path)}
+    else:
+        entry = dict(result)
+        entry["file_mtime"] = _file_mtime(clip_path)
+    with open(p, "w") as f:
+        json.dump(entry, f)
 
 # ── Core scan ─────────────────────────────────────────────────────────────────
 
