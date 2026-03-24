@@ -81,4 +81,4 @@ pytest              # run tests
 
 ## Development
 
-**Started:** March 2026 · **Status:** Actively developed
+**Developed:** March 2026 · **Status:** Actively developed
