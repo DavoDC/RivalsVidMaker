@@ -17,3 +17,6 @@ tools/*
 
 # Claude Code
 .claude/
+
+# Local state log (machine-specific, not committed)
+data/state.json

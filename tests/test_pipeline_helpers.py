@@ -219,12 +219,12 @@ class TestScanOutputFolder:
         (folder / "THOR_Feb_2026_description.txt").write_text("desc")
         (folder / "clips").mkdir()
         rows = _scan_output_folder(tmp_path)
-        assert rows[0] == {
-            "name": "THOR_Feb_2026",
-            "has_video": True,
-            "has_desc": True,
-            "has_clips": True,
-        }
+        row = rows[0]
+        assert row["name"] == "THOR_Feb_2026"
+        assert row["has_video"] is True
+        assert row["has_desc"] is True
+        assert row["has_clips"] is True
+        assert "age" in row
 
     def test_multiple_folders_returned_sorted(self, tmp_path):
         for name in ["STORM_Mar_2026", "THOR_Feb_2026", "THOR_Mar_2026"]:

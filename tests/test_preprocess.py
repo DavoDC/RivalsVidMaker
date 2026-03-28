@@ -25,6 +25,7 @@ def make_config(clips_path: Path) -> Config:
         min_batch_seconds=600,
         target_batch_seconds=900,
         protect_recent_clips=0,
+        state_path=Path("data/state.json"),
     )
 
 

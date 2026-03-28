@@ -82,8 +82,8 @@ class TestRunCleanupArchiving:
         quad_clip = clips_dir / "THOR_2026-02-06_22-38-56_QUAD.mp4"
         quad_clip.write_bytes(b"quad data")
 
-        # Confirm archive, decline delete, decline video delete
-        with patch("builtins.input", side_effect=["y", "n", "n"]):
+        # Confirm YT, confirm archive, decline delete, decline video delete
+        with patch("builtins.input", side_effect=["y", "y", "n", "n"]):
             run_cleanup(out, archive)
 
         assert (archive / quad_clip.name).exists()
@@ -94,8 +94,8 @@ class TestRunCleanupArchiving:
         quad_clip = clips_dir / "THOR_2026-02-06_22-38-56_QUAD.mp4"
         quad_clip.write_bytes(b"quad data")
 
-        # Decline archive, decline delete, decline video delete
-        with patch("builtins.input", side_effect=["n", "n", "n"]):
+        # Confirm YT, decline archive, decline delete, decline video delete
+        with patch("builtins.input", side_effect=["y", "n", "n", "n"]):
             run_cleanup(out, archive)
 
         assert quad_clip.exists()
@@ -109,7 +109,7 @@ class TestRunCleanupArchiving:
         existing = archive / quad_clip.name
         existing.write_bytes(b"already archived")
 
-        with patch("builtins.input", side_effect=["y", "n", "n"]):
+        with patch("builtins.input", side_effect=["y", "y", "n", "n"]):
             run_cleanup(out, archive)
 
         # Existing archive file is not overwritten
@@ -123,8 +123,8 @@ class TestRunCleanupDeletion:
         clip = clips_dir / "THOR_2026-02-06_22-38-56.mp4"
         clip.write_bytes(b"no tier")
 
-        # No quad+ to archive, confirm delete, decline video delete
-        with patch("builtins.input", side_effect=["y", "n"]):
+        # Confirm YT, no quad+ to archive, confirm delete, decline video delete
+        with patch("builtins.input", side_effect=["y", "y", "n"]):
             run_cleanup(out, archive)
 
         assert not clip.exists()
@@ -134,7 +134,7 @@ class TestRunCleanupDeletion:
         clip = clips_dir / "THOR_2026-02-06_22-38-56.mp4"
         clip.write_bytes(b"no tier")
 
-        with patch("builtins.input", side_effect=["n", "n"]):
+        with patch("builtins.input", side_effect=["y", "n", "n"]):
             run_cleanup(out, archive)
 
         assert clip.exists()
@@ -147,8 +147,8 @@ class TestRunCleanupDeletion:
         plain = clips_dir / "THOR_2026-02-07_18-00-00.mp4"
         plain.write_bytes(b"plain")
 
-        # Confirm archive, confirm delete remaining, decline video delete
-        with patch("builtins.input", side_effect=["y", "y", "n"]):
+        # Confirm YT, confirm archive, confirm delete remaining, decline video delete
+        with patch("builtins.input", side_effect=["y", "y", "y", "n"]):
             run_cleanup(out, archive)
 
         assert (archive / quad.name).exists()
@@ -160,8 +160,8 @@ class TestRunCleanupVideoFile:
     def test_compiled_mp4_deleted_when_confirmed(self, tmp_path):
         out, clips_dir, mp4, archive = _make_output_folder(tmp_path)
 
-        # No clips: skip archive, skip deletion, confirm video delete
-        with patch("builtins.input", side_effect=["y"]):
+        # Confirm YT, no clips: skip archive, skip deletion, confirm video delete
+        with patch("builtins.input", side_effect=["y", "y"]):
             run_cleanup(out, archive)
 
         assert not mp4.exists()
@@ -169,7 +169,7 @@ class TestRunCleanupVideoFile:
     def test_compiled_mp4_kept_when_declined(self, tmp_path):
         out, clips_dir, mp4, archive = _make_output_folder(tmp_path)
 
-        with patch("builtins.input", side_effect=["n"]):
+        with patch("builtins.input", side_effect=["y", "n"]):
             run_cleanup(out, archive)
 
         assert mp4.exists()
@@ -179,8 +179,7 @@ class TestRunCleanupVideoFile:
         out, clips_dir, mp4, archive = _make_output_folder(tmp_path)
         mp4.unlink()
 
-        # Only the delete-remaining prompt fires (no clips → actually nothing fires)
-        with patch("builtins.input", side_effect=[]) as mock_input:
+        # YT confirmation fires, then nothing else (no clips, no video)
+        with patch("builtins.input", side_effect=["y"]) as mock_input:
             run_cleanup(out, archive)
-        # Shouldn't have asked about the video
-        assert mock_input.call_count == 0
+        assert mock_input.call_count == 1
