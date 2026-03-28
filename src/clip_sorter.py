@@ -53,25 +53,41 @@ def extract_character(stem: str) -> str | None:
     return re.sub(r"\s+", "_", char_raw)
 
 
-def sort_clips(clips_path: Path) -> int:
+def sort_clips(clips_path: Path, protect_recent: int = 0) -> int:
     """
     Move any video files sitting directly in clips_path into per-character subfolders.
+
+    protect_recent: leave the N most recently saved clips (last N alphabetically)
+    in the root untouched, so their saved status stays visible in the game UI.
 
     Subfolders that already exist (e.g. THOR/vid1_uploaded/) are not touched.
     Returns the number of files moved.
     """
-    video_files = [
+    video_files = sorted(
         p for p in clips_path.iterdir()
         if p.is_file() and p.suffix.lower() in VIDEO_EXTS
-    ]
+    )
 
     if not video_files:
         logging.info("Sorting clips... 0 file(s) moved.")
         return 0
 
+    if protect_recent > 0 and protect_recent < len(video_files):
+        to_sort = video_files[:-protect_recent]
+        protected_count = protect_recent
+    elif protect_recent >= len(video_files):
+        logging.info(
+            "Sorting clips... 0 file(s) moved. (%d kept unsorted - protected)",
+            len(video_files),
+        )
+        return 0
+    else:
+        to_sort = video_files
+        protected_count = 0
+
     moved = 0
 
-    for src in sorted(video_files):
+    for src in to_sort:
         char = extract_character(src.stem)
         if char is None:
             logging.warning("  SKIP (cannot parse character name): %s", src.name)
@@ -83,14 +99,20 @@ def sort_clips(clips_path: Path) -> int:
 
         if dest.exists():
             logging.warning(
-                "  SKIP (destination already exists): %s → %s/", src.name, char
+                "  SKIP (destination already exists): %s -> %s/", src.name, char
             )
             continue
 
-        logging.debug("  Moving: %s → %s/", src.name, char)
+        logging.debug("  Moving: %s -> %s/", src.name, char)
         shutil.move(str(src), str(dest))
         moved += 1
 
-    logging.info("Sorting clips... %d file(s) moved.", moved)
+    if protected_count:
+        logging.info(
+            "Sorting clips... %d file(s) moved. (%d kept unsorted - protected)",
+            moved, protected_count,
+        )
+    else:
+        logging.info("Sorting clips... %d file(s) moved.", moved)
 
     return moved

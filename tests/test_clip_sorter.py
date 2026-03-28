@@ -150,3 +150,51 @@ class TestSortClips:
         _make_clip(tmp_path, "THOR_2026-02-08_11-00-00.mkv")
         moved = sort_clips(tmp_path)
         assert moved == 3
+
+
+class TestSortClipsProtectRecent:
+
+    def test_protect_recent_leaves_newest_in_root(self, tmp_path):
+        # a < b < c alphabetically; protect 1 -> only a, b moved; c stays in root
+        _make_clip(tmp_path, "THOR_2026-01-01_00-00-00.mp4")
+        _make_clip(tmp_path, "THOR_2026-01-02_00-00-00.mp4")
+        _make_clip(tmp_path, "THOR_2026-01-03_00-00-00.mp4")
+        moved = sort_clips(tmp_path, protect_recent=1)
+        assert moved == 2
+        assert (tmp_path / "THOR" / "THOR_2026-01-01_00-00-00.mp4").exists()
+        assert (tmp_path / "THOR" / "THOR_2026-01-02_00-00-00.mp4").exists()
+        assert (tmp_path / "THOR_2026-01-03_00-00-00.mp4").exists(), "Newest must stay in root"
+
+    def test_protect_recent_five_leaves_five_in_root(self, tmp_path):
+        clips = [f"THOR_2026-01-0{i}_00-00-00.mp4" for i in range(1, 8)]
+        for name in clips:
+            _make_clip(tmp_path, name)
+        moved = sort_clips(tmp_path, protect_recent=5)
+        assert moved == 2
+        for name in clips[:2]:
+            assert (tmp_path / "THOR" / name).exists()
+        for name in clips[2:]:
+            assert (tmp_path / name).exists(), f"{name} should stay in root"
+
+    def test_protect_recent_zero_moves_all(self, tmp_path):
+        for name in ["THOR_2026-01-01_00-00-00.mp4", "THOR_2026-01-02_00-00-00.mp4"]:
+            _make_clip(tmp_path, name)
+        moved = sort_clips(tmp_path, protect_recent=0)
+        assert moved == 2
+
+    def test_protect_recent_gte_count_moves_nothing(self, tmp_path):
+        _make_clip(tmp_path, "THOR_2026-01-01_00-00-00.mp4")
+        _make_clip(tmp_path, "THOR_2026-01-02_00-00-00.mp4")
+        moved = sort_clips(tmp_path, protect_recent=5)
+        assert moved == 0
+        assert (tmp_path / "THOR_2026-01-01_00-00-00.mp4").exists()
+        assert (tmp_path / "THOR_2026-01-02_00-00-00.mp4").exists()
+
+    def test_protect_recent_mixed_characters(self, tmp_path):
+        # 3 clips: a=oldest, b=middle, c=newest. protect 1 -> a and b moved, c stays
+        _make_clip(tmp_path, "SQUIRREL_GIRL_2026-01-01_00-00-00.mp4")
+        _make_clip(tmp_path, "THOR_2026-01-02_00-00-00.mp4")
+        _make_clip(tmp_path, "THOR_2026-01-03_00-00-00.mp4")
+        moved = sort_clips(tmp_path, protect_recent=1)
+        assert moved == 2
+        assert (tmp_path / "THOR_2026-01-03_00-00-00.mp4").exists(), "Newest must stay"
