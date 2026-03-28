@@ -296,10 +296,51 @@ def _scan_archive_folder(archive_path: Path) -> tuple[int, dict[str, int]]:
     return total, char_counts
 
 
+def _next_action(r: dict) -> str:
+    """Derive the next action for a compiled output folder based on its file state."""
+    if r["has_clips"]:
+        return "Archive Quad+, delete rest (--cleanup)"
+    if r["has_video"]:
+        return "Delete video"
+    return "Done"
+
+
 def _print_multizone_status(config: Config) -> None:
-    """Print Output and Archive status before the character menu."""
-    # OUTPUT
-    print("\n-- OUTPUT --")
+    """Print Highlights, Output, and Archive status. Order reflects the clip pipeline."""
+
+    # HIGHLIGHTS FOLDER
+    print("\n-- HIGHLIGHTS FOLDER --")
+    char_folders = sorted(e for e in config.clips_path.iterdir() if e.is_dir()) \
+        if config.clips_path.exists() else []
+    if char_folders:
+        with ThreadPoolExecutor() as pool:
+            summaries = list(pool.map(
+                lambda f: summarize_folder(f, config.ffprobe), char_folders
+            ))
+        h_rows = []
+        for folder, (count, dur) in zip(char_folders, summaries):
+            cached = sum(
+                1 for p in folder.iterdir()
+                if p.is_file() and p.suffix.lower() in VIDEO_EXTS
+                and (config.cache_dir / folder.name / (p.stem + ".ko.json")).exists()
+            )
+            h_rows.append((
+                folder.name,
+                str(count) if count else "0",
+                _fmt_duration(dur) if count else "-",
+                f"{cached}/{count}" if count else "-",
+                _date_range(folder),
+            ))
+        _print_table(
+            h_rows,
+            col_headers=("Character", "Clips", "Duration", "KO cached", "Date range"),
+            col_aligns=("l", "r", "r", "r", "l"),
+        )
+    else:
+        print("(no character folders found)")
+
+    # OUTPUT FOLDER
+    print("\n-- OUTPUT FOLDER --")
     output_rows = _scan_output_folder(config.output_path)
     if output_rows:
         o_rows = [
@@ -308,26 +349,27 @@ def _print_multizone_status(config: Config) -> None:
                 "OK" if r["has_video"] else "-",
                 "OK" if r["has_desc"] else "-",
                 "OK" if r["has_clips"] else "-",
+                _next_action(r),
             )
             for r in output_rows
         ]
         _print_table(
             o_rows,
-            col_headers=("Folder", "Video", "Desc", "Clips"),
-            col_aligns=("l", "l", "l", "l"),
+            col_headers=("Folder", "Video", "Desc", "Clips", "Next Action"),
+            col_aligns=("l", "l", "l", "l", "l"),
         )
     else:
         print("(no output folders found)")
 
-    # ARCHIVE
+    # ARCHIVE FOLDER
     total_archived, char_counts = _scan_archive_folder(config.archive_path)
     if total_archived:
         breakdown = ", ".join(
             f"{char} ({n})" for char, n in sorted(char_counts.items())
         )
-        print(f"\n-- ARCHIVE -- {total_archived} clip(s): {breakdown}")
+        print(f"\n-- ARCHIVE FOLDER -- {total_archived} clip(s): {breakdown}")
     else:
-        print("\n-- ARCHIVE -- (empty)")
+        print("\n-- ARCHIVE FOLDER -- (empty)")
 
     print()
 
