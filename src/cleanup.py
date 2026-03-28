@@ -124,12 +124,6 @@ def run_cleanup(
 
     if not clip_files:
         print("clips/ folder is empty or missing - nothing to clean up here.")
-    else:
-        print(f"\n{len(clip_files)} clip(s) in {clips_dir.name}/:\n")
-        for p in clip_files:
-            tier = _tier_from_name(p.name)
-            tier_label = f" [{tier}]" if tier else ""
-            print(f"  {p.name}{tier_label}")
 
     # ── Step 2: archive Quad+ clips ───────────────────────────────────────────
     quad_plus = [p for p in clip_files if _tier_from_name(p.name) in ARCHIVE_MIN_TIERS]
