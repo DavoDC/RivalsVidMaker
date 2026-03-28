@@ -1,0 +1,174 @@
+"""
+menu.py - Two-level arrow-key action picker using questionary.
+
+Level 1: pick a folder (Highlights / Output / Archive / Quit)
+Level 2: pick a context-specific action within that folder
+"""
+
+from pathlib import Path
+
+import questionary
+
+
+# ---------------------------------------------------------------------------
+# Label helpers
+# ---------------------------------------------------------------------------
+
+def _char_label(name: str, clip_count: int, duration_str: str, batch_count: int, status: str) -> str:
+    """Build a Level-2 label for a character folder."""
+    return f"{name}  ({clip_count} clips, {duration_str})  {status}"
+
+
+def _folder1_label(folder_name: str, summary: str = "") -> str:
+    """Build a Level-1 label for a top-level folder."""
+    if summary:
+        return f"{folder_name}   {summary}"
+    return folder_name
+
+
+def _output_label(row: dict, yt_confirmed: bool) -> str:
+    """Build a Level-2 label for an output folder row."""
+    name = row["name"]
+    age = row.get("age", "?")
+    if not yt_confirmed:
+        return f"{name}  ({age})  - confirm YT first"
+    if row.get("has_clips"):
+        return f"{name}  ({age})  - cleanup needed"
+    return f"{name}  ({age})"
+
+
+# ---------------------------------------------------------------------------
+# pick_action
+# ---------------------------------------------------------------------------
+
+def pick_action(
+    char_folders: list,
+    summaries: list,
+    output_rows: list,
+    state: dict,
+    target_batch_seconds: int,
+    output_path: Path | None = None,
+) -> dict:
+    """
+    Two-level interactive menu. Returns a dict with a 'type' key:
+      {'type': 'quit'}
+      {'type': 'compile', 'folder': Path}
+      {'type': 'preprocess'}
+      {'type': 'cleanup', 'folder': Path}
+    """
+    from state import is_youtube_confirmed
+
+    while True:
+        # --- Level 1: pick folder ---
+        level1_choices = _build_level1_choices(char_folders, summaries, output_rows, state,
+                                               target_batch_seconds)
+        answer = questionary.select(
+            "Which folder do you want to work on?",
+            choices=level1_choices,
+        ).ask()
+
+        if answer is None or answer == "quit":
+            return {"type": "quit"}
+
+        # --- Level 2: pick action ---
+        if answer == "highlights":
+            result = _highlights_submenu(char_folders, summaries, target_batch_seconds)
+            if result is not None:
+                return result
+            # None = back, loop to Level 1
+
+        elif answer == "output":
+            result = _output_submenu(output_rows, state, output_path)
+            if result is not None:
+                return result
+
+        # "archive" - read-only for now, loop back
+        # "back" - loop back
+
+
+def _build_level1_choices(char_folders, summaries, output_rows, state, target_batch_seconds):
+    from state import is_youtube_confirmed
+
+    # Highlights summary
+    ready = []
+    too_short = []
+    for folder, (count, dur) in zip(char_folders, summaries):
+        if dur >= target_batch_seconds:
+            ready.append(folder.name)
+        elif dur > 0:
+            too_short.append(folder.name)
+
+    if ready and too_short:
+        h_summary = f"{', '.join(ready)} ready, {len(too_short)} too short"
+    elif ready:
+        h_summary = f"{', '.join(ready)} ready"
+    elif too_short:
+        h_summary = f"{len(too_short)} too short"
+    else:
+        h_summary = "no clips"
+
+    # Output summary
+    if output_rows:
+        o_summary = f"{len(output_rows)} folder(s)"
+    else:
+        o_summary = "empty"
+
+    return [
+        questionary.Choice(_folder1_label("Highlights", h_summary), value="highlights"),
+        questionary.Choice(_folder1_label("Output", o_summary), value="output"),
+        questionary.Choice("Archive", value="archive"),
+        questionary.Choice("Quit", value="quit"),
+    ]
+
+
+def _highlights_submenu(char_folders, summaries, target_batch_seconds):
+    """Returns action dict or None (back)."""
+    choices = []
+    for folder, (count, dur) in zip(char_folders, summaries):
+        from pipeline import _fmt_duration, _menu_status
+        dur_str = _fmt_duration(dur) if count else "-"
+        batches = max(1, int(dur / target_batch_seconds)) if dur >= target_batch_seconds else 0
+        status = _menu_status(dur, target_batch_seconds)
+        label = _char_label(folder.name, count, dur_str, batches, status)
+        choices.append(questionary.Choice(label, value=str(folder)))
+
+    choices.append(questionary.Choice("Pre-process all clips (warm KO cache)", value="preprocess"))
+    choices.append(questionary.Choice("Back", value="back"))
+
+    answer = questionary.select(
+        "Which character do you want to compile?",
+        choices=choices,
+    ).ask()
+
+    if answer is None or answer == "back":
+        return None
+    if answer == "preprocess":
+        return {"type": "preprocess"}
+    return {"type": "compile", "folder": Path(answer)}
+
+
+def _output_submenu(output_rows, state, output_path):
+    """Returns action dict or None (back)."""
+    from state import is_youtube_confirmed
+
+    if not output_rows:
+        return None
+
+    choices = []
+    for row in output_rows:
+        yt_confirmed = is_youtube_confirmed(state, row["name"])
+        label = _output_label(row, yt_confirmed)
+        choices.append(questionary.Choice(label, value=row["name"]))
+
+    choices.append(questionary.Choice("Back", value="back"))
+
+    answer = questionary.select(
+        "Which output folder?",
+        choices=choices,
+    ).ask()
+
+    if answer is None or answer == "back":
+        return None
+
+    folder = (output_path / answer) if output_path else Path(answer)
+    return {"type": "cleanup", "folder": folder}

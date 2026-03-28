@@ -3,7 +3,6 @@ pipeline.py — Main orchestrator: sort → scan → batch → detect → encode
 """
 
 import logging
-import math
 import re
 import shutil
 import time
@@ -19,6 +18,7 @@ from clip_sorter import sort_clips
 from config import Config
 from description_writer import fmt_ts, write_description
 from encoder import encode
+from menu import pick_action
 from preprocess import preprocess_all
 from state import is_youtube_confirmed, load as load_state
 
@@ -396,20 +396,6 @@ def _print_multizone_status(config: Config) -> None:
     print()
 
 
-# ── Input helpers ─────────────────────────────────────────────────────────────
-
-def _prompt_choice(max_choice: int) -> int:
-    while True:
-        try:
-            raw = input("Enter choice: ").strip()
-            choice = int(raw)
-            if 1 <= choice <= max_choice:
-                return choice
-        except (ValueError, EOFError):
-            pass
-        print(f"  Invalid — enter a number between 1 and {max_choice}.")
-
-
 # ── Main pipeline ─────────────────────────────────────────────────────────────
 
 def run(config: Config, force_encode: bool = False) -> None:
@@ -431,7 +417,7 @@ def run(config: Config, force_encode: bool = False) -> None:
     if not char_folders:
         char_folders = [config.clips_path]
 
-    # --- Step 4: scan Highlights folders for the character selection menu ---
+    # --- Step 4: scan Highlights folders for the menu ---
     with ThreadPoolExecutor() as pool:
         summaries = list(pool.map(
             lambda f: summarize_folder(f, config.ffprobe), char_folders
@@ -439,69 +425,49 @@ def run(config: Config, force_encode: bool = False) -> None:
     for folder, (count, dur) in zip(char_folders, summaries):
         logging.debug("  %s: %d clips, %s", folder.name, count, _fmt_duration(dur))
 
-    # --- Step 5: character selection menu ---
-    rows = []
-    estimates = []
-    for i, (folder, (count, dur)) in enumerate(zip(char_folders, summaries), 1):
-        batches_n = math.ceil(dur / config.target_batch_seconds) if dur > 0 else 0
-        est = _estimate_seconds(folder, config.cache_dir, dur)
-        estimates.append(est)
-        rows.append((
-            str(i),
-            folder.name,
-            str(count) if count else "0",
-            _fmt_duration(dur) if count else "—",
-            f"~{batches_n}" if batches_n else "—",
-            _menu_status(dur, config.target_batch_seconds),
-            _date_range(folder),
-        ))
-        logging.debug("Menu item %d: %s — %d clips, %s, est %s",
-                      i, folder.name, count, _fmt_duration(dur), _fmt_estimate(est))
+    # --- Step 5: two-level arrow-key menu ---
+    output_rows = _scan_output_folder(config.output_path)
+    state = load_state(config.state_path)
 
-    col_headers = ("#", "Character", "Clips", "Duration", "Batches", "Status", "Date Range")
-    col_aligns  = ("r",  "l",         "r",     "r",         "r",       "l",     "l")
-    col_widths  = [max(len(col_headers[c]), max(len(r[c]) for r in rows)) for c in range(len(col_headers))]
-
-    def _print_char_table(highlight_row=None):
-        print(_tbl_line(col_widths, "┌", "┬", "┐"))
-        print(_tbl_row(col_headers, col_widths, col_aligns))
-        for row in (rows if highlight_row is None else [rows[highlight_row]]):
-            print(_tbl_line(col_widths, "├", "┼", "┤"))
-            print(_tbl_row(row, col_widths, col_aligns))
-        print(_tbl_line(col_widths, "└", "┴", "┘"))
-
-    _print_char_table()
-    print(f"  [P] Pre-process all clips (warm KO cache)")
-    if force_encode:
-        print("  [--force mode: existing output files will be re-encoded]")
-    else:
-        print("  (existing output files are skipped — use --force to re-encode)")
-    print()
-
-    # --- Step 6: main menu loop (character number or P for pre-process) ---
     while True:
-        raw = input(f"Enter choice (1-{len(char_folders)} or P): ").strip().lower()
+        action = pick_action(
+            char_folders, summaries, output_rows, state,
+            target_batch_seconds=config.target_batch_seconds,
+            output_path=config.output_path,
+        )
 
-        if raw in ("p", "pre", "preprocess"):
+        if action["type"] == "quit":
+            logging.info("Cancelled.")
+            return
+
+        if action["type"] == "preprocess":
             logging.info("Pre-processing all clips...")
             preprocess_all(config)
-            # Refresh the display and re-show the menu after pre-processing
-            _print_char_table()
-            print(f"  [P] Pre-process all clips (warm KO cache)")
-            print()
+            # Refresh summaries and loop back to menu
+            with ThreadPoolExecutor() as pool:
+                summaries = list(pool.map(
+                    lambda f: summarize_folder(f, config.ffprobe), char_folders
+                ))
             continue
 
-        try:
-            choice = int(raw)
-            if 1 <= choice <= len(char_folders):
-                break
-        except ValueError:
-            pass
-        print(f"  Invalid — enter a number between 1 and {len(char_folders)}, or P.")
+        if action["type"] == "compile":
+            char_path = action["folder"]
+            break
 
-    char_path = char_folders[choice - 1]
-    est_str = _fmt_estimate(estimates[choice - 1])
-    _print_char_table(highlight_row=choice - 1)
+        if action["type"] == "cleanup":
+            from cleanup import run_cleanup
+            run_cleanup(action["folder"], config.archive_path,
+                        state_path=config.state_path, dry_run=False)
+            return
+
+    # Estimate for selected character
+    try:
+        char_idx = char_folders.index(char_path)
+        _, char_dur = summaries[char_idx]
+        est_str = _fmt_estimate(_estimate_seconds(char_path, config.cache_dir, char_dur))
+    except (ValueError, IndexError):
+        est_str = "unknown"
+
     raw = input(f"Make this video? Estimated processing time: {est_str}. [y/N]: ").strip().lower()
     if raw not in ("y", "yes"):
         logging.info("Cancelled.")
@@ -509,7 +475,7 @@ def run(config: Config, force_encode: bool = False) -> None:
 
     logging.info("Selected: %s", char_path.name)
 
-    # --- Step 7: process selected character ---
+    # --- Step 6: process selected character ---
     char_name = char_path.name
     logging.info("")
     logging.info("=" * 50)
@@ -591,10 +557,9 @@ def run(config: Config, force_encode: bool = False) -> None:
         total_batches += 1
 
     elapsed = time.perf_counter() - t0
-    est_total = estimates[char_folders.index(char_path)]
     logging.info("")
     logging.info("=" * 50)
-    logging.info("Done.  %d batch(es) encoded in %.1fs  (estimated %.1fs)", total_batches, elapsed, est_total)
+    logging.info("Done.  %d batch(es) encoded in %.1fs", total_batches, elapsed)
     logging.info("Output: %s", config.output_path)
 
     print("\a", end="", flush=True)
