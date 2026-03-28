@@ -31,9 +31,9 @@ def _output_label(row: dict, yt_confirmed: bool) -> str:
     name = row["name"]
     age = row.get("age", "?")
     if not yt_confirmed:
-        return f"{name}  ({age})  - confirm YT first"
+        return f"{name}  ({age})  - check it's live on YT before selecting (will delete compiled video)"
     if row.get("has_clips"):
-        return f"{name}  ({age})  - cleanup needed"
+        return f"{name}  ({age})  - cleanup ready (archive Quad+, delete rest)"
     return f"{name}  ({age})"
 
 
