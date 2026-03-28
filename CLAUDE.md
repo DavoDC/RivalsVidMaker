@@ -46,24 +46,26 @@ pytest.ini              — test config (testpaths=tests, pythonpath=src)
 ```
 
 ## How to run
+
+**Primary entry point: double-click `scripts/run.bat`**
+All normal workflow goes through this. No need to run scripts with different args.
+The interactive menu handles everything: compile, pre-process, cleanup, etc.
+
 ```
-# Double-click (opens Git Bash terminal):
-scripts/run.bat
-
-# Or directly:
-python src/main.py
-python src/main.py path/to/config.json   # explicit config
+# Developer/debug only (not normal usage):
 python src/main.py --force               # re-encode even if output already exists
-python src/main.py --cleanup             # interactive post-YouTube cleanup mode
+python src/main.py --cleanup --dry-run   # preview cleanup without moving files
 
-# KO detection standalone (still works):
+# KO detection standalone:
 python src/ko_detect.py                  # ground truth test
 python src/ko_detect.py <clip_path>      # single clip debug
-python src/ko_detect.py --batch vid1     # batch → writes timestamps .txt
 
 # Tests:
 pytest
 ```
+
+Note: `--cleanup` as a standalone flag is being phased into the interactive menu.
+Eventually all actions will be accessible from within run.bat with no extra flags needed.
 
 ## Development principles
 - **Single language rule** — Python only. No mixed languages.
@@ -232,13 +234,16 @@ Validated clips and known limitations: `docs/MULTIKILL_DETECTION.md`.
 2. ~~vid1 published with verified timestamps~~ ✅ DONE
 3. ~~vid2 published with verified timestamps~~ ✅ DONE
 4. ~~Rewrite entire pipeline in Python~~ ✅ DONE
-5. ~~Skip-if-exists for encoding~~ ✅ DONE — `encoder.py` checks before running FFmpeg; `--force` flag re-encodes
-6. ~~Fix cache keying by (filename, mtime)~~ ✅ DONE — stale caches detected and re-scanned
-7. ~~AI prompt generation~~ ✅ DONE — `src/ai_prompt.py` writes `<slug>_ai_prompts.md` after each pipeline run
-8. ~~Cleanup command~~ ✅ DONE — `src/cleanup.py`; run via `python src/main.py --cleanup`; lists clips with KO tiers, confirms archive/delete/video steps interactively
-9. **Test the pipeline end-to-end** — run against THOR clips, verify sort → scan → batch → detect →
-   encode → describe → AI prompts all work; fix any runtime bugs
-10. Test on a new batch (different character) — see IDEAS.md
+5. ~~Skip-if-exists for encoding~~ ✅ DONE
+6. ~~Fix cache keying by (filename, mtime)~~ ✅ DONE
+7. ~~AI prompt generation~~ ✅ DONE
+8. ~~Cleanup command~~ ✅ DONE - `src/cleanup.py` with dry_run support; YT confirmation gate saves to state.json
+9. ~~Protect 5 most-recent clips~~ ✅ DONE - `sort_clips` + `scan_folder` both respect `protect_recent_clips`
+10. ~~State log (folder-level)~~ ✅ DONE - `src/state.py` tracks `youtube_confirmed` per output folder
+11. ~~Startup folder status display~~ ✅ DONE - HIGHLIGHTS / OUTPUT / ARCHIVE FOLDER sections; OUTPUT shows Age, YT?, Next Action
+12. **Test end-to-end** - run run.bat, verify full sort -> scan -> compile -> cleanup flow works
+13. **Two-level arrow-key menu** - folder-first (Highlights / Output / Archive), then context actions; phases out number entry and --cleanup flag; see IDEAS.md for full design
+14. **State-driven pipeline** - full stage tracking per clip/batch; unifies the two current tables; see IDEAS.md architecture section
 
 ## Dependencies
 - Python 3.10+
