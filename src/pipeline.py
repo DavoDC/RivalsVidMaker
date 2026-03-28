@@ -493,26 +493,11 @@ def run(config: Config, force_encode: bool = False) -> None:
     for b in batches:
         logging.info("Batch %d: %d clip(s), %s", b.number, len(b.clips), b.duration_str)
 
+    # Always compile one batch at a time. Re-run the program for subsequent batches.
+    # (Remaining clips stay in Highlights until next run.)
+    batches_to_run = [batches[0]]
     if len(batches) > 1:
-        print(f"Generate all {len(batches)} batches, or just one?")
-        print("  [A] All batches")
-        for b in batches:
-            print(f"  [{b.number}] Batch {b.number} only  ({b.duration_str})")
-        while True:
-            raw = input(f"Enter choice [A/1-{len(batches)}]: ").strip().lower()
-            if raw in ("a", "all", ""):
-                batches_to_run = batches
-                break
-            try:
-                n = int(raw)
-                if 1 <= n <= len(batches):
-                    batches_to_run = [batches[n - 1]]
-                    break
-            except ValueError:
-                pass
-            print(f"  Invalid — enter A or a number between 1 and {len(batches)}.")
-    else:
-        batches_to_run = batches
+        logging.info("Note: %d batch(es) worth of clips available. Compiling batch 1 now - re-run for the rest.", len(batches))
 
     total_batches = 0
 

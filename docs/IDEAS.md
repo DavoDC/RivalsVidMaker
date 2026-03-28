@@ -4,11 +4,16 @@ This is the single source of truth for all pending work. CLAUDE.md "Next steps" 
 
 ## Pending - ordered by priority
 
-1. **Legacy KO-tier rename** - run `python scripts/migrate_ko_tiers.py` (dry-run first, then `--execute`). Renames thor_vid1 and thor_vid2/vid2_clips clips with KO tier suffix so cleanup can identify Quad+ clips.
-2. **Test end-to-end** - compile THOR (31 clips, ready), then run cleanup on thor_vid1/vid2 after KO-tier rename is done.
-3. **State-driven pipeline** - major redesign, see Architecture section below.
-4. **Dry-run mode** - `--dry-run` flag for the full pipeline (preview without moving files).
-5. **Legacy cleanup** - once KO-tier rename is done, mark thor_vid1/vid2 as YT-confirmed and run cleanup to archive Quad+ and clear disk space.
+1. **Test end-to-end** - compile THOR (31 clips ready), verify full sort -> scan -> compile -> describe -> move clips flow. Keep thor_vid2 in Output as real test data.
+2. **Fix multi-batch slug numbering** - when always compiling one batch at a time, `_BATCH1` suffix is unnecessary. Only add suffix if a previous batch output folder already exists for that character/date.
+3. **Dry-run mode** - `--dry-run` flag for the full pipeline (preview without moving files).
+4. **Best-of compilation** - once enough Quad+ clips accumulate in ClipArchive/THOR/.
+
+## Design decisions (settled)
+
+**One batch at a time** - the pipeline always compiles the first batch only. Re-run for subsequent batches. Clips not in the first batch stay in Highlights until the next run. Rationale: clips no longer build up to 30-min backlogs now that the process is automated. Previously they built up because the manual workflow was slow. Multi-batch prompt removed 2026-03-28.
+
+**State-driven pipeline** - parked indefinitely. The current system's implicit state (clips in Highlights = uncompiled, output folder exists = compiled) is sufficient. The one genuine benefit (multi-batch flow) is solved by the one-at-a-time approach above.
 
 ---
 
