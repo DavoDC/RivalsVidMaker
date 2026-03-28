@@ -98,9 +98,9 @@ def run_cleanup(
 
     if not already_confirmed:
         print(f"\nBefore cleaning up '{folder_name}':")
-        confirmed = _confirm("  Is this video live on YouTube?", dry_run=False)
+        confirmed = _confirm("Is this video live on YouTube?", dry_run=False)
         if not confirmed:
-            print("  Cleanup aborted - confirm on YouTube first.")
+            print("Cleanup aborted - confirm on YouTube first.")
             return
         if state_path:
             state = mark_youtube_confirmed(state, folder_name)
@@ -123,94 +123,109 @@ def run_cleanup(
         clip_files = []
 
     if not clip_files:
-        print("  clips/ folder is empty or missing — nothing to clean up here.")
+        print("clips/ folder is empty or missing - nothing to clean up here.")
     else:
-        print(f"\n  {len(clip_files)} clip(s) in {clips_dir.name}/:\n")
+        print(f"\n{len(clip_files)} clip(s) in {clips_dir.name}/:\n")
         for p in clip_files:
             tier = _tier_from_name(p.name)
-            tier_label = f"  [{tier}]" if tier else ""
-            print(f"    {p.name}{tier_label}")
+            tier_label = f" [{tier}]" if tier else ""
+            print(f"  {p.name}{tier_label}")
 
     # ── Step 2: archive Quad+ clips ───────────────────────────────────────────
     quad_plus = [p for p in clip_files if _tier_from_name(p.name) in ARCHIVE_MIN_TIERS]
     if quad_plus:
-        print(f"\n  {len(quad_plus)} Quad+ clip(s) to archive → {archive_path.name}/:")
+        char_name = quad_plus[0].stem.split("_")[0]
+        char_archive = archive_path / char_name
+        print(f"\n{len(quad_plus)} Quad+ clip(s) to archive -> {archive_path.name}/{char_name}/:")
         for p in quad_plus:
-            print(f"    {p.name}")
-        if _confirm("\n  Move these to ClipArchive?", dry_run=dry_run):
-            archive_path.mkdir(parents=True, exist_ok=True)
+            print(f"  {p.name}")
+        if _confirm("\nMove these to ClipArchive?", dry_run=dry_run):
+            char_archive.mkdir(parents=True, exist_ok=True)
             moved = 0
             for p in quad_plus:
-                dest = archive_path / p.name
+                dest = char_archive / p.name
                 if dest.exists():
                     logging.warning("Archive destination already exists, skipping: %s", p.name)
-                    print(f"    [skipped] {p.name} — already in archive")
+                    print(f"  [skipped] {p.name} - already in archive")
                     continue
                 try:
                     shutil.move(str(p), str(dest))
-                    logging.info("Archived: %s → %s", p.name, archive_path)
-                    print(f"    Archived: {p.name}")
+                    logging.debug("Archived: %s -> %s", p.name, char_archive)
                     moved += 1
                 except OSError as e:
                     logging.error("Failed to archive %s: %s", p.name, e)
-                    print(f"    [error] {p.name}: {e}")
-            print(f"  {moved}/{len(quad_plus)} clip(s) archived.")
-            # Refresh clip_files — quad_plus clips have moved
+                    print(f"  [error] {p.name}: {e}")
+            print(f"{moved}/{len(quad_plus)} clip(s) archived.")
+            # Refresh clip_files - quad_plus clips have moved
             clip_files = sorted(
                 p for p in clips_dir.iterdir()
                 if p.is_file() and p.suffix.lower() == ".mp4"
             )
         else:
-            print("  Skipped archiving.")
+            print("Skipped archiving.")
     else:
-        print("\n  (no Quad+ clips to archive)")
+        print("\n(no Quad+ clips to archive)")
 
     # ── Step 3: delete remaining clips ───────────────────────────────────────
     remaining = [p for p in clip_files if p.exists()]
     if remaining:
-        print(f"\n  {len(remaining)} remaining clip(s) to delete:")
+        print(f"\n{len(remaining)} remaining clip(s) to delete:")
         for p in remaining:
-            print(f"    {p.name}")
-        if _confirm("\n  Delete these clips permanently?", dry_run=dry_run):
+            print(f"  {p.name}")
+        if _confirm("\nDelete these clips permanently?", dry_run=dry_run):
             deleted = 0
             for p in remaining:
                 try:
                     p.unlink()
-                    logging.info("Deleted clip: %s", p.name)
+                    logging.debug("Deleted clip: %s", p.name)
                     deleted += 1
                 except OSError as e:
                     logging.error("Failed to delete %s: %s", p.name, e)
-                    print(f"    [error] deleting {p.name}: {e}")
-            print(f"  {deleted}/{len(remaining)} clip(s) deleted.")
-            # Remove the now-empty clips/ dir if nothing's left
+                    print(f"  [error] deleting {p.name}: {e}")
+            print(f"{deleted}/{len(remaining)} clip(s) deleted.")
             try:
                 clips_dir.rmdir()
                 logging.debug("Removed empty clips/ directory")
             except OSError:
-                pass  # Not empty (e.g. an error left a file behind) — leave it
+                pass
         else:
-            print("  Skipped clip deletion.")
+            print("Skipped clip deletion.")
     else:
-        print("\n  (no remaining clips to delete)")
+        print("\n(no remaining clips to delete)")
 
     # ── Step 4: delete compiled .mp4 ─────────────────────────────────────────
     mp4s = list(output_folder.glob("*.mp4"))
     if mp4s:
         for mp4 in mp4s:
             size_str = _fmt_size(mp4)
-            print(f"\n  Compiled video: {mp4.name}  ({size_str})")
-            if _confirm("  Delete this file to free disk space?", dry_run=dry_run):
+            print(f"\nCompiled video: {mp4.name}  ({size_str})")
+            if _confirm("Delete this file to free disk space?", dry_run=dry_run):
                 try:
                     mp4.unlink()
-                    logging.info("Deleted compiled video: %s", mp4.name)
-                    print(f"  Deleted: {mp4.name}")
+                    logging.debug("Deleted compiled video: %s", mp4.name)
+                    print(f"Deleted: {mp4.name}")
                 except OSError as e:
                     logging.error("Failed to delete %s: %s", mp4.name, e)
-                    print(f"  [error] deleting {mp4.name}: {e}")
+                    print(f"[error] deleting {mp4.name}: {e}")
             else:
-                print("  Kept compiled video.")
+                print("Kept compiled video.")
     else:
-        print("\n  (no compiled .mp4 found in output folder)")
+        print("\n(no compiled .mp4 found in output folder)")
+
+    # Remove description .txt files (no longer needed once video is gone)
+    for txt in output_folder.glob("*_description.txt"):
+        try:
+            txt.unlink()
+            logging.info("Deleted description file: %s", txt.name)
+        except OSError:
+            pass
+
+    # Remove the output folder itself if now empty
+    try:
+        output_folder.rmdir()
+        logging.info("Removed empty output folder: %s", output_folder.name)
+    except OSError:
+        pass  # Not empty - leave it
 
     print()
     print("  Cleanup complete.")
