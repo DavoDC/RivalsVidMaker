@@ -4,10 +4,10 @@ This is the single source of truth for all pending work. CLAUDE.md "Next steps" 
 
 ## Pending - ordered by priority
 
-1. **Test end-to-end** - compile THOR (31 clips ready), verify full sort -> scan -> compile -> describe -> move clips flow. Keep thor_vid2 in Output as real test data.
-2. **Fix multi-batch slug numbering** - when always compiling one batch at a time, `_BATCH1` suffix is unnecessary. Only add suffix if a previous batch output folder already exists for that character/date.
-3. **Dry-run mode** - `--dry-run` flag for the full pipeline (preview without moving files).
-4. **Best-of compilation** - once enough Quad+ clips accumulate in ClipArchive/THOR/.
+1. **Test end-to-end** - compile THOR (31 clips ready), verify full sort -> scan -> compile -> describe -> move clips flow.
+2. **Best-of compilation from Archive** - Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Key difference: clips must NOT move out of Archive after compilation (read-only source). Output slug would be e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive, 6m 11s - too short for a full video yet, but feature should be built ready.
+3. **Fix multi-batch slug numbering** - `_BATCH1` suffix is unnecessary when always compiling one batch at a time. Only add suffix if a previous output folder for that character/date already exists.
+4. **Dry-run mode** - `--dry-run` flag for the full pipeline (preview without moving files).
 
 ## Design decisions (settled)
 
