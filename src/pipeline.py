@@ -358,13 +358,14 @@ def _print_multizone_status(config: Config) -> None:
                 folder.name,
                 str(count) if count else "0",
                 _fmt_duration(dur) if count else "-",
+                _menu_status(dur, config.target_batch_seconds),
                 f"{cached}/{count}" if count else "-",
                 _date_range(folder),
             ))
         _print_table(
             h_rows,
-            col_headers=("Character", "Clips", "Duration", "KO cached", "Date range"),
-            col_aligns=("l", "r", "r", "r", "l"),
+            col_headers=("Character", "Clips", "Duration", "Status", "KO cached", "Date range"),
+            col_aligns=("l", "r", "r", "l", "r", "l"),
         )
     else:
         print("(no character folders found)")
@@ -399,10 +400,12 @@ def _print_multizone_status(config: Config) -> None:
     total_archived, char_data = _scan_archive_folder(config.archive_path, ffprobe=config.ffprobe)
     if total_archived:
         a_rows = [
-            (char, str(count), _fmt_duration(dur) if dur else "-")
+            (char, str(count), _fmt_duration(dur) if dur else "-",
+             _menu_status(dur, config.target_batch_seconds))
             for char, (count, dur) in sorted(char_data.items())
         ]
-        _print_table(a_rows, col_headers=("Character", "Clips", "Duration"), col_aligns=("l", "r", "r"))
+        _print_table(a_rows, col_headers=("Character", "Clips", "Duration", "Status"),
+                     col_aligns=("l", "r", "r", "l"))
     else:
         print("(empty)")
 

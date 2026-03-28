@@ -155,7 +155,7 @@ def _archive_view(archive_path: Path | None) -> None:
         print("\n  Archive folder is empty (or path not configured).")
     else:
         from clip_scanner import VIDEO_EXTS
-        clips = [p for p in archive_path.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTS]
+        clips = [p for p in archive_path.rglob("*") if p.is_file() and p.suffix.lower() in VIDEO_EXTS]
         if clips:
             print(f"\n  Archive: {len(clips)} clip(s)")
             for p in sorted(clips):
