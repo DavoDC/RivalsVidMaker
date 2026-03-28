@@ -87,7 +87,6 @@ def main() -> None:
             sys.exit(0)
 
     logging.info(f"Log saved to: {log_file}")
-    input("\nPress Enter to exit...")
 
 
 def _run_cleanup_mode(config, dry_run: bool = False) -> None:
