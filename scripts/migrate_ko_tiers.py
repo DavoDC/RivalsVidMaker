@@ -24,10 +24,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import ko_detect
 from clip_scanner import VIDEO_EXTS
-from config import load_config
+from config import load as load_config
 
 
 TIER_SUFFIX_PAT = re.compile(r'_(KO|DOUBLE|TRIPLE|QUAD|PENTA|HEXA)$', re.IGNORECASE)
+CLIP_NAME_PAT = re.compile(r'^\w+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}')  # CHAR_YYYY-MM-DD_HH-MM-SS
 
 
 def already_has_tier(stem: str) -> bool:
@@ -44,7 +45,8 @@ def scan_and_rename(folder: Path, config, dry_run: bool) -> tuple[int, int, int]
         return 0, 0, 0
 
     clips = sorted(p for p in folder.iterdir()
-                   if p.is_file() and p.suffix.lower() in VIDEO_EXTS)
+                   if p.is_file() and p.suffix.lower() in VIDEO_EXTS
+                   and CLIP_NAME_PAT.match(p.stem))
 
     total = len(clips)
     renamed = 0
@@ -53,7 +55,8 @@ def scan_and_rename(folder: Path, config, dry_run: bool) -> tuple[int, int, int]
     print(f"\n  Folder: {folder}")
     print(f"  {total} clip(s) found")
 
-    char_name = "THOR"  # both legacy folders are THOR
+    # Derive char name from first clip filename
+    char_name = clips[0].stem.split("_")[0] if clips else "UNKNOWN"
     ko_detect.configure(
         ffmpeg=str(config.ffmpeg),
         tesseract=str(config.tesseract),
@@ -98,10 +101,8 @@ def main():
 
     config = load_config()
 
-    folders = [
-        config.output_path / "thor_vid1",
-        config.output_path / "thor_vid2" / "vid2_clips",
-    ]
+    # Scan all clips/ subfolders within Output
+    folders = sorted(config.output_path.rglob("clips"))
 
     print("=" * 60)
     print("KO-Tier Migration", "- DRY RUN (pass --execute to apply)" if dry_run else "- EXECUTING")
