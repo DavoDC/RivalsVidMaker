@@ -5,7 +5,15 @@ This is the single source of truth for all pending work. CLAUDE.md "Next steps" 
 ## Pending - ordered by priority
 
 1. **Test end-to-end** - compile THOR (31 clips ready), verify full sort -> scan -> compile -> describe -> move clips flow.
-2. **Best-of compilation from Archive** - Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Key difference: clips must NOT move out of Archive after compilation (read-only source). Output slug would be e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive, 6m 11s - too short for a full video yet, but feature should be built ready.
+2. **Best-of compilation from Archive** - Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
+
+   **Archive clip lifecycle (decided):**
+   - Archive clips are NEVER deleted - permanent record of best kills.
+   - After a Best-of compilation, compiled clips move from `ClipArchive/THOR/` to `ClipArchive/THOR/compiled/` so they are not re-compiled into future Best-of videos.
+   - `ClipArchive/THOR/` (root) = pending clips, not yet in any Best-of video.
+   - `ClipArchive/THOR/compiled/` = clips already used in a Best-of, kept forever but excluded from future compiles.
+   - The compiled Best-of video itself goes through the normal Output + cleanup flow (published to YT, then video deleted, clips stay in compiled/).
+   - Archive display table should show pending vs compiled counts separately.
 3. **Fix multi-batch slug numbering** - `_BATCH1` suffix is unnecessary when always compiling one batch at a time. Only add suffix if a previous output folder for that character/date already exists.
 4. **Dry-run mode** - `--dry-run` flag for the full pipeline (preview without moving files).
 
