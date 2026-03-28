@@ -141,6 +141,10 @@ def run_cleanup(
             print(f"  {p.name}")
         if _confirm("\nMove these to ClipArchive?", dry_run=dry_run):
             char_archive.mkdir(parents=True, exist_ok=True)
+
+            before_archive = set(p.name for p in char_archive.iterdir() if p.is_file())
+            before_clips = set(p.name for p in clips_dir.iterdir() if p.is_file())
+
             moved = 0
             for p in quad_plus:
                 dest = char_archive / p.name
@@ -155,6 +159,19 @@ def run_cleanup(
                 except OSError as e:
                     logging.error("Failed to archive %s: %s", p.name, e)
                     print(f"  [error] {p.name}: {e}")
+
+            # Verify: expected files added to archive, removed from clips
+            after_archive = set(p.name for p in char_archive.iterdir() if p.is_file())
+            after_clips = set(p.name for p in clips_dir.iterdir() if p.is_file())
+            unexpected_remaining = set(p.name for p in quad_plus) & after_clips
+            unexpected_missing = (before_archive - after_archive)
+            if unexpected_remaining:
+                logging.warning("Archive verify: these files still in clips/ after move: %s", unexpected_remaining)
+            if unexpected_missing:
+                logging.warning("Archive verify: these files disappeared from archive: %s", unexpected_missing)
+            logging.debug("Archive verify: %d added, clips/ went from %d to %d files",
+                          len(after_archive - before_archive), len(before_clips), len(after_clips))
+
             print(f"{moved}/{len(quad_plus)} clip(s) archived.")
             # Refresh clip_files - quad_plus clips have moved
             clip_files = sorted(
