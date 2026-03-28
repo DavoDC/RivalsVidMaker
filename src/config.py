@@ -19,6 +19,7 @@ class Config:
     min_batch_seconds: int    # skip batches shorter than this
     target_batch_seconds: int  # aim for this duration per batch
     protect_recent_clips: int  # skip this many most-recent clips from batching
+    state_path: Path           # persistent state log (youtube_confirmed, etc.)
 
 
 def load(path: Path = Path("config/config.json")) -> Config:
@@ -51,4 +52,5 @@ def load(path: Path = Path("config/config.json")) -> Config:
         min_batch_seconds=int(raw.get("min_batch_seconds", 600)),
         target_batch_seconds=int(raw.get("target_batch_seconds", 900)),
         protect_recent_clips=int(raw.get("protect_recent_clips", 5)),
+        state_path=Path(raw.get("state_path", "data/state.json")),
     )
