@@ -316,11 +316,11 @@ def _scan_archive_folder(archive_path: Path) -> tuple[int, dict[str, int]]:
 def _next_action(r: dict, yt_confirmed: bool) -> str:
     """Derive the next action for a compiled output folder based on its state."""
     if not yt_confirmed:
-        return "Confirm on YouTube, then run --cleanup"
+        return "Confirm on YouTube, then select Output > this folder"
     if r["has_clips"]:
-        return "Run --cleanup (archive Quad+, delete rest)"
+        return "Select Output > this folder (archive Quad+, delete rest)"
     if r["has_video"]:
-        return "Delete video"
+        return "Delete compiled video"
     return "Done"
 
 
@@ -434,6 +434,7 @@ def run(config: Config, force_encode: bool = False) -> None:
             char_folders, summaries, output_rows, state,
             target_batch_seconds=config.target_batch_seconds,
             output_path=config.output_path,
+            archive_path=config.archive_path,
         )
 
         if action["type"] == "quit":

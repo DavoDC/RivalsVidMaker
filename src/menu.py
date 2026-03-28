@@ -48,6 +48,7 @@ def pick_action(
     state: dict,
     target_batch_seconds: int,
     output_path: Path | None = None,
+    archive_path: Path | None = None,
 ) -> dict:
     """
     Two-level interactive menu. Returns a dict with a 'type' key:
@@ -82,7 +83,8 @@ def pick_action(
             if result is not None:
                 return result
 
-        # "archive" - read-only for now, loop back
+        elif answer == "archive":
+            _archive_view(archive_path)
         # "back" - loop back
 
 
@@ -145,6 +147,22 @@ def _highlights_submenu(char_folders, summaries, target_batch_seconds):
     if answer == "preprocess":
         return {"type": "preprocess"}
     return {"type": "compile", "folder": Path(answer)}
+
+
+def _archive_view(archive_path: Path | None) -> None:
+    """Show archive contents (read-only) then return to menu."""
+    if not archive_path or not archive_path.exists():
+        print("\n  Archive folder is empty (or path not configured).")
+    else:
+        from clip_scanner import VIDEO_EXTS
+        clips = [p for p in archive_path.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTS]
+        if clips:
+            print(f"\n  Archive: {len(clips)} clip(s)")
+            for p in sorted(clips):
+                print(f"    {p.name}")
+        else:
+            print("\n  Archive folder is empty.")
+    input("  Press Enter to go back...")
 
 
 def _output_submenu(output_rows, state, output_path):
