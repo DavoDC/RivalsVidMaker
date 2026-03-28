@@ -20,3 +20,4 @@ tools/*
 
 # Local state log (machine-specific, not committed)
 data/state.json
+*.log
