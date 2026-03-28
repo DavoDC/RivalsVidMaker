@@ -20,6 +20,7 @@ from config import Config
 from description_writer import fmt_ts, write_description
 from encoder import encode
 from preprocess import preprocess_all
+from state import is_youtube_confirmed, load as load_state
 
 
 # ── KO scan helpers ──────────────────────────────────────────────────────────
@@ -253,6 +254,21 @@ def _print_table(rows, col_headers, col_aligns, highlight_row=None):
 
 # ── Folder state scanners ─────────────────────────────────────────────────────
 
+def _folder_age(folder: Path) -> str:
+    """Human-readable age of a folder based on its modification time."""
+    try:
+        days = (time.time() - folder.stat().st_mtime) / 86400
+        if days < 1:
+            return "today"
+        if days < 7:
+            return f"{int(days)}d"
+        if days < 30:
+            return f"{int(days / 7)}w"
+        return f"{int(days / 30)}mo"
+    except OSError:
+        return "?"
+
+
 def _scan_output_folder(output_path: Path) -> list[dict]:
     """Scan Output directory. Returns a list of dicts, one per subfolder."""
     if not output_path.exists():
@@ -269,6 +285,7 @@ def _scan_output_folder(output_path: Path) -> list[dict]:
             "has_video": bool(mp4s),
             "has_desc": bool(descs),
             "has_clips": clips_dir.is_dir(),
+            "age": _folder_age(folder),
         })
     return rows
 
@@ -296,10 +313,12 @@ def _scan_archive_folder(archive_path: Path) -> tuple[int, dict[str, int]]:
     return total, char_counts
 
 
-def _next_action(r: dict) -> str:
-    """Derive the next action for a compiled output folder based on its file state."""
+def _next_action(r: dict, yt_confirmed: bool) -> str:
+    """Derive the next action for a compiled output folder based on its state."""
+    if not yt_confirmed:
+        return "Confirm on YouTube, then run --cleanup"
     if r["has_clips"]:
-        return "Archive Quad+, delete rest (--cleanup)"
+        return "Run --cleanup (archive Quad+, delete rest)"
     if r["has_video"]:
         return "Delete video"
     return "Done"
@@ -343,20 +362,23 @@ def _print_multizone_status(config: Config) -> None:
     print("\n-- OUTPUT FOLDER --")
     output_rows = _scan_output_folder(config.output_path)
     if output_rows:
+        state = load_state(config.state_path)
         o_rows = [
             (
                 r["name"],
+                r["age"],
                 "OK" if r["has_video"] else "-",
                 "OK" if r["has_desc"] else "-",
                 "OK" if r["has_clips"] else "-",
-                _next_action(r),
+                "Yes" if is_youtube_confirmed(state, r["name"]) else "No",
+                _next_action(r, is_youtube_confirmed(state, r["name"])),
             )
             for r in output_rows
         ]
         _print_table(
             o_rows,
-            col_headers=("Folder", "Video", "Desc", "Clips", "Next Action"),
-            col_aligns=("l", "l", "l", "l", "l"),
+            col_headers=("Folder", "Age", "Video", "Desc", "Clips", "YT?", "Next Action"),
+            col_aligns=("l", "r", "l", "l", "l", "l", "l"),
         )
     else:
         print("(no output folders found)")

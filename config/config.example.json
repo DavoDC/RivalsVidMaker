@@ -7,5 +7,6 @@
   "cache_dir": "data\\cache",
   "min_batch_seconds": 600,
   "target_batch_seconds": 900,
-  "protect_recent_clips": 5
+  "protect_recent_clips": 5,
+  "state_path": "data/state.json"
 }

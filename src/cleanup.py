@@ -21,6 +21,8 @@ import re
 import shutil
 from pathlib import Path
 
+from state import is_youtube_confirmed, load as load_state, mark_youtube_confirmed, save as save_state
+
 # Tiers considered worth archiving (Quad and above)
 ARCHIVE_MIN_TIERS = {"QUAD", "PENTA", "HEXA"}
 
@@ -57,7 +59,12 @@ def _confirm(prompt: str, dry_run: bool = False) -> bool:
     return raw in ("y", "yes")
 
 
-def run_cleanup(output_folder: Path, archive_path: Path, dry_run: bool = False) -> None:
+def run_cleanup(
+    output_folder: Path,
+    archive_path: Path,
+    state_path: Path | None = None,
+    dry_run: bool = False,
+) -> None:
     """
     Interactive post-YouTube cleanup for one output folder.
 
@@ -65,13 +72,15 @@ def run_cleanup(output_folder: Path, archive_path: Path, dry_run: bool = False) 
     ----------
     output_folder : path to a compiled output folder (e.g. Output/THOR_FEB-MAR_2026/)
     archive_path  : path to the ClipArchive folder
+    state_path    : path to state.json; if provided, saves YouTube-confirmed status
     dry_run       : if True, print the plan without moving or deleting anything
 
     Steps:
+    0. Confirm the video is live on YouTube (gates the whole cleanup).
     1. List all clips in output_folder/clips/ with their KO tier (from filename suffix).
-    2. Identify Quad+ clips → propose moving to archive_path.
-    3. Identify remaining clips → propose deletion (shows each file).
-    4. Show compiled .mp4 size → ask whether to delete.
+    2. Identify Quad+ clips -> propose moving to archive_path.
+    3. Identify remaining clips -> propose deletion (shows each file).
+    4. Show compiled .mp4 size -> ask whether to delete.
     5. Nothing happens until the user types 'yes' for each action.
        With dry_run=True, only the plan is printed.
     """
@@ -81,6 +90,22 @@ def run_cleanup(output_folder: Path, archive_path: Path, dry_run: bool = False) 
     if not output_folder.exists():
         logging.error("Output folder not found: %s", output_folder)
         return
+
+    # Step 0: confirm video is live on YouTube before proceeding
+    folder_name = output_folder.name
+    state = load_state(state_path) if state_path else {}
+    already_confirmed = is_youtube_confirmed(state, folder_name)
+
+    if not already_confirmed:
+        print(f"\nBefore cleaning up '{folder_name}':")
+        confirmed = _confirm("  Is this video live on YouTube?", dry_run=False)
+        if not confirmed:
+            print("  Cleanup aborted - confirm on YouTube first.")
+            return
+        if state_path:
+            state = mark_youtube_confirmed(state, folder_name)
+            save_state(state, state_path)
+            logging.info("Marked '%s' as YouTube-confirmed in state log.", folder_name)
 
     clips_dir = output_folder / "clips"
 
