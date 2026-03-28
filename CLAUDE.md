@@ -111,14 +111,56 @@ Highlights is a pure intake zone: new clips arrive → get sorted → stay until
 ## Video folder structure
 Root: `C:\Users\David\Videos\MarvelRivals\`
 
-### Highlights\
-Default save path for Marvel Rivals (set in-game). New clips land here automatically.
+## End-to-end clip lifecycle (game -> pipeline -> YouTube)
 
-- Structure: `Highlights\CHARACTER\*.mp4` — **no further subfolders**.
+Understanding this flow is essential for designing pipeline features.
+
+### Stage 1: In-game auto-capture
+- Marvel Rivals automatically captures highlights during gameplay - no user action needed.
+- The game maintains an internal buffer of the **5 most recent highlights** only.
+- These 5 clips are shown in-game under `Career > Favorites > Highlights` in the **"RECENT HIGHLIGHTS 5/5"** panel.
+- These are NOT yet files on disk - they live in the game's internal buffer.
+- If the game captures a 6th clip, the oldest of the 5 is discarded and lost forever.
+
+### Stage 2: Manual save to disk (in-game UI)
+- David reviews the "RECENT HIGHLIGHTS 5/5" panel in-game.
+- Each clip has a **SAVE** button. He presses SAVE on clips worth keeping.
+- Pressing SAVE writes the `.mp4` file to `C:\Users\David\Videos\MarvelRivals\Highlights\` on disk.
+- Saved clips show a **"SAVED" badge** on the thumbnail; clips being written show **"SAVING"**.
+- Clips David does NOT save are lost when new clips push them out of the buffer.
+- Reference screenshot: `docs/Marvel_Rivals_Highlights_UI.png`
+
+### Stage 3: Clips on disk (RVM intake zone)
+- The **"HIGHLIGHTS SAVED"** panel in-game shows clips already on disk (with SHARE buttons).
+- The top 5 most recently created clips on the filesystem correspond to what the game shows as "SAVED" in its UI.
+- These are the raw `.mp4` files in `Highlights\` - this is where RVM takes over.
+- RVM auto-sorts them from the root into per-character subfolders on each run.
+
+### Stage 4: RVM pipeline
+- Clips stay in `Highlights\CHARACTER\` until compiled.
+- RVM batches them into ~15-min groups, encodes via FFmpeg, writes descriptions.
+- After compilation, clips move to `Output\CHARACTER_DATE\clips\` (renamed with KO tier).
+
+### Stage 5: Cleanup (post-YouTube)
+- After confirming the YouTube upload, cleanup runs: Quad+ -> ClipArchive, rest deleted.
+
+---
+
+### Design implication: protect recent clips from processing
+The 5 most recently created clips on the filesystem match what the game shows as "SAVED" in the Recent Highlights UI. If RVM moves or processes those clips, the game's UI loses track of them - the "SAVED" badge disappears and it becomes confusing which clips were saved.
+
+**Planned feature:** protect the N most recently created clips in `Highlights\` from being batched/moved (default N=5, matching the game's buffer size). These clips are skipped entirely until newer clips are saved on top of them. See IDEAS.md "Protect 5 most-recent clips" for implementation detail.
+
+---
+
+### Highlights\
+Default save path for Marvel Rivals (set in-game). New clips land here after David presses SAVE in-game.
+
+- Structure: `Highlights\CHARACTER\*.mp4` - **no further subfolders**.
 - Unsorted clips in the root are auto-sorted into character subfolders on each run.
 - Character folders contain only raw uncompiled clips. Once compiled, clips move out to Output.
 - Current state:
-  - `THOR\` — 9 uncompiled clips (ready for next batch)
+  - `THOR\` - 9 uncompiled clips (ready for next batch)
 
 ### Output\
 All compiled videos live here. One subfolder per published video.
