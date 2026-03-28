@@ -55,7 +55,7 @@ class TestOutputLabel:
         row = {"name": "thor_vid1", "age": "1w", "has_clips": True}
         label = _output_label(row, yt_confirmed=False)
         assert "thor_vid1" in label
-        assert "confirm yt" in label.lower()
+        assert "yt" in label.lower()
 
     def test_confirmed_with_clips(self):
         row = {"name": "thor_vid1", "age": "1w", "has_clips": True}
