@@ -50,10 +50,13 @@ def summarize_folder(folder: Path, ffprobe: Path, workers: int = 8) -> tuple[int
     return count, total
 
 
-def scan_folder(folder: Path, ffprobe: Path, workers: int = 8) -> list[Clip]:
+def scan_folder(folder: Path, ffprobe: Path, workers: int = 8, protect_recent: int = 0) -> list[Clip]:
     """
     Return all video clips in a folder, sorted alphabetically (= chronological
     for timestamp-named files), with durations probed in parallel.
+
+    protect_recent: skip the N most recently saved clips (last N alphabetically).
+    These stay untouched so their saved status remains visible in the game UI.
 
     Clips that fail duration probing are skipped with a warning.
     """
@@ -64,7 +67,20 @@ def scan_folder(folder: Path, ffprobe: Path, workers: int = 8) -> list[Clip]:
     if not paths:
         return []
 
-    logging.info("Found %d video file(s). Probing durations...", len(paths))
+    if protect_recent > 0:
+        protected = paths[-protect_recent:]
+        paths = paths[:-protect_recent]
+        logging.info(
+            "Found %d video file(s), protecting %d most recent: %s",
+            len(paths) + len(protected),
+            len(protected),
+            ", ".join(p.name for p in protected),
+        )
+        if not paths:
+            logging.info("All clips are protected - nothing to process.")
+            return []
+    else:
+        logging.info("Found %d video file(s). Probing durations...", len(paths))
 
     # Probe all durations in parallel — ffprobe is an external process so
     # threads give real concurrency here.

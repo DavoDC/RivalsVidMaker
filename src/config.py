@@ -18,6 +18,7 @@ class Config:
     tesseract: Path
     min_batch_seconds: int    # skip batches shorter than this
     target_batch_seconds: int  # aim for this duration per batch
+    protect_recent_clips: int  # skip this many most-recent clips from batching
 
 
 def load(path: Path = Path("config/config.json")) -> Config:
@@ -49,4 +50,5 @@ def load(path: Path = Path("config/config.json")) -> Config:
         ),
         min_batch_seconds=int(raw.get("min_batch_seconds", 600)),
         target_batch_seconds=int(raw.get("target_batch_seconds", 900)),
+        protect_recent_clips=int(raw.get("protect_recent_clips", 5)),
     )
