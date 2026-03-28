@@ -86,7 +86,7 @@ class TestRunCleanupArchiving:
         with patch("builtins.input", side_effect=["y", "y", "n", "n"]):
             run_cleanup(out, archive)
 
-        assert (archive / quad_clip.name).exists()
+        assert (archive / "THOR" / quad_clip.name).exists()
         assert not quad_clip.exists()
 
     def test_quad_clip_stays_when_archiving_declined(self, tmp_path):
@@ -151,7 +151,7 @@ class TestRunCleanupDeletion:
         with patch("builtins.input", side_effect=["y", "y", "y", "n"]):
             run_cleanup(out, archive)
 
-        assert (archive / quad.name).exists()
+        assert (archive / "THOR" / quad.name).exists()
         assert not plain.exists()
 
 
