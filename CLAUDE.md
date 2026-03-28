@@ -229,21 +229,9 @@ All detections verified accurate by manual playback.
 ## Detection status
 Validated clips and known limitations: `docs/MULTIKILL_DETECTION.md`.
 
-## Next steps
-1. ~~KO detection + range format timestamps~~ ✅ DONE
-2. ~~vid1 published with verified timestamps~~ ✅ DONE
-3. ~~vid2 published with verified timestamps~~ ✅ DONE
-4. ~~Rewrite entire pipeline in Python~~ ✅ DONE
-5. ~~Skip-if-exists for encoding~~ ✅ DONE
-6. ~~Fix cache keying by (filename, mtime)~~ ✅ DONE
-7. ~~AI prompt generation~~ ✅ DONE
-8. ~~Cleanup command~~ ✅ DONE - `src/cleanup.py` with dry_run support; YT confirmation gate saves to state.json
-9. ~~Protect 5 most-recent clips~~ ✅ DONE - `sort_clips` + `scan_folder` both respect `protect_recent_clips`
-10. ~~State log (folder-level)~~ ✅ DONE - `src/state.py` tracks `youtube_confirmed` per output folder
-11. ~~Startup folder status display~~ ✅ DONE - HIGHLIGHTS / OUTPUT / ARCHIVE FOLDER sections; OUTPUT shows Age, YT?, Next Action
-12. **Test end-to-end** - run run.bat, verify full sort -> scan -> compile -> cleanup flow works
-13. **Two-level arrow-key menu** - folder-first (Highlights / Output / Archive), then context actions; phases out number entry and --cleanup flag; see IDEAS.md for full design
-14. **State-driven pipeline** - full stage tracking per clip/batch; unifies the two current tables; see IDEAS.md architecture section
+## Pending work
+
+See `docs/IDEAS.md` for all pending ideas and next actions, ordered by priority.
 
 ## Dependencies
 - Python 3.10+
