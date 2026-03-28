@@ -56,6 +56,21 @@ Legacy vid1/vid2 clips still need a one-off migration pass (see Deferred section
 
 ## High-priority / structural
 
+### Protect 5 most-recent clips from batching/moving
+
+**Context:** Marvel Rivals only shows the 5 most recently saved highlights in-game (Career > Favorites > Highlights > "RECENT HIGHLIGHTS 5/5"). David manually presses SAVE to write clips to disk. The 5 most recently created files in `Highlights\` on disk correspond exactly to what the game shows as "SAVED" in its UI. If RVM moves those clips, the game loses track of them - the "SAVED" status disappears from the thumbnail and it gets confusing.
+
+**Requirement:** when scanning clips for a batch, always skip the N most recently created (by ctime/mtime) clips across the Highlights folder (default N=5). These clips stay untouched until newer clips are saved on top of them.
+
+**Implementation sketch:**
+- In `clip_scanner.py` or `pipeline.py`, after collecting all clips, sort by creation time descending.
+- Exclude the first `N` from the candidate list before passing to the batcher.
+- Make N configurable in `config.json` (key: `"protect_recent_clips": 5`).
+- Show in startup display: "X clips available, Y protected (most recent - still live in game UI)".
+- The protected clips are skipped silently; no error or warning needed.
+
+
+
 ### ~~Consolidate docs/ folder~~ ✅ DONE
 `docs/` is now 4 files: `MULTIKILL_DETECTION.md`, `YOUTUBE_API.md`, `YOUTUBE_TITLE_AND_DESC.md`, `IDEAS.md`.
 
