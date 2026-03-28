@@ -25,15 +25,14 @@ whole pipeline automatically.
 - Partial failure resilience: if the program is interrupted mid-stage (e.g. encode crashes),
   re-running must pick up from the last safe checkpoint, not restart from scratch.
 
-### State log (JSON)
-A simple per-session or persistent JSON file tracking which clips have been processed,
-which stage they're in, and what their KO detection results are. Used to:
-- Skip re-processing clips that have already been through KO detection.
-- Know which clips belong to which output batch.
-- Track whether an Output folder has been YouTube-confirmed.
+### ~~State log (JSON) - folder-level~~ ✅ DONE (partial)
+`src/state.py` + `data/state.json` (gitignored, machine-local).
+Tracks `youtube_confirmed` per output folder. Used by OUTPUT FOLDER display (YT? column,
+Next Action column) and gates --cleanup (asks "Is this live on YouTube?" on first run,
+saves answer). Load/save/mark/query functions fully tested.
 
-Keyed by clip filename + modified time (or file hash) so it survives renames gracefully.
-Stored alongside the cache (e.g. `data/state.json`).
+Still needed: clip-level state (which clips belong to which batch, KO tier per clip).
+This will be part of the full state-driven pipeline below.
 
 ### ~~Caching layer (persistent, keyed, invalidation-aware)~~ ✅ DONE
 Cache results stored in `data/cache/<char>/<YYYY-MM>/<stem>.ko.json` keyed by
@@ -56,18 +55,12 @@ Legacy vid1/vid2 clips still need a one-off migration pass (see Deferred section
 
 ## High-priority / structural
 
-### Protect 5 most-recent clips from batching/moving
-
-**Context:** Marvel Rivals only shows the 5 most recently saved highlights in-game (Career > Favorites > Highlights > "RECENT HIGHLIGHTS 5/5"). David manually presses SAVE to write clips to disk. The 5 most recently created files in `Highlights\` on disk correspond exactly to what the game shows as "SAVED" in its UI. If RVM moves those clips, the game loses track of them - the "SAVED" status disappears from the thumbnail and it gets confusing.
-
-**Requirement:** when scanning clips for a batch, always skip the N most recently created (by ctime/mtime) clips across the Highlights folder (default N=5). These clips stay untouched until newer clips are saved on top of them.
-
-**Implementation sketch:**
-- In `clip_scanner.py` or `pipeline.py`, after collecting all clips, sort by creation time descending.
-- Exclude the first `N` from the candidate list before passing to the batcher.
-- Make N configurable in `config.json` (key: `"protect_recent_clips": 5`).
-- Show in startup display: "X clips available, Y protected (most recent - still live in game UI)".
-- The protected clips are skipped silently; no error or warning needed.
+### ~~Protect 5 most-recent clips from batching/moving~~ ✅ DONE
+Both `sort_clips()` and `scan_folder()` accept `protect_recent=N`. The N most recently
+saved clips (last N alphabetically = chronological for timestamp filenames) are skipped
+by the sort step and never moved out of `Highlights\`. Default N=5, matches the game's
+buffer size. Log line says "X moved. (N kept unsorted - protected)".
+Config key: `protect_recent_clips`. Integration test in `tests/test_integration.py`.
 
 
 
@@ -179,10 +172,30 @@ timing is logged.
 The program is Marvel Rivals-specific but the repo is named `CompilationVidMaker` (generic).
 Should be renamed to something like `MarvelRivalsCompiler` or `MarvelRivalsVidMaker`.
 
-### Arrow-key menu navigation
-Replace number-typed menu selection with arrow-key navigation (highlight + Enter to confirm).
-Cleaner UX — no mismatch errors, no need to read option numbers. Use `curses` or a library
-like `simple-term-menu` / `inquirer` for the interactive prompt.
+### Two-level arrow-key menu (replaces all number entry)
+
+**Design (agreed 2026-03-28):**
+
+All interaction goes through run.bat - no separate script flags needed by the user.
+The `--cleanup` flag is being phased into the menu; everything accessible from one entry point.
+
+Level 1 - pick a folder to work on:
+```
+Which folder do you want to work on?
+> Highlights   (THOR ready: 2 batches, 3 characters too short)
+  Output       (thor_vid1: cleanup needed / thor_vid2: confirm YT first)
+  Archive      (47 clips)
+```
+
+Level 2 - pick an action within that folder (context-specific):
+- Highlights selected: arrow-select a character to compile (or pre-process)
+- Output selected: arrow-select a folder, then arrow-select an action (cleanup / mark YT confirmed / dry-run)
+- Archive selected: view contents (read-only for now)
+
+**Why two levels:** showing actions for all 3 folders at once creates too many menu items.
+Folder-first narrows to only the relevant actions.
+
+**Library:** `simple-term-menu` or `inquirer` (pip install). Avoid `curses` - Windows support is poor.
 
 ### Pipeline improvements (lower priority backlog)
 - Description format overhaul
