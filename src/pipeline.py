@@ -302,7 +302,7 @@ def _scan_archive_folder(archive_path: Path) -> tuple[int, dict[str, int]]:
     from clip_sorter import extract_character
     char_counts: dict[str, int] = {}
     total = 0
-    for p in archive_path.iterdir():
+    for p in archive_path.rglob("*"):
         if p.is_file() and p.suffix.lower() in VIDEO_EXTS:
             total += 1
             char = extract_character(p.stem)
