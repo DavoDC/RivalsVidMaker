@@ -290,27 +290,38 @@ def _scan_output_folder(output_path: Path) -> list[dict]:
     return rows
 
 
-def _scan_archive_folder(archive_path: Path) -> tuple[int, dict[str, int]]:
+def _scan_archive_folder(archive_path: Path, ffprobe: Path | None = None) -> tuple[int, dict[str, tuple[int, float]]]:
     """
     Scan ClipArchive directory.
 
-    Returns (total_clip_count, {char_name: clip_count}).
-    Clips are attributed to a character by parsing the filename convention.
+    Returns (total_clip_count, {char_name: (clip_count, total_duration_secs)}).
+    Probes duration per character subfolder if ffprobe is provided.
     """
     if not archive_path.exists():
         return 0, {}
-    from clip_sorter import extract_character
-    char_counts: dict[str, int] = {}
+    char_data: dict[str, tuple[int, float]] = {}
     total = 0
-    for p in archive_path.rglob("*"):
+    # Prefer per-character subfolders; fall back to flat files in root
+    subdirs = [p for p in archive_path.iterdir() if p.is_dir()]
+    if subdirs:
+        for sub in sorted(subdirs):
+            if ffprobe:
+                count, dur = summarize_folder(sub, ffprobe)
+            else:
+                count = sum(1 for p in sub.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTS)
+                dur = 0.0
+            if count:
+                char_data[sub.name] = (count, dur)
+                total += count
+    # Also count any flat files in root (legacy)
+    from clip_sorter import extract_character
+    for p in archive_path.iterdir():
         if p.is_file() and p.suffix.lower() in VIDEO_EXTS:
             total += 1
-            char = extract_character(p.stem)
-            if char:
-                char_counts[char] = char_counts.get(char, 0) + 1
-            else:
-                char_counts["unknown"] = char_counts.get("unknown", 0) + 1
-    return total, char_counts
+            char = extract_character(p.stem) or "unknown"
+            c, d = char_data.get(char, (0, 0.0))
+            char_data[char] = (c + 1, d)
+    return total, char_data
 
 
 def _next_action(r: dict, yt_confirmed: bool) -> str:
@@ -384,14 +395,16 @@ def _print_multizone_status(config: Config) -> None:
         print("(no output folders found)")
 
     # ARCHIVE FOLDER
-    total_archived, char_counts = _scan_archive_folder(config.archive_path)
+    print("\n-- ARCHIVE FOLDER --")
+    total_archived, char_data = _scan_archive_folder(config.archive_path, ffprobe=config.ffprobe)
     if total_archived:
-        breakdown = ", ".join(
-            f"{char} ({n})" for char, n in sorted(char_counts.items())
-        )
-        print(f"\n-- ARCHIVE FOLDER -- {total_archived} clip(s): {breakdown}")
+        a_rows = [
+            (char, str(count), _fmt_duration(dur) if dur else "-")
+            for char, (count, dur) in sorted(char_data.items())
+        ]
+        _print_table(a_rows, col_headers=("Character", "Clips", "Duration"), col_aligns=("l", "r", "r"))
     else:
-        print("\n-- ARCHIVE FOLDER -- (empty)")
+        print("(empty)")
 
     print()
 

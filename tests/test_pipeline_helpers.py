@@ -257,15 +257,15 @@ class TestScanArchiveFolder:
         (tmp_path / "THOR_2026-02-07_18-00-00_PENTA.mp4").write_bytes(b"")
         total, counts = _scan_archive_folder(tmp_path)
         assert total == 2
-        assert counts.get("THOR") == 2
+        assert counts["THOR"][0] == 2
 
     def test_multiple_characters(self, tmp_path):
         (tmp_path / "THOR_2026-02-06_22-38-56_QUAD.mp4").write_bytes(b"")
         (tmp_path / "STORM_2026-03-01_10-00-00_QUAD.mp4").write_bytes(b"")
         total, counts = _scan_archive_folder(tmp_path)
         assert total == 2
-        assert counts["THOR"] == 1
-        assert counts["STORM"] == 1
+        assert counts["THOR"][0] == 1
+        assert counts["STORM"][0] == 1
 
     def test_non_video_files_ignored(self, tmp_path):
         (tmp_path / "notes.txt").write_text("x")
@@ -276,7 +276,7 @@ class TestScanArchiveFolder:
         (tmp_path / "random.mp4").write_bytes(b"")
         total, counts = _scan_archive_folder(tmp_path)
         assert total == 1
-        assert counts.get("unknown") == 1
+        assert counts["unknown"][0] == 1
 
 
 # ── _move_clips ───────────────────────────────────────────────────────────────
