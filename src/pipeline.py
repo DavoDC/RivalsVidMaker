@@ -298,13 +298,13 @@ def _scan_archive_folder(archive_path: Path) -> tuple[int, dict[str, int]]:
 
 def _print_multizone_status(config: Config) -> None:
     """Print the full MarvelRivals folder status before the character menu."""
-    _W = 56
+    _W = 50
     print("=" * _W)
-    print("MarvelRivals — Folder Status".center(_W))
+    print("MarvelRivals - Folder Status".center(_W))
     print("=" * _W)
 
-    # ── HIGHLIGHTS ──────────────────────────────────────────────────────────
-    print("\n── HIGHLIGHTS ──")
+    # HIGHLIGHTS
+    print("\n-- HIGHLIGHTS --")
     char_folders = sorted(e for e in config.clips_path.iterdir() if e.is_dir()) \
         if config.clips_path.exists() else []
     if char_folders:
@@ -322,8 +322,8 @@ def _print_multizone_status(config: Config) -> None:
             h_rows.append((
                 folder.name,
                 str(count) if count else "0",
-                _fmt_duration(dur) if count else "—",
-                f"{cached}/{count}" if count else "—",
+                _fmt_duration(dur) if count else "-",
+                f"{cached}/{count}" if count else "-",
                 _date_range(folder),
             ))
         _print_table(
@@ -332,18 +332,18 @@ def _print_multizone_status(config: Config) -> None:
             col_aligns=("l", "r", "r", "r", "l"),
         )
     else:
-        print("  (no character folders found)")
+        print("(no character folders found)")
 
-    # ── OUTPUT ──────────────────────────────────────────────────────────────
-    print("\n── OUTPUT ──")
+    # OUTPUT
+    print("\n-- OUTPUT --")
     output_rows = _scan_output_folder(config.output_path)
     if output_rows:
         o_rows = [
             (
                 r["name"],
-                "✅" if r["has_video"] else "—",
-                "✅" if r["has_desc"] else "—",
-                "✅" if r["has_clips"] else "—",
+                "OK" if r["has_video"] else "-",
+                "OK" if r["has_desc"] else "-",
+                "OK" if r["has_clips"] else "-",
             )
             for r in output_rows
         ]
@@ -353,18 +353,18 @@ def _print_multizone_status(config: Config) -> None:
             col_aligns=("l", "l", "l", "l"),
         )
     else:
-        print("  (no output folders found)")
+        print("(no output folders found)")
 
-    # ── ARCHIVE ─────────────────────────────────────────────────────────────
-    print("\n── ARCHIVE ──")
+    # ARCHIVE
+    print("\n-- ARCHIVE --")
     total_archived, char_counts = _scan_archive_folder(config.archive_path)
     if total_archived:
         breakdown = ", ".join(
             f"{char} ({n})" for char, n in sorted(char_counts.items())
         )
-        print(f"  {total_archived} clip(s) archived: {breakdown}")
+        print(f"{total_archived} clip(s) archived: {breakdown}")
     else:
-        print("  (archive is empty or folder does not exist)")
+        print("(archive is empty or folder does not exist)")
 
     print()
 
@@ -394,7 +394,7 @@ def run(config: Config, force_encode: bool = False) -> None:
         raise FileNotFoundError(f"Clips path not found: {config.clips_path}")
 
     # --- Step 1: sort any unsorted clips into character subfolders ---
-    sort_clips(config.clips_path)
+    sort_clips(config.clips_path, protect_recent=config.protect_recent_clips)
 
     # --- Step 2: show full folder status (Highlights + Output + Archive) ---
     _print_multizone_status(config)
