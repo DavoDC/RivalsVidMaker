@@ -1,5 +1,17 @@
 # Ideas & Future Work
 
+This is the single source of truth for all pending work. CLAUDE.md "Next steps" has been removed in favour of this file.
+
+## Pending - ordered by priority
+
+1. **Legacy KO-tier rename** - run `python scripts/migrate_ko_tiers.py` (dry-run first, then `--execute`). Renames thor_vid1 and thor_vid2/vid2_clips clips with KO tier suffix so cleanup can identify Quad+ clips.
+2. **Test end-to-end** - compile THOR (31 clips, ready), then run cleanup on thor_vid1/vid2 after KO-tier rename is done.
+3. **State-driven pipeline** - major redesign, see Architecture section below.
+4. **Dry-run mode** - `--dry-run` flag for the full pipeline (preview without moving files).
+5. **Legacy cleanup** - once KO-tier rename is done, mark thor_vid1/vid2 as YT-confirmed and run cleanup to archive Quad+ and clear disk space.
+
+---
+
 ## Architecture: state-driven pipeline (major redesign)
 
 ### State-driven pipeline with clear stages
@@ -172,7 +184,7 @@ timing is logged.
 The program is Marvel Rivals-specific but the repo is named `CompilationVidMaker` (generic).
 Should be renamed to something like `MarvelRivalsCompiler` or `MarvelRivalsVidMaker`.
 
-### Two-level arrow-key menu (replaces all number entry)
+### ~~Two-level arrow-key menu (replaces all number entry)~~ ✅ DONE
 
 **Design (agreed 2026-03-28):**
 
@@ -221,4 +233,6 @@ as `C:\Users\David\GitHubRepos\SBS_Download`). No manual setup required for new 
 `thor_vid1\` and `thor_vid2\vid2_clips\` were compiled before this program was fully set up.
 Their clips need a one-off KO-tier rename pass so they follow the convention
 (Quad+ can then be identified and moved to ClipArchive).
-Low urgency — these videos are already published; just useful for archiving.
+
+Script: `scripts/migrate_ko_tiers.py` - dry-run by default, `--execute` to apply.
+Run from repo root: `python scripts/migrate_ko_tiers.py`
