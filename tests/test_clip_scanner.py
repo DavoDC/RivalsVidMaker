@@ -97,6 +97,56 @@ class TestScanFolder:
         assert len(clips) == 5
 
 
+class TestScanFolderProtectRecent:
+
+    def test_protect_recent_excludes_last_n_clips(self, tmp_path):
+        # a, b, c, d, e sorted alphabetically = chronological; protect 2 -> only a, b, c returned
+        for name in ["a.mp4", "b.mp4", "c.mp4", "d.mp4", "e.mp4"]:
+            (tmp_path / name).touch()
+
+        with patch("clip_scanner.probe_duration", return_value=10.0):
+            clips = scan_folder(tmp_path, Path("ffprobe"), protect_recent=2)
+
+        assert [c.name for c in clips] == ["a.mp4", "b.mp4", "c.mp4"]
+
+    def test_protect_recent_zero_returns_all(self, tmp_path):
+        for name in ["a.mp4", "b.mp4", "c.mp4"]:
+            (tmp_path / name).touch()
+
+        with patch("clip_scanner.probe_duration", return_value=10.0):
+            clips = scan_folder(tmp_path, Path("ffprobe"), protect_recent=0)
+
+        assert len(clips) == 3
+
+    def test_protect_recent_gte_clip_count_returns_empty(self, tmp_path):
+        for name in ["a.mp4", "b.mp4"]:
+            (tmp_path / name).touch()
+
+        with patch("clip_scanner.probe_duration", return_value=10.0):
+            clips = scan_folder(tmp_path, Path("ffprobe"), protect_recent=5)
+
+        assert clips == []
+
+    def test_protect_recent_equal_to_clip_count_returns_empty(self, tmp_path):
+        for name in ["a.mp4", "b.mp4", "c.mp4"]:
+            (tmp_path / name).touch()
+
+        with patch("clip_scanner.probe_duration", return_value=10.0):
+            clips = scan_folder(tmp_path, Path("ffprobe"), protect_recent=3)
+
+        assert clips == []
+
+    def test_protect_recent_one_leaves_all_but_newest(self, tmp_path):
+        for name in ["clip_2026-01-01.mp4", "clip_2026-01-02.mp4", "clip_2026-01-03.mp4"]:
+            (tmp_path / name).touch()
+
+        with patch("clip_scanner.probe_duration", return_value=10.0):
+            clips = scan_folder(tmp_path, Path("ffprobe"), protect_recent=1)
+
+        assert [c.name for c in clips] == ["clip_2026-01-01.mp4", "clip_2026-01-02.mp4"]
+        assert "clip_2026-01-03.mp4" not in [c.name for c in clips]
+
+
 class TestSummarizeFolder:
 
     def test_empty_folder_returns_zeros(self, tmp_path):

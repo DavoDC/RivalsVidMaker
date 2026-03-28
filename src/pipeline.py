@@ -490,9 +490,9 @@ def run(config: Config, force_encode: bool = False) -> None:
     logging.info("Character: %s", char_name)
     logging.info("=" * 50)
 
-    clips = scan_folder(char_path, config.ffprobe)
+    clips = scan_folder(char_path, config.ffprobe, protect_recent=config.protect_recent_clips)
     if not clips:
-        logging.info("No clips found — nothing to process.")
+        logging.info("No clips found - nothing to process.")
         return
 
     batches = make_batches(clips, config.target_batch_seconds)

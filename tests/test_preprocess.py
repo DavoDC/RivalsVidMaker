@@ -24,6 +24,7 @@ def make_config(clips_path: Path) -> Config:
         tesseract=Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
         min_batch_seconds=600,
         target_batch_seconds=900,
+        protect_recent_clips=0,
     )
 
 
