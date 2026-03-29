@@ -71,6 +71,9 @@ CLAUDE.md documents the complete workflow. `docs/MANUAL_TESTING.md` covers end-t
 
 ## Docs & repo
 
+### Rename repo to reflect Marvel Rivals focus
+Renamed from `CompilationVidMaker` to `RivalsVidMaker`. Happy with the name.
+
 ### Consolidate docs/ folder
 `docs/` now contains: `MULTIKILL_DETECTION.md`, `YOUTUBE_API.md`, `YOUTUBE_TITLE_AND_DESC.md`, `IDEAS.md`, `MANUAL_TESTING.md`, `DONE.md`.
 
