@@ -13,19 +13,25 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-1. **Clip transition trimming** - each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap (don't remove entirely). Requires frame analysis to find the transition start reliably. **Do this before the Thor end-to-end test.**
+### Quick wins (do first)
 
-2. **Test end-to-end with Thor** - 31 clips ready, all KO-cached as of 2026-03-28. Verify full sort -> scan -> compile -> describe -> move clips flow. Do item 1 first.
+1. **Fix multi-batch slug numbering** - `_BATCH1` suffix is unnecessary when always compiling one batch at a time. Only add the suffix if a previous output folder for that character/date already exists.
 
-3. **Rename clips at KO scan stage** *(quick win)* - currently clips are renamed with KO tier when moved to `Output\clips\`. Move the rename earlier: at KO scan time, so names are available for description writing and archiving. Clip archiving must use already-renamed clips (read from cache, never re-scan). Archiving should never need to run KO detection.
+2. **Rename clips at KO scan stage** - currently clips are renamed with KO tier when moved to `Output\clips\`. Move the rename earlier: at KO scan time, so names are available for description writing and archiving. Clip archiving must use already-renamed clips (read from cache, never re-scan). Archiving should never need to run KO detection.
 
-4. **Fix multi-batch slug numbering** *(quick win)* - `_BATCH1` suffix is unnecessary when always compiling one batch at a time. Only add the suffix if a previous output folder for that character/date already exists.
+3. **Test on a different character** - check Squirrel Girl clips after item 2: verify KO tiers look correct on the renamed filenames. Fairly confident detection already works character-agnostically (different banner colour/UI skin) but this confirms it cheaply.
 
-5. **YouTube API / upload automation** - automate the YouTube upload stages. See `docs/YOUTUBE_API.md` for existing API research. Scope: upload compiled video, set title/description/tags from the AI-generated prompt file, confirm upload in state.json.
+4. **Auto-download FFmpeg if missing** - on startup, check whether `ffmpeg.exe` / `ffprobe.exe` exist at the configured path. If not, download and extract the latest FFmpeg Windows build automatically (same pattern as `SBS_Downloader`). No manual setup for new machines.
 
-6. **Auto-download FFmpeg if missing** *(quick win)* - on startup, check whether `ffmpeg.exe` / `ffprobe.exe` exist at the configured path. If not, download and extract the latest FFmpeg Windows build automatically (same pattern as `SBS_Downloader`). No manual setup for new machines.
+### Main work
 
-7. **Best-of compilation from Archive** - Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
+5. **Clip transition trimming** - each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap (don't remove entirely). Requires frame analysis to find the transition start reliably. **Do this before the Thor end-to-end test.**
+
+6. **Test end-to-end with Thor** - 31 clips ready, all KO-cached as of 2026-03-28. Verify full sort -> scan -> compile -> describe -> move clips flow. Do item 5 first.
+
+7. **YouTube API / upload automation** - automate the full YouTube upload. See `docs/YOUTUBE_API.md` for existing API research. Scope: compile video, then upload directly to YouTube as **private** (user reviews and makes public manually), with title/description/tags set from the AI-generated prompt file. Confirm upload written to state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
+
+8. **Best-of compilation from Archive** - Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
 
    **Archive clip lifecycle (decided):**
    - Archive clips are NEVER deleted - permanent record of best kills.
@@ -35,15 +41,11 @@ Single source of truth for all pending work.
    - The compiled Best-of video itself goes through the normal Output + cleanup flow (published to YT, then video deleted, clips stay in compiled/).
    - Archive display table should show pending vs compiled counts separately.
 
-8. **Dry-run mode** - `--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
-
-9. **Session history in startup display** - in the Output table, add a "Days since encoded" column derived from the folder's modification time. Shows which output folders are old and ready to clean up vs recently created.
+9. **Dry-run mode** - `--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
 
 10. **Startup clip availability check + video recommendations** - on launch, tally total duration per character group and recommend compilations that can be made (e.g. "15-min Thor vid: 30 clips available"). If no character has enough, say so explicitly.
 
 11. **Automated tests for KO detection** - pytest tests for `scan_clip` and OCR logic. Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
-
-12. **Test on a different character** - run the full pipeline on Squirrel Girl to confirm detection works character-agnostically (different banner colour, different UI skin).
 
 ---
 
@@ -52,17 +54,8 @@ Single source of truth for all pending work.
 ### Decompile folder (4th folder) - retrospective Best-of
 A fourth folder alongside Highlights/Output/Archive. Use yt-dlp to download previously uploaded compilation videos (max quality, 720p/1080p), scan for Quad+ kills, extract those segments as clips, then feed into the Archive -> Best-of pipeline. Goal: "Best of 2024" / "Best of 2025" retrospective videos. Split into parts if over 15 min.
 
-### Full automation: generate video + title + description from clips
-End state: point at a folder of clips, get a ready-to-upload YouTube package (compiled video, title, description, timestamps) with zero manual steps. Reference format: `docs/YOUTUBE_TITLE_AND_DESC.md`.
-
 ### Time estimation before encode
 Before starting a batch, show a rough estimate broken into stages: KO scanning (~3-9s per uncached clip, instant if cached), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
-
-### Description format overhaul
-Group clips by output video in the description UI.
-
-### Rename repo to reflect Marvel Rivals focus
-Repo is `RivalsVidMaker` but could be clearer (e.g. `MarvelRivalsVidMaker`). Low priority - repo already renamed once.
 
 ---
 
