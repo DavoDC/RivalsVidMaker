@@ -4,8 +4,11 @@ This is the single source of truth for all pending work. CLAUDE.md "Next steps" 
 
 ## Pending - ordered by priority
 
-1. **Test end-to-end** - compile THOR (31 clips ready), verify full sort -> scan -> compile -> describe -> move clips flow.
-2. **Best-of compilation from Archive** - Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
+1. **Clip transition trimming** - each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap (don't remove entirely). Requires frame analysis to find the transition start reliably.
+2. **YouTube API / upload automation** - automate the stages involving YouTube upload. See `docs/YOUTUBE_API.md` for existing API research. Covers: upload compiled video, set title/description/tags from the AI-generated prompt, confirm upload in state.json.
+3. **Rename clips at KO scan stage** (not compile stage) - currently clips are renamed with KO tier when moved to `Output\clips\`. Move the rename earlier: do it at KO scan time so names are available for description writing and archiving. Clip archiving must use already-renamed clips (add from cache, never re-scan). Archiving should never need to run KO detection.
+4. **Test end-to-end with Thor** - 31 clips ready (all KO-cached as of 2026-03-28). Compile THOR, verify full sort -> scan -> compile -> describe -> move clips flow. Do transition trimming (item 1) first.
+5. **Best-of compilation from Archive** - Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
 
    **Archive clip lifecycle (decided):**
    - Archive clips are NEVER deleted - permanent record of best kills.
@@ -178,6 +181,14 @@ Add a `tests/` folder with pytest tests covering `scan_clip` and OCR logic. Key 
 ---
 
 ## Lower priority / future
+
+### Decompile folder (4th folder) - retrospective Best-of
+A fourth folder alongside Highlights/Output/Archive. Workflow:
+- Use yt-dlp to download previously uploaded compilation videos (max quality, 720p/1080p).
+- Scan downloaded video for Quad+ kills and extract those segments as clips.
+- Feed extracted clips into the normal Archive -> Best-of pipeline.
+Goal: produce "Best of 2024" / "Best of 2025" retrospective videos from already-uploaded content.
+Split into parts if over 15 min. Lower priority than producing normal clips from new recordings.
 
 ### Best-of compilation
 A "Best of 2025/2026" video pulling only Penta and Hexa clips.
