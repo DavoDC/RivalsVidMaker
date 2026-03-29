@@ -15,41 +15,39 @@ Single source of truth for all pending work.
 
 ### Quick wins (do first)
 
-1. **Fix multi-batch slug numbering** - `_BATCH1` suffix is unnecessary when always compiling one batch at a time. Only add the suffix if a previous output folder for that character/date already exists.
+1. **Rename clips at KO scan stage** - currently clips are renamed with KO tier when moved to `Output\clips\`. Move the rename earlier: at KO scan time (including pre-process mode - if pre-process runs, use cache to rename clips in Highlights immediately). Names then available for description writing and archiving. Clip archiving must use already-renamed clips (read from cache, never re-scan). Archiving should never need to run KO detection.
 
-2. **Rename clips at KO scan stage** - currently clips are renamed with KO tier when moved to `Output\clips\`. Move the rename earlier: at KO scan time, so names are available for description writing and archiving. Clip archiving must use already-renamed clips (read from cache, never re-scan). Archiving should never need to run KO detection.
+2. **Test on a different character** - check Squirrel Girl clips after item 1: verify KO tiers look correct on the renamed filenames. Fairly confident detection already works character-agnostically (different banner colour/UI skin) but this confirms it cheaply.
 
-3. **Test on a different character** - check Squirrel Girl clips after item 2: verify KO tiers look correct on the renamed filenames. Fairly confident detection already works character-agnostically (different banner colour/UI skin) but this confirms it cheaply.
-
-4. **Auto-download FFmpeg if missing** - on startup, check whether `ffmpeg.exe` / `ffprobe.exe` exist at the configured path. If not, download and extract the latest FFmpeg Windows build automatically (same pattern as `SBS_Downloader`). No manual setup for new machines.
+3. **Auto-download FFmpeg if missing** - on startup, check whether `ffmpeg.exe` / `ffprobe.exe` exist at the configured path. If not, download and extract the latest FFmpeg Windows build automatically (same pattern as `SBS_Downloader`). No manual setup for new machines.
 
 ### Main work
 
-5. **Clip transition trimming** - each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap (don't remove entirely). Requires frame analysis to find the transition start reliably. **Do this before the Thor end-to-end test.**
+4. **Dry-run mode** - `--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
 
-6. **Test end-to-end with Thor** - 31 clips ready, all KO-cached as of 2026-03-28. Verify full sort -> scan -> compile -> describe -> move clips flow. Do item 5 first.
+5. **YouTube API / upload automation** - automate the full YouTube upload. See `docs/YOUTUBE_API.md` for existing API research. Scope: compile video, then upload directly to YouTube as **private** (user reviews and makes public manually), with title/description/tags set from the AI-generated prompt file. Confirm upload written to state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
 
-7. **YouTube API / upload automation** - automate the full YouTube upload. See `docs/YOUTUBE_API.md` for existing API research. Scope: compile video, then upload directly to YouTube as **private** (user reviews and makes public manually), with title/description/tags set from the AI-generated prompt file. Confirm upload written to state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
+6. **Clip transition trimming** - each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap (don't remove entirely). Requires frame analysis to find the transition start reliably. **Do this before the Thor end-to-end test.**
 
-8. **Best-of compilation from Archive** - Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
-
-   **Archive clip lifecycle (decided):**
-   - Archive clips are NEVER deleted - permanent record of best kills.
-   - After a Best-of compilation, compiled clips move from `ClipArchive/THOR/` to `ClipArchive/THOR/compiled/` so they are not re-compiled into future Best-of videos.
-   - `ClipArchive/THOR/` (root) = pending clips, not yet in any Best-of video.
-   - `ClipArchive/THOR/compiled/` = clips already used in a Best-of, kept forever but excluded from future compiles.
-   - The compiled Best-of video itself goes through the normal Output + cleanup flow (published to YT, then video deleted, clips stay in compiled/).
-   - Archive display table should show pending vs compiled counts separately.
-
-9. **Dry-run mode** - `--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
-
-10. **Startup clip availability check + video recommendations** - on launch, tally total duration per character group and recommend compilations that can be made (e.g. "15-min Thor vid: 30 clips available"). If no character has enough, say so explicitly.
-
-11. **Automated tests for KO detection** - pytest tests for `scan_clip` and OCR logic. Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
+7. **Test end-to-end with Thor** - 31 clips ready, all KO-cached as of 2026-03-28. Verify full sort -> scan -> compile -> describe -> move clips flow. Do item 6 first.
 
 ---
 
 ## Lower priority / future
+
+### Best-of compilation from Archive
+Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
+
+**Archive clip lifecycle (decided):**
+- Archive clips are NEVER deleted - permanent record of best kills.
+- After a Best-of compilation, compiled clips move from `ClipArchive/THOR/` to `ClipArchive/THOR/compiled/` so they are not re-compiled into future Best-of videos.
+- `ClipArchive/THOR/` (root) = pending clips, not yet in any Best-of video.
+- `ClipArchive/THOR/compiled/` = clips already used in a Best-of, kept forever but excluded from future compiles.
+- The compiled Best-of video itself goes through the normal Output + cleanup flow (published to YT, then video deleted, clips stay in compiled/).
+- Archive display table should show pending vs compiled counts separately.
+
+### Automated tests for KO detection
+pytest tests for `scan_clip` and OCR logic. Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
 
 ### Decompile folder (4th folder) - retrospective Best-of
 A fourth folder alongside Highlights/Output/Archive. Use yt-dlp to download previously uploaded compilation videos (max quality, 720p/1080p), scan for Quad+ kills, extract those segments as clips, then feed into the Archive -> Best-of pipeline. Goal: "Best of 2024" / "Best of 2025" retrospective videos. Split into parts if over 15 min.
@@ -60,6 +58,8 @@ Before starting a batch, show a rough estimate broken into stages: KO scanning (
 ---
 
 ## Design decisions (settled)
+
+**Slug always includes batch number** - output folders always use `_BATCH1`, `_BATCH2` etc. even when compiling one at a time. Safer to always have a unique, predictable name than to special-case the first batch.
 
 **One batch at a time** - the pipeline always compiles the first batch only. Re-run for subsequent batches. Rationale: clips no longer build up to 30-min backlogs now that the process is automated. Multi-batch prompt removed 2026-03-28.
 
