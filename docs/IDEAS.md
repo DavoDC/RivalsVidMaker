@@ -15,25 +15,21 @@ Single source of truth for all pending work.
 
 ### Quick wins (do first)
 
-1. **Rename clips at KO scan stage** - currently clips are renamed with KO tier when moved to `Output\clips\`. Move the rename earlier: at KO scan time (including pre-process mode - if pre-process runs, use cache to rename clips in Highlights immediately). Names then available for description writing and archiving. Clip archiving must use already-renamed clips (read from cache, never re-scan). Archiving should never need to run KO detection.
-
-2. **Test on a different character** - check Squirrel Girl clips after item 1: verify KO tiers look correct on the renamed filenames. Fairly confident detection already works character-agnostically (different banner colour/UI skin) but this confirms it cheaply.
-
-3. **Auto-download FFmpeg if missing** - on startup, check whether `ffmpeg.exe` / `ffprobe.exe` exist at the configured path. If not, download and extract the latest FFmpeg Windows build automatically (same pattern as `SBS_Downloader`). No manual setup for new machines.
+1. **Test on a different character** - run pre-process on Squirrel Girl clips and verify KO tiers look correct on the renamed filenames (e.g. `SQUIRREL_GIRL_..._QUAD.mp4`). Fairly confident detection works character-agnostically but this confirms it cheaply.
 
 ### Main work
 
-4. **Dry-run mode** - `--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
+2. **Dry-run mode** - `--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
 
-5. **Clip transition trimming** - each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap (don't remove entirely). Requires frame analysis to find the transition start reliably.
+3. **Clip transition trimming** - each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap (don't remove entirely). Requires frame analysis to find the transition start reliably.
 
-6. **YouTube API / upload automation** - automate the full YouTube upload. See `docs/YOUTUBE_API.md` for existing API research.
+4. **YouTube API / upload automation** - automate the full YouTube upload. See `docs/YOUTUBE_API.md` for existing API research.
 
    **Phase 1 (feasibility probe - do first, standalone script):** Write the smallest possible standalone script (`scripts/yt_upload_test.py`) that authenticates via OAuth and uploads a single hardcoded clip as **private** to confirm the API actually works. Small channels may not have upload quota or the right API access tier - verify this before building anything else. Success = a private video appears on the channel.
 
    **Phase 2 (pipeline integration - only if Phase 1 works):** Compile video -> upload as private (title/description/tags from the AI prompt file) -> record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
 
-7. **Test end-to-end with Thor** - 31 clips ready, all KO-cached as of 2026-03-28. Full pipeline test covering all of the above: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private). This is the integration test for items 1-6.
+5. **Test end-to-end with Thor** - 31 clips ready, all KO-cached as of 2026-03-28. Full pipeline test covering all of the above: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private). This is the integration test for items 1-4.
 
 ---
 
@@ -58,7 +54,9 @@ Previously uploaded videos re-downloaded for KO scanning + Best-of extraction.
 Location: `C:\Users\David\Videos\MarvelRivals\OldCompilations\`
 Playlist: `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
 
-**Phase 1 - Download DONE.** 27 videos, all 1080p, confirmed good quality. `scripts/download_playlist.py` handles re-runs idempotently.
+Phase 1 (download) complete - see `docs/DONE.md`. 27 videos downloaded (20 compilations, 7 gameplay streams).
+
+**Next: Phase 2 - KO scan** (prerequisite: solve large-file efficiency below first).
 
 **Content inventory (27 videos):**
 
@@ -93,9 +91,7 @@ Gameplay stream videos (7, 39min+, up to ~4hr/7GB - full session recordings, not
 - `2025-09-27` THOR RIVALS GAMEPLAY (27th Sep 2025)
 - `2025-11-09` MARVEL RIVALS Gameplay (1st Nov 2025)
 
-**Already-processed videos:** The two 2026-03-17 videos have already been through the pipeline (clips saved). Options:
-- Move to `OldCompilations/_done/` subfolder to keep them separate
-- Keep in place and use as regression tests (known clips = known KO timestamps to verify scanner against)
+**Already-processed:** The two 2026-03-17 videos are done (clips saved). Keep in place as regression tests (known KO timestamps to verify scanner against).
 
 **Phase 2 - KO scan:** Run `ko_detect.py` against all OldCompilations videos. Both compilations and gameplay streams should be scanned - gameplay streams will also contain Quad+ kills.
 
@@ -112,7 +108,7 @@ Uses:
 - **Timestamp validation:** Compare KO scanner output against the manually-entered timestamps in the description. Not a strict test (human timestamps may be wrong or missing) - treat as a rough sanity check. Trust the scanner if it disagrees.
 - **Clip reconstruction:** Descriptions list original clip filenames in order. Combined with transition-counting (count the black-screen transitions in the compiled video), you can reconstruct which clip maps to which segment - giving a clip order list that links back to the original filenames. This is difficult because clips vary in length, but transition detection makes it tractable.
 
-Note: YouTube API auth setup (OAuth) overlaps with the higher-priority upload automation (item 6). Auth work done for item 6 can be reused here - no point doing it twice.
+Note: YouTube API auth setup (OAuth) overlaps with the higher-priority upload automation (item 4). Auth work done for item 4 can be reused here - no point doing it twice.
 
 **Duplicate clip detection (also relevant to Phase 4):** Gameplay streams are full session recordings and may contain footage that also appears in compilation videos, resulting in duplicate extracted clips. Also relevant to the main pipeline: before compiling, check that no clip is a near-duplicate of another in the same batch.
 

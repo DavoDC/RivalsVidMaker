@@ -79,3 +79,23 @@ Renamed from `CompilationVidMaker` to `RivalsVidMaker`. Happy with the name.
 
 ### Review `full_vid_scan_test.txt`
 All 7 Quad kills in vid1 confirmed accurate. Timestamp range format confirmed (`<streak start> - <max tier time> = Quad Kill`). Detection is solid.
+
+---
+
+## OldCompilations
+
+### Phase 1 - Download all previously-uploaded videos
+`scripts/download_playlist.py` downloads all 27 videos from the YouTube playlist idempotently (skips already-downloaded). All 27 videos confirmed at 1080p, good quality.
+- 20 compilation videos (various characters/dates)
+- 7 full gameplay stream recordings (39min to ~4hr)
+- Two 2026-03-17 videos already processed through the pipeline (clips saved).
+
+---
+
+## Setup & tooling
+
+### Auto-download FFmpeg on first run
+`src/ffmpeg_setup.py` - `ensure_ffmpeg(ffmpeg_dir)` checks for `ffmpeg.exe`/`ffprobe.exe` at startup. If missing, downloads latest FFmpeg Windows GPL build from BtbN/FFmpeg-Builds and extracts binaries automatically. Called from `main.py` before any processing.
+
+### Rename clips at KO scan stage
+`_collect_highlights()` in `pipeline.py` renames clips in-place immediately after scanning (e.g. `THOR_2026-02-06_22-38-56.mp4` -> `THOR_2026-02-06_22-38-56_QUAD.mp4`). Cache file renamed too (keeps future scans fast). `_move_clips()` simplified - tier already embedded. `preprocess_all()` in `preprocess.py` also renames after scanning or cache hit.
