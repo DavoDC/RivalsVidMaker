@@ -17,6 +17,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 YTDLP_PATH = Path(__file__).parent.parent / "dependencies" / "yt-dlp.exe"
+FFMPEG_DIR = Path(__file__).parent.parent / "dependencies" / "ffmpeg"
 OUTPUT_DIR = Path(r"C:\Users\David\Videos\MarvelRivals\OldCompilations")
 PLAYLIST_URL = "https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W"
 
@@ -29,6 +30,7 @@ def build_command(output_dir: Path) -> list[str]:
         "--format", "bestvideo+bestaudio/best",
         "--merge-output-format", "mp4",
         "--output", str(output_dir / "%(upload_date>%Y-%m-%d)s_%(title)s.%(ext)s"),
+        "--ffmpeg-location", str(FFMPEG_DIR),  # point yt-dlp at our local ffmpeg
         "--windows-filenames",       # strip chars invalid on Windows
         "--no-overwrites",           # skip files that already exist
         "--ignore-errors",           # skip unavailable/private videos, keep going
