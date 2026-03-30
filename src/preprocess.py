@@ -97,7 +97,7 @@ def preprocess_all(config: Config) -> dict[str, int]:
         )
         if not clips:
             continue
-        if config.protect_recent_clips > 0 and len(clips) > config.protect_recent_clips:
+        if config.protect_recent_clips > 0:
             clips = clips[:-config.protect_recent_clips]
 
         ko_detect.configure(
