@@ -193,10 +193,22 @@ def _estimate_seconds(folder: Path, cache_dir: Path, total_dur: float) -> float:
     ko_est = 0.0
     for p in folder.iterdir():
         if p.is_file() and p.suffix.lower() in VIDEO_EXTS:
-            cached = (char_cache / (p.stem + ".ko.json")).exists()
+            cached = _cache_exists(p, char_cache)
             ko_est += 0.5 if cached else 6.0
     encode_est = total_dur * 0.4
     return ko_est + encode_est
+
+
+def _cache_exists(clip: Path, char_cache: Path) -> bool:
+    """Check whether a .ko.json cache entry exists for a clip.
+
+    Mirrors ko_detect.cache_path(): clips with a parseable date use a
+    YYYY-MM month subfolder; others fall back to the char_cache root.
+    """
+    m = re.search(r"(\d{4}-\d{2})-\d{2}", clip.stem)
+    if m:
+        return (char_cache / m.group(1) / (clip.stem + ".ko.json")).exists()
+    return (char_cache / (clip.stem + ".ko.json")).exists()
 
 
 def _fmt_estimate(seconds: float) -> str:
@@ -377,7 +389,7 @@ def _print_multizone_status(config: Config) -> None:
             cached = sum(
                 1 for p in folder.iterdir()
                 if p.is_file() and p.suffix.lower() in VIDEO_EXTS
-                and (config.cache_dir / folder.name / (p.stem + ".ko.json")).exists()
+                and _cache_exists(p, config.cache_dir / folder.name)
             )
             h_rows.append((
                 folder.name,
