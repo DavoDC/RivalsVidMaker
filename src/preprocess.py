@@ -66,12 +66,15 @@ def preprocess_all(config: Config) -> dict[str, int]:
         logging.info("Pre-process: no character folders found in %s", clips_path)
         return {}
 
-    # Count total clips upfront for overall progress reporting
+    # Count total clips upfront for overall progress reporting (excluding protected)
     all_clips: list[tuple[str, Path]] = []  # (char_name, clip_path)
     for folder in char_folders:
-        for p in sorted(folder.iterdir()):
-            if p.is_file() and p.suffix.lower() in VIDEO_EXTS:
-                all_clips.append((folder.name, p))
+        folder_clips = sorted(p for p in folder.iterdir()
+                              if p.is_file() and p.suffix.lower() in VIDEO_EXTS)
+        if config.protect_recent_clips > 0 and len(folder_clips) > config.protect_recent_clips:
+            folder_clips = folder_clips[:-config.protect_recent_clips]
+        for p in folder_clips:
+            all_clips.append((folder.name, p))
 
     if not all_clips:
         logging.info("Pre-process: no video clips found.")
@@ -94,6 +97,8 @@ def preprocess_all(config: Config) -> dict[str, int]:
         )
         if not clips:
             continue
+        if config.protect_recent_clips > 0 and len(clips) > config.protect_recent_clips:
+            clips = clips[:-config.protect_recent_clips]
 
         ko_detect.configure(
             ffmpeg=str(config.ffmpeg),
