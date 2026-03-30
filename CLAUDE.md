@@ -235,6 +235,8 @@ Validated clips and known limitations: `docs/MULTIKILL_DETECTION.md`.
 
 See `docs/IDEAS.md` for all pending ideas and next actions, ordered by priority.
 
+**Keep IDEAS.md clean:** when a feature is implemented or a task is done, move its entry from `docs/IDEAS.md` to `docs/DONE.md`. Never leave completed items in IDEAS.md. Look for items marked DONE, with checkmarks, or fully implemented before ending a session.
+
 ## Dependencies
 - Python 3.10+
 - `pip install pytesseract Pillow`
