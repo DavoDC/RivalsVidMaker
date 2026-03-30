@@ -120,6 +120,9 @@ Two use cases:
 
 Implementation note: `imagehash` library (perceptual hash) or frame-level DCT hash via ffmpeg/Pillow. No heavy ML needed.
 
+### Test FFmpeg auto-download on a clean machine
+Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts the binaries correctly. ~70MB download. Low priority - only needed before shipping to a new machine.
+
 ### Time estimation before encode
 Before starting a batch, show a rough estimate broken into stages: KO scanning (~3-9s per uncached clip, instant if cached), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
 
