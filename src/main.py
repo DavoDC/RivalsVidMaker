@@ -16,6 +16,7 @@ from pathlib import Path
 
 from cleanup import run_cleanup
 from config import load as load_config
+from ffmpeg_setup import ensure_ffmpeg
 from pipeline import run
 
 
@@ -75,6 +76,9 @@ def main() -> None:
         sys.exit(1)
     except KeyError as e:
         logging.error(str(e))
+        sys.exit(1)
+
+    if not ensure_ffmpeg(config.ffmpeg.parent):
         sys.exit(1)
 
     if cleanup_mode:
