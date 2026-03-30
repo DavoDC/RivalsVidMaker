@@ -120,6 +120,11 @@ Two use cases:
 
 Implementation note: `imagehash` library (perceptual hash) or frame-level DCT hash via ffmpeg/Pillow. No heavy ML needed.
 
+### README improvements (3 items)
+- **OCR/KO scan section** - the OCR multi-kill detection is the most technically interesting part of the project. Add a dedicated README section explaining how it works: frame extraction at 2fps, banner crop region, Tesseract OCR, tier detection, cooldown logic. Technical but concise - not a wall of text.
+- **Pipeline and folder structure** - README should explain the full end-to-end flow and what each folder contains (Highlights, Output, ClipArchive). Currently lives only in CLAUDE.md.
+- **Docs audit** - go through all docs (CLAUDE.md, IDEAS.md, DONE.md, MULTIKILL_DETECTION.md, YOUTUBE_API.md, YOUTUBE_TITLE_AND_DESC.md, MANUAL_TESTING.md) and remove/update outdated or duplicated info.
+
 ### Test FFmpeg auto-download on a clean machine
 Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts the binaries correctly. ~70MB download. Low priority - only needed before shipping to a new machine.
 
