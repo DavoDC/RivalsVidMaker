@@ -38,7 +38,9 @@ data/
   output/               — description.txt files per batch
   examples/             — ground_truth/ labelled frames, ko_frames/ reference screenshots
 docs/                   MULTIKILL_DETECTION.md, YOUTUBE_API.md, IDEAS.md
-tools/                  ffmpeg.exe + ffprobe.exe (gitignored, user provides)
+dependencies/
+  ffmpeg/               ffmpeg.exe + ffprobe.exe + ffplay.exe (gitignored, user provides)
+  yt-dlp.exe            used by scripts/download_playlist.py (gitignored)
 config/
   config.json           — your local config (gitignored)
   config.example.json   — template (tracked)
@@ -238,4 +240,4 @@ See `docs/IDEAS.md` for all pending ideas and next actions, ordered by priority.
 - `pip install pytesseract Pillow`
 - Tesseract OCR binary: `winget install UB-Mannheim.TesseractOCR`
   → installs to `C:\Program Files\Tesseract-OCR\tesseract.exe` (matches config.json default)
-- FFmpeg: place `ffmpeg.exe` + `ffprobe.exe` in `tools/`
+- FFmpeg: place `ffmpeg.exe` + `ffprobe.exe` in `dependencies/ffmpeg/`
