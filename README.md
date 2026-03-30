@@ -29,7 +29,9 @@ RivalsVidMaker/
 ├── scripts/
 │   └── run.bat              # Windows launcher
 ├── tests/                   # Pytest test suite
-├── tools/                   # FFmpeg binaries (gitignored)
+├── dependencies/
+│   ├── ffmpeg/              # FFmpeg binaries (gitignored)
+│   └── yt-dlp.exe           # YouTube downloader (gitignored)
 └── data/                    # Runtime cache (gitignored)
 ```
 
@@ -40,7 +42,7 @@ pip install pytesseract Pillow
 winget install UB-Mannheim.TesseractOCR
 ```
 
-Place `ffmpeg.exe` + `ffprobe.exe` in `tools/`.
+Place `ffmpeg.exe` + `ffprobe.exe` in `dependencies/ffmpeg/`.
 
 Copy and edit the config:
 
@@ -48,7 +50,7 @@ Copy and edit the config:
 {
   "clips_path": "C:\\Users\\You\\Videos\\MarvelRivals\\Highlights",
   "output_path": "C:\\Users\\You\\Videos\\MarvelRivals\\Output",
-  "ffmpeg_path": "tools",
+  "ffmpeg_path": "dependencies\\ffmpeg",
   "tesseract_path": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
   "cache_dir": "data\\cache",
   "min_batch_seconds": 600,
@@ -76,7 +78,7 @@ pytest              # run tests
 
 - Windows, Python 3.10+
 - [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki)
-- FFmpeg in `tools/`
+- FFmpeg in `dependencies/ffmpeg/`
 - NVIDIA GPU recommended (NVENC) - falls back to CPU automatically
 
 ## Development
