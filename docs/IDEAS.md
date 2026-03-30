@@ -27,7 +27,11 @@ Single source of truth for all pending work.
 
 5. **Clip transition trimming** - each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap (don't remove entirely). Requires frame analysis to find the transition start reliably.
 
-6. **YouTube API / upload automation** - automate the full YouTube upload. See `docs/YOUTUBE_API.md` for existing API research. Scope: compile video, then upload directly to YouTube as **private** (user reviews and makes public manually), with title/description/tags set from the AI-generated prompt file. Confirm upload written to state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
+6. **YouTube API / upload automation** - automate the full YouTube upload. See `docs/YOUTUBE_API.md` for existing API research.
+
+   **Phase 1 (feasibility probe - do first, standalone script):** Write the smallest possible standalone script (`scripts/yt_upload_test.py`) that authenticates via OAuth and uploads a single hardcoded clip as **private** to confirm the API actually works. Small channels may not have upload quota or the right API access tier - verify this before building anything else. Success = a private video appears on the channel.
+
+   **Phase 2 (pipeline integration - only if Phase 1 works):** Compile video -> upload as private (title/description/tags from the AI prompt file) -> record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
 
 7. **Test end-to-end with Thor** - 31 clips ready, all KO-cached as of 2026-03-28. Full pipeline test covering all of the above: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private). This is the integration test for items 1-6.
 
