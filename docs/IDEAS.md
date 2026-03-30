@@ -53,22 +53,56 @@ Archive submenu should offer "Compile Best-of" per character, running the same K
 ### Automated tests for KO detection
 pytest tests for `scan_clip` and OCR logic. Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
 
-### Decompile folder (4th folder) - retrospective Best-of
-A fourth folder alongside Highlights/Output/Archive. Use yt-dlp to download previously uploaded compilation videos, scan for Quad+ kills, extract those segments as clips, then feed into the Archive -> Best-of pipeline. Goal: "Best of 2024" / "Best of 2025" retrospective videos. Split into parts if over 15 min.
+### OldCompilations - retrospective Best-of
+Previously uploaded videos re-downloaded for KO scanning + Best-of extraction.
+Location: `C:\Users\David\Videos\MarvelRivals\OldCompilations\`
+Playlist: `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
 
-**Playlist:** `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
+**Phase 1 - Download DONE.** 27 videos, all 1080p, confirmed good quality. `scripts/download_playlist.py` handles re-runs idempotently.
 
-**Implementation plan (phased):**
+**Content inventory (27 videos):**
 
-**Phase 1 - Download script (once-off, standalone):** `scripts/download_playlist.py`
-- Calls `dependencies/yt-dlp.exe` via subprocess (no external Python deps)
-- Downloads entire playlist at best quality (`bestvideo+bestaudio`, merged to mp4)
-- Outputs to `C:\Users\David\Videos\MarvelRivals\OldCompilations\`
-- Skips already-downloaded files (idempotent - safe to re-run)
-- Windows-safe filenames, clean progress output to console
-- `dependencies/yt-dlp.exe` - already in place
+Compilation videos (20):
+- `2025-05-18` THOR HIGHLIGHTS, MULTIKILLS [FEB-MAY 2025]
+- `2025-08-03` THOR HIGHLIGHTS, MULTIKILLS [JUL+AUG 2025]
+- `2025-08-16` THOR HIGHLIGHTS, MULTIKILLS [AUG 2025][Part 1]
+- `2025-08-30` THOR HIGHLIGHTS, MULTIKILLS [AUG 2025][Part 2]
+- `2025-09-13` THOR HIGHLIGHTS, MULTIKILLS [SEP 2025][Part 1]
+- `2025-09-13` THOR HIGHLIGHTS, MULTIKILLS [SEP 2025][Part 2]
+- `2025-09-27` THOR HIGHLIGHTS, MULTIKILLS [SEP 2025][Part 3]
+- `2025-10-01` THOR UNLEASHED - Relentless Multikills (Sep 2025) Part 4
+- `2025-10-13` SQUIRREL GIRL HIGHLIGHTS [AUG-OCT 2025]
+- `2025-10-13` THOR HIGHLIGHTS, MULTIKILLS [OCT 2025][Part 1]
+- `2025-11-01` THOR HIGHLIGHTS, MULTIKILLS [OCT 2025][Part 2]
+- `2025-11-03` SQUIRREL GIRL HIGHLIGHTS [OCT 2025]
+- `2025-11-22` THOR HIGHLIGHTS, MULTIKILLS [NOV 2025][Part 1]
+- `2025-12-07` SQUIRREL GIRL HIGHLIGHTS [NOV-DEC 2025]
+- `2025-12-07` UNSTOPPABLE THOR - Multikill Highlights Nov-Dec 2025
+- `2026-01-31` THOR AT PEAK POWER - Multikill Highlights (Jan 2026)
+- `2026-01-31` THOR IN FULL CONTROL - Multikill Highlights (Dec 2025)
+- `2026-02-14` SQUIRREL GIRL MULTIKILL MONTAGE (Dec 25 - Feb 26)
+- `2026-03-17` THOR AWAKENS - Multikill Highlights (Feb 2026) **[already processed - clips saved]**
+- `2026-03-17` THOR OVERLOAD - Back-to-Back Multikills (Feb-Mar 2026) **[already processed - clips saved]**
 
-**Phase 2 - KO scan on downloaded videos:** Run existing `ko_detect.py` against Decompile/ videos to find Quad+ timestamps.
+Gameplay stream videos (7, 39min+, up to ~4hr/7GB - full session recordings, not clip compilations):
+- `2025-08-12` THOR RIVALS GAMEPLAY (13th Aug 2025)
+- `2025-09-09` THOR RIVALS GAMEPLAY (9th Sep 2025)
+- `2025-09-11` THOR RIVALS GAMEPLAY (11th Sep 2025)
+- `2025-09-12` THOR RIVALS GAMEPLAY (12th Sep 2025)
+- `2025-09-23` THOR RIVALS GAMEPLAY (23rd Sep 2025)
+- `2025-09-27` THOR RIVALS GAMEPLAY (27th Sep 2025)
+- `2025-11-09` MARVEL RIVALS Gameplay (1st Nov 2025)
+
+**Already-processed videos:** The two 2026-03-17 videos have already been through the pipeline (clips saved). Options:
+- Move to `OldCompilations/_done/` subfolder to keep them separate
+- Keep in place and use as regression tests (known clips = known KO timestamps to verify scanner against)
+
+**Phase 2 - KO scan:** Run `ko_detect.py` against all OldCompilations videos. Both compilations and gameplay streams should be scanned - gameplay streams will also contain Quad+ kills.
+
+**KO scanner large-file efficiency (must solve before Phase 2):** Gameplay streams can be 4hr / 7GB+. Current 2fps sampling is fine for 15-min clips but becomes expensive at that scale. The scanner must be efficient enough to handle these without taking hours.
+- Current approach: extract every frame at 2fps via ffmpeg pipe, run OCR on each
+- Improvement needed: the banner only appears for ~2s and has a mandatory 2s cooldown - so after detecting a kill event, skip ahead confidently. Also consider: only sample the banner crop region (already done), but investigate whether ffmpeg seek-based extraction (not piping all frames) would be faster for sparse scanning of long videos.
+- This is a prerequisite for Phase 2 - don't scan large files until this is solved.
 
 **Phase 3 - Segment extraction:** FFmpeg-cut each Quad+ segment (with padding) into individual clips, output to `ClipArchive/` pending Best-of compilation.
 
