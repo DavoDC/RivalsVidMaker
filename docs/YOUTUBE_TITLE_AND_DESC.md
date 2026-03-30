@@ -42,16 +42,30 @@ HIGHLIGHTS:
 
 ## Title examples
 
+Current format (used from ~Oct 2025 onwards):
 ```
-THOR OVERLOAD ⚡ Back-to-Back Multikills (Feb–Mar 2026)       ← vid2, confirmed perfect
-THOR AWAKENS ⚡ Multikill Highlights (Feb 2026)
-THOR IN FULL CONTROL ⚡ Multikill Highlights (Dec 2025)
-THOR AT PEAK POWER ⚡ Multikill Highlights (Jan 2026)
-UNSTOPPABLE THOR ⚡ Multikill Highlights | Nov–Dec 2025
-SQUIRREL GIRL MULTIKILL MONTAGE! 🐿️ (Dec '25 – Feb '26)
+THOR OVERLOAD Back-to-Back Multikills (Feb-Mar 2026)       <- vid2, confirmed perfect
+THOR AWAKENS Multikill Highlights (Feb 2026)
+THOR IN FULL CONTROL Multikill Highlights (Dec 2025)
+THOR AT PEAK POWER Multikill Highlights (Jan 2026)
+UNSTOPPABLE THOR Multikill Highlights | Nov-Dec 2025
+SQUIRREL GIRL MULTIKILL MONTAGE! (Dec 25 - Feb 26)
 ```
 
-**Pattern:** `<CHARACTER> <CAPS TAGLINE> ⚡ <subtitle> (<date range>)`
+**Pattern:** `<CHARACTER> <CAPS TAGLINE> <subtitle> (<date range>)` - with lightning bolt emoji between tagline and subtitle
+
+Legacy format (used before ~Oct 2025 - not ideal, avoid for new videos):
+```
+THOR HIGHLIGHTS, MULTIKILLS [FEB-MAY 2025]
+THOR HIGHLIGHTS, MULTIKILLS [AUG 2025][Part 1]
+SQUIRREL GIRL HIGHLIGHTS [AUG-OCT 2025]
+```
+
+Gameplay stream format (full session recordings, not compilations):
+```
+THOR RIVALS GAMEPLAY (13th Aug 2025)
+MARVEL RIVALS Gameplay (1st Nov 2025)
+```
 
 ---
 
