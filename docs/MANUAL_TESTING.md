@@ -14,8 +14,8 @@ Run these checks before anything else.
 - [ ] Tesseract OCR binary exists at the path in `config/config.json`
   - Default: `C:\Program Files\Tesseract-OCR\tesseract.exe`
   - Quick test: `"C:\Program Files\Tesseract-OCR\tesseract.exe" --version`
-- [ ] `tools/ffmpeg.exe` and `tools/ffprobe.exe` exist (or the configured path)
-  - Quick test: `tools/ffmpeg.exe -version`
+- [ ] `dependencies/ffmpeg/ffmpeg.exe` and `dependencies/ffmpeg/ffprobe.exe` exist (or the configured path)
+  - Quick test: `dependencies/ffmpeg/ffmpeg.exe -version`
 - [ ] `config/config.json` exists and has required fields:
   - `clips_path` — path to `Highlights\` folder
   - `output_path` — path to `Output\` folder
