@@ -54,7 +54,23 @@ Archive submenu should offer "Compile Best-of" per character, running the same K
 pytest tests for `scan_clip` and OCR logic. Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
 
 ### Decompile folder (4th folder) - retrospective Best-of
-A fourth folder alongside Highlights/Output/Archive. Use yt-dlp to download previously uploaded compilation videos (max quality, 720p/1080p), scan for Quad+ kills, extract those segments as clips, then feed into the Archive -> Best-of pipeline. Goal: "Best of 2024" / "Best of 2025" retrospective videos. Split into parts if over 15 min.
+A fourth folder alongside Highlights/Output/Archive. Use yt-dlp to download previously uploaded compilation videos, scan for Quad+ kills, extract those segments as clips, then feed into the Archive -> Best-of pipeline. Goal: "Best of 2024" / "Best of 2025" retrospective videos. Split into parts if over 15 min.
+
+**Playlist:** `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
+
+**Implementation plan (phased):**
+
+**Phase 1 - Download script (once-off, standalone):** `scripts/download_playlist.py`
+- Calls `tools/yt-dlp.exe` via subprocess (no external Python deps)
+- Downloads entire playlist at best quality (`bestvideo+bestaudio`, merged to mp4)
+- Outputs to `C:\Users\David\Videos\MarvelRivals\Decompile\`
+- Skips already-downloaded files (idempotent - safe to re-run)
+- Windows-safe filenames, clean progress output to console
+- `tools/yt-dlp.exe` - copy from `C:\Users\David\GitHubRepos\SBS_Download\dependencies\`
+
+**Phase 2 - KO scan on downloaded videos:** Run existing `ko_detect.py` against Decompile/ videos to find Quad+ timestamps.
+
+**Phase 3 - Segment extraction:** FFmpeg-cut each Quad+ segment (with padding) into individual clips, output to `ClipArchive/` pending Best-of compilation.
 
 ### Time estimation before encode
 Before starting a batch, show a rough estimate broken into stages: KO scanning (~3-9s per uncached clip, instant if cached), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
