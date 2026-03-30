@@ -63,7 +63,7 @@ A fourth folder alongside Highlights/Output/Archive. Use yt-dlp to download prev
 **Phase 1 - Download script (once-off, standalone):** `scripts/download_playlist.py`
 - Calls `tools/yt-dlp.exe` via subprocess (no external Python deps)
 - Downloads entire playlist at best quality (`bestvideo+bestaudio`, merged to mp4)
-- Outputs to `C:\Users\David\Videos\MarvelRivals\Decompile\`
+- Outputs to `C:\Users\David\Videos\MarvelRivals\OldCompilations\`
 - Skips already-downloaded files (idempotent - safe to re-run)
 - Windows-safe filenames, clean progress output to console
 - `tools/yt-dlp.exe` - copy from `C:\Users\David\GitHubRepos\SBS_Download\dependencies\`
