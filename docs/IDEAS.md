@@ -106,6 +106,24 @@ Gameplay stream videos (7, 39min+, up to ~4hr/7GB - full session recordings, not
 
 **Phase 3 - Segment extraction:** FFmpeg-cut each Quad+ segment (with padding) into individual clips, output to `ClipArchive/` pending Best-of compilation.
 
+**Phase 4 - Description fetch via YouTube API (low priority):** Each OldCompilations video has a YouTube description containing manually-entered timestamps and a list of the original clip filenames that contributed. Fetch these descriptions via the YouTube Data API and save as `<video_stem>_description.txt` alongside the video file.
+
+Uses:
+- **Timestamp validation:** Compare KO scanner output against the manually-entered timestamps in the description. Not a strict test (human timestamps may be wrong or missing) - treat as a rough sanity check. Trust the scanner if it disagrees.
+- **Clip reconstruction:** Descriptions list original clip filenames in order. Combined with transition-counting (count the black-screen transitions in the compiled video), you can reconstruct which clip maps to which segment - giving a clip order list that links back to the original filenames. This is difficult because clips vary in length, but transition detection makes it tractable.
+
+Note: YouTube API auth setup (OAuth) overlaps with the higher-priority upload automation (item 6). Auth work done for item 6 can be reused here - no point doing it twice.
+
+**Duplicate clip detection (also relevant to Phase 4):** Gameplay streams are full session recordings and may contain footage that also appears in compilation videos, resulting in duplicate extracted clips. Also relevant to the main pipeline: before compiling, check that no clip is a near-duplicate of another in the same batch.
+
+Approach: perceptual hashing of keyframes gives each clip a fingerprint. Compare fingerprints across clips; high similarity = likely duplicate. Exact match threshold to be determined empirically.
+
+Two use cases:
+1. **OldCompilations dedup:** after Phase 3 segment extraction, check extracted clips against each other and against existing ClipArchive clips. Flag duplicates before archiving.
+2. **Main pipeline dedup:** before encoding a batch, check for near-duplicate clips within the batch (e.g. same kill captured twice). Warn and let user decide whether to exclude.
+
+Implementation note: `imagehash` library (perceptual hash) or frame-level DCT hash via ffmpeg/Pillow. No heavy ML needed.
+
 ### Time estimation before encode
 Before starting a batch, show a rough estimate broken into stages: KO scanning (~3-9s per uncached clip, instant if cached), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
 
