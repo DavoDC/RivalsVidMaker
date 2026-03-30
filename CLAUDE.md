@@ -142,8 +142,9 @@ Understanding this flow is essential for designing pipeline features.
 
 ### Stage 4: RVM pipeline
 - Clips stay in `Highlights\CHARACTER\` until compiled.
-- RVM batches them into ~15-min groups, encodes via FFmpeg, writes descriptions.
-- After compilation, clips move to `Output\CHARACTER_DATE\clips\` (renamed with KO tier).
+- RVM batches them into ~15-min groups (one batch per run - re-run for subsequent batches).
+- At KO scan stage, clips are renamed in-place with tier suffix (e.g. `THOR_..._QUAD.mp4`).
+- After compilation, clips move to `Output\CHARACTER_DATE\clips\` (already renamed from scan).
 
 ### Stage 5: Cleanup (post-YouTube)
 - After confirming the YouTube upload, cleanup runs: Quad+ -> ClipArchive, rest deleted.
@@ -176,7 +177,7 @@ All compiled videos live here. One subfolder per published video.
 **Each output folder contains exactly:**
 1. `CHARACTER_DATE.mp4` — the compiled video
 2. `CHARACTER_DATE_description.txt` — YouTube title, description, and timestamps
-3. `clips\` — the source clip files used in this video (renamed with KO tier suffix)
+3. `clips\` — the source clip files used in this video (tier already in filename from scan stage)
 
 When the user confirms the YouTube video is in good shape, the cleanup process:
 - Moves Quad+ clips from `clips\` → `ClipArchive\` (preserved for future Best-of)
