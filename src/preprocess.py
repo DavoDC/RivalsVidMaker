@@ -21,6 +21,31 @@ from clip_scanner import VIDEO_EXTS
 from config import Config
 
 
+def _rename_clip(clip_path: Path, tier: str | None) -> Path:
+    """Rename a clip in-place to embed _TIER in the stem. Also renames the cache file.
+
+    Returns the new path (or original path if no rename needed).
+    """
+    if not tier:
+        return clip_path
+    stem = clip_path.stem
+    if any(stem.endswith(f"_{t}") for t in ko_detect.TIERS):
+        return clip_path  # already renamed
+    new_path = clip_path.with_stem(f"{stem}_{tier}")
+    try:
+        clip_path.rename(new_path)
+        old_cache = Path(ko_detect.cache_path(str(clip_path)))
+        new_cache = Path(ko_detect.cache_path(str(new_path)))
+        if old_cache.exists() and not new_cache.exists():
+            new_cache.parent.mkdir(parents=True, exist_ok=True)
+            old_cache.rename(new_cache)
+        logging.info("Renamed: %s -> %s", clip_path.name, new_path.name)
+        return new_path
+    except OSError as e:
+        logging.warning("Could not rename %s: %s", clip_path.name, e)
+        return clip_path
+
+
 def preprocess_all(config: Config) -> dict[str, int]:
     """
     Scan all clips in all character subfolders of config.clips_path.
@@ -79,8 +104,10 @@ def preprocess_all(config: Config) -> dict[str, int]:
         char_done = 0
         for clip_path in clips:
             done += 1
-            hit, _ = ko_detect.cache_load(str(clip_path))
+            hit, cached_result = ko_detect.cache_load(str(clip_path))
             if hit:
+                tier = cached_result["tier"] if cached_result else None
+                clip_path = _rename_clip(clip_path, tier)
                 logging.info("[%d/%d] [cached] %s", done, total, clip_path.name)
                 char_done += 1
                 continue
@@ -90,13 +117,15 @@ def preprocess_all(config: Config) -> dict[str, int]:
             result = ko_detect.scan_clip(str(clip_path), use_cache=True)
             elapsed = time.perf_counter() - t0
 
-            tier = result["tier"] if result else "none"
+            tier = result["tier"] if result else None
+            tier_label = tier or "none"
             elapsed_str = (
                 f"{int(elapsed) // 60}m{int(elapsed) % 60:02d}s"
                 if elapsed >= 60
                 else f"{elapsed:.1f}s"
             )
-            logging.info("[%d/%d] Done (%s) — %s", done, total, elapsed_str, tier)
+            logging.info("[%d/%d] Done (%s) - %s", done, total, elapsed_str, tier_label)
+            clip_path = _rename_clip(clip_path, tier)
             char_done += 1
 
         results[char_name] = char_done

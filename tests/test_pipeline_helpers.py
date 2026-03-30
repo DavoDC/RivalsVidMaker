@@ -292,24 +292,25 @@ class TestMoveClips:
         src.write_bytes(b"clip data")
         clips_dir = tmp_path / "output" / "clips"
         batch = make_batch_from_files([src])
-        _move_clips(batch, {}, clips_dir)
+        _move_clips(batch, clips_dir)
         assert not src.exists()
         assert (clips_dir / "THOR_2026-02-06_22-38-56.mp4").exists()
 
-    def test_appends_tier_suffix_when_detected(self, tmp_path):
-        src = tmp_path / "THOR_2026-02-06_22-38-56.mp4"
+    def test_tier_already_in_filename_preserved(self, tmp_path):
+        # Tier embedded at scan stage - _move_clips just moves without renaming
+        src = tmp_path / "THOR_2026-02-06_22-38-56_QUAD.mp4"
         src.write_bytes(b"clip data")
         clips_dir = tmp_path / "output" / "clips"
         batch = make_batch_from_files([src])
-        _move_clips(batch, {"THOR_2026-02-06_22-38-56.mp4": "QUAD"}, clips_dir)
+        _move_clips(batch, clips_dir)
         assert (clips_dir / "THOR_2026-02-06_22-38-56_QUAD.mp4").exists()
 
-    def test_no_suffix_when_no_tier(self, tmp_path):
+    def test_no_tier_filename_unchanged(self, tmp_path):
         src = tmp_path / "THOR_2026-02-06_22-38-56.mp4"
         src.write_bytes(b"clip data")
         clips_dir = tmp_path / "output" / "clips"
         batch = make_batch_from_files([src])
-        _move_clips(batch, {}, clips_dir)
+        _move_clips(batch, clips_dir)
         assert (clips_dir / "THOR_2026-02-06_22-38-56.mp4").exists()
 
     def test_creates_clips_dir_if_missing(self, tmp_path):
@@ -318,7 +319,7 @@ class TestMoveClips:
         clips_dir = tmp_path / "does_not_exist" / "clips"
         assert not clips_dir.exists()
         batch = make_batch_from_files([src])
-        _move_clips(batch, {}, clips_dir)
+        _move_clips(batch, clips_dir)
         assert clips_dir.is_dir()
 
     def test_skips_existing_destination(self, tmp_path):
@@ -329,7 +330,7 @@ class TestMoveClips:
         existing = clips_dir / "THOR_2026-02-06_22-38-56.mp4"
         existing.write_bytes(b"existing")
         batch = make_batch_from_files([src])
-        _move_clips(batch, {}, clips_dir)
+        _move_clips(batch, clips_dir)
         # Source stays, destination is not overwritten
         assert src.exists()
         assert existing.read_bytes() == b"existing"
@@ -337,12 +338,11 @@ class TestMoveClips:
     def test_moves_multiple_clips(self, tmp_path):
         clips_dir = tmp_path / "clips"
         srcs = []
-        for name in ["THOR_2026-02-06_22-38-56.mp4", "THOR_2026-02-07_18-00-00.mp4"]:
+        for name in ["THOR_2026-02-06_22-38-56_QUAD.mp4", "THOR_2026-02-07_18-00-00.mp4"]:
             p = tmp_path / name
             p.write_bytes(b"x")
             srcs.append(p)
         batch = make_batch_from_files(srcs)
-        tiers = {"THOR_2026-02-06_22-38-56.mp4": "QUAD"}
-        _move_clips(batch, tiers, clips_dir)
+        _move_clips(batch, clips_dir)
         assert (clips_dir / "THOR_2026-02-06_22-38-56_QUAD.mp4").exists()
         assert (clips_dir / "THOR_2026-02-07_18-00-00.mp4").exists()
