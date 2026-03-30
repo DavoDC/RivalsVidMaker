@@ -98,6 +98,33 @@ def _collect_highlights(
                 video_max = offsets[clip_name] + result["max_ts"]
                 logging.info("%s @ %s–%s", tier_found, fmt_ts(video_start), fmt_ts(video_max))
 
+    # Rename clips in-place now that tiers are known (e.g. THOR_..._QUAD.mp4).
+    # This embeds the tier in the filename before description/archiving use it.
+    _tier_set = set(ko_detect.TIERS)
+    for clip in batch.clips:
+        result, _e, _c = scan_results.get(clip.name, (None, 0.0, False))
+        if not result:
+            continue
+        tier = result["tier"]
+        stem = clip.path.stem
+        if any(stem.endswith(f"_{t}") for t in _tier_set):
+            continue  # already renamed
+        old_path = clip.path
+        new_path = old_path.with_stem(f"{stem}_{tier}")
+        try:
+            old_path.rename(new_path)
+            # Move cache file to match new stem so future runs still hit the cache
+            old_cache = Path(ko_detect.cache_path(str(old_path)))
+            new_cache = Path(ko_detect.cache_path(str(new_path)))
+            if old_cache.exists() and not new_cache.exists():
+                new_cache.parent.mkdir(parents=True, exist_ok=True)
+                old_cache.rename(new_cache)
+            scan_results[new_path.name] = scan_results.pop(clip.name)
+            clip.path = new_path
+            logging.info("Renamed: %s -> %s", old_path.name, new_path.name)
+        except OSError as e:
+            logging.warning("Could not rename %s: %s", old_path.name, e)
+
     # Build ordered highlights + clip_tiers using original clip order
     highlights: list[tuple[float, float, str, str]] = []
     clip_tiers: dict[str, str] = {}
@@ -206,24 +233,22 @@ def _batch_slug(char_name: str, batch, total_batches: int) -> str:
 
 # ── File operations ───────────────────────────────────────────────────────────
 
-def _move_clips(batch, clip_tiers: dict[str, str], clips_dir: Path) -> None:
-    """Move source clips into clips_dir, appending _TIER suffix where detected."""
+def _move_clips(batch, clips_dir: Path) -> None:
+    """Move source clips into clips_dir (KO tier already embedded in filename from scan stage)."""
     clips_dir.mkdir(parents=True, exist_ok=True)
     moved = 0
     for clip in batch.clips:
-        tier = clip_tiers.get(clip.name)
-        stem = clip.path.stem + (f"_{tier}" if tier else "")
-        dest = clips_dir / (stem + clip.path.suffix)
+        dest = clips_dir / clip.path.name
         if dest.exists():
             logging.warning("Clip destination already exists, skipping: %s", dest.name)
             continue
         try:
             shutil.move(str(clip.path), str(dest))
-            logging.debug("Moved clip → %s", dest.name)
+            logging.debug("Moved clip -> %s", dest.name)
             moved += 1
         except OSError as e:
-            logging.error("Failed to move %s → %s: %s", clip.name, dest.name, e)
-    logging.info("Clips → %s  (%d moved)", clips_dir, moved)
+            logging.error("Failed to move %s -> %s: %s", clip.name, dest.name, e)
+    logging.info("Clips -> %s  (%d moved)", clips_dir, moved)
 
 
 # ── Table drawing ─────────────────────────────────────────────────────────────
@@ -554,7 +579,7 @@ def run(config: Config, force_encode: bool = False) -> None:
         )
         print(f"AI prompts \u2192 {prompts_path}")
 
-        _move_clips(batch, clip_tiers, out_dir / "clips")
+        _move_clips(batch, out_dir / "clips")
 
         total_batches += 1
 
