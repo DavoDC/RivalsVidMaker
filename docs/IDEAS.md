@@ -14,19 +14,6 @@ Single source of truth for all pending work.
 
 ### Bugs / correctness issues (fix before shipping)
 
-**BUG: KO tier not detected on single-KO clips (sampling gap)**
-
-Manual review of 3 null-result clips confirmed a visible KO banner at ~8s in all three, but `scan_clip` returned null. Crop region is confirmed correct (visually same position as multi-kill banners - right side, middle). Root cause: 2fps sampling has a 0.5s miss window. If the KO banner appears and disappears within that gap, no frame captures it.
-
-Fix: increase `SCAN_FPS` from 2 to 4 (0.25s miss window). This is complementary with the histogram-guided sampling optimisation below - scan denser in the likely KO zone, sparser elsewhere, net OCR cost stays low.
-
-Affected clips (manually verified, all have KO at ~8s):
-- `THOR_2026-03-17_22-20-29.mp4`
-- `THOR_2026-03-22_23-19-10.mp4`
-- `THOR_2026-03-27_22-23-58.mp4`
-
-After fixing: delete their null cache entries so they get re-scanned and renamed `_KO`.
-
 **DESIGN: DOUBLE+ minimum tier for compilations**
 
 Not all highlight clips saved by the game are true multi-kills. Clips with only a single KO (tier=KO) should be renamed/cached like any other clip (processed marker) but excluded from compilation batching. Only DOUBLE and above go into compilations - single KOs are low viewer value and hard to distinguish from assist-inflated clips.
@@ -37,7 +24,7 @@ Implementation: in `clip_scanner.py` (or wherever clips are filtered for batchin
 
 ### Quick wins (do first)
 
-1. **Test on a different character** - run pre-process on Squirrel Girl clips and verify KO tiers look correct on the renamed filenames (e.g. `SQUIRREL_GIRL_..._QUAD.mp4`). Fairly confident detection works character-agnostically but this confirms it cheaply.
+1. **R-squared on scan-time model is low (0.39)** - the linear model `scan_time = 0.838 * clip_duration + 7.173` has low fit. Possible cause: KO scan in pass 1 always processes the full clip at 2fps even when a KO is found early (no early exit). Adding early-exit after confirmed detection (after the cooldown window) would reduce scan time variance and improve model fit. Related: OCR cooldown window could be set to p90 inter-kill gap of 9s (data-driven).
 
 ### Main work
 
@@ -70,14 +57,21 @@ Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_set
 
 ### KO scan optimisation using historical timing distribution
 
-Manual review shows KO events cluster around ~8s in multiple clips. `start_ts` is already saved to every cache entry. Once enough data accumulates, build a histogram of KO event times across clips and use it to guide sampling.
+**Data now available** - 64 clips scanned, all with `start_ts`, `clip_duration`, `scan_time`. Analysis script: `scripts/once_off/analyse_ko_data.py`. Report: `data/analysis/ko_analysis_report_YYYYMMDD.md`.
 
-**Planned approach (combines with the SCAN_FPS fix above):**
-- Increase `SCAN_FPS` to 4 globally (fixes the sampling gap bug, modest cost increase)
-- Then apply histogram-guided density: sample even denser in the likely KO zone (e.g. 5-15s), drop back to lower rate outside it - net OCR cost stays comparable to current 2fps flat
-- Raise `SKIP_SECS` if data confirms a reliable dead zone at the start
+**Key findings from 64-clip dataset (2026-03-31):**
+- KO events range from 7.0s to 33.0s (mean 13.3s). No KO ever in first 7s.
+- 90% of KOs occur before 18.5s. Scanning past 22s is wasted for most clips.
+- SKIP_SECS could be safely raised to ~6.5s (earliest KO is 7.0s - 0.5s safety).
+- 90% of KOs occur within the first 58% of the clip. Early bail-out is viable.
+- Sequence duration (first to last kill): mean 7.6s, p90 16s. After detecting a KO, skip 16s ahead before resuming.
+- Inter-kill gap p90 = 9s. OCR cooldown window can be data-driven at 9s.
 
-Prerequisite: accumulate `start_ts` data from 50+ cached results before tuning the density curve. The bug fix (raise to 4fps flat) can be done immediately without the histogram.
+**Planned approach:**
+- Apply histogram-guided density: sample denser in 5-22s window, drop back outside - net OCR cost falls
+- Raise `SKIP_SECS` to 6s (was probably 0 or 2)
+- Add early-exit after confirmed KO + cooldown window (reduces scan time variance)
+- Re-run analysis after OldCompilations scan (hundreds of clips) to refine numbers
 
 ---
 
@@ -85,7 +79,11 @@ Prerequisite: accumulate `start_ts` data from 50+ cached results before tuning t
 
 Before starting a batch, show a rough estimate broken into stages: KO scanning (instant if cached, else estimate from clip length), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
 
-**Data-driven approach:** `clip_duration` (seconds) and `scan_time` (seconds) are now saved to every `.ko.json` cache entry (implemented). Over time this builds a dataset of `(clip_length, scan_time)` pairs. Use a simple linear model from past runs to predict future scan times.
+**Data-driven approach:** `clip_duration` and `scan_time` are saved to every `.ko.json` entry (implemented). 64 clips now in dataset.
+
+**Current model (64 clips):** `scan_time = 0.838 * clip_duration + 7.173` (R^2 = 0.39)
+- Low R^2 due to scan time variance (no early-exit after KO detection). Will improve once early-exit is implemented (see KO optimisation above).
+- Example predictions: 20s clip -> 23.9s scan, 30s clip -> 32.3s scan
 
 Two separate predictions needed:
 1. **KO scan time** - per-clip, based on clip length. Instant if cached.
