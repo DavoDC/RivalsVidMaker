@@ -13,7 +13,7 @@ from config import Config
 from preprocess import preprocess_all
 
 
-def make_config(clips_path: Path) -> Config:
+def make_config(clips_path: Path, protect_recent_clips: int = 0) -> Config:
     return Config(
         clips_path=clips_path,
         output_path=clips_path.parent / "Output",
@@ -24,7 +24,7 @@ def make_config(clips_path: Path) -> Config:
         tesseract=Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
         min_batch_seconds=600,
         target_batch_seconds=900,
-        protect_recent_clips=0,
+        protect_recent_clips=protect_recent_clips,
         state_path=Path("data/state.json"),
     )
 
@@ -142,6 +142,31 @@ class TestPreprocessAll:
             result = preprocess_all(make_config(tmp_path))
 
         assert result["THOR"] == 3
+        assert mock_ko.scan_clip.call_count == 3
+
+    def test_protect_recent_clips_not_applied_to_char_subfolders(self, tmp_path):
+        """protect_recent_clips must not restrict scanning in character subfolders.
+
+        Regression: previously clips[:-N] was applied to character folders,
+        so a folder with <= N clips would produce an empty list and scan nothing.
+        """
+        char_dir = tmp_path / "SQUIRREL_GIRL"
+        char_dir.mkdir()
+        for name in [
+            "SQUIRREL_GIRL_2026-03-01_10-00-00.mp4",
+            "SQUIRREL_GIRL_2026-03-02_11-00-00.mp4",
+            "SQUIRREL_GIRL_2026-03-03_12-00-00.mp4",
+        ]:
+            _make_clip(char_dir, name)
+
+        # protect_recent_clips=5 > clip count (3) - previously this zeroed the list
+        with patch("preprocess.ko_detect") as mock_ko:
+            mock_ko.cache_load.return_value = (False, None)
+            mock_ko.scan_clip.return_value = None
+
+            result = preprocess_all(make_config(tmp_path, protect_recent_clips=5))
+
+        assert result["SQUIRREL_GIRL"] == 3
         assert mock_ko.scan_clip.call_count == 3
 
     def test_mix_of_cached_and_uncached(self, tmp_path):

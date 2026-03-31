@@ -14,15 +14,6 @@ Single source of truth for all pending work.
 
 ### Bugs / correctness issues (fix before shipping)
 
-**BUG: protect_recent_clips applied to character subfolders (WRONG)**
-
-`preprocess.py` applies the `protect_recent_clips` guard to every character subfolder (THOR, SQUIRREL_GIRL, etc.). This is wrong - protection should only apply to the `Highlights\` ROOT folder. That's the only folder the in-game save UI writes to; clips in character subfolders have already been sorted and are safe to process without restriction.
-
-Symptom: if SQUIRREL_GIRL has exactly 5 clips, `clips[:-5]` = empty - all 5 are "protected" and nothing gets scanned/renamed. With THOR having more clips, the last 5 are silently skipped.
-
-Fix: remove the `protect_recent_clips` slicing from `preprocess_all()` entirely. Pre-process scans character subfolders only - protection is irrelevant there. (Protection logic, if it is ever needed, belongs in the root-folder clip sorter, not in preprocess.)
-
-
 ---
 
 ### Quick wins (do first)
