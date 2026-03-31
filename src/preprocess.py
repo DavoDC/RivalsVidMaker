@@ -21,17 +21,27 @@ from clip_scanner import VIDEO_EXTS
 from config import Config
 
 
+def _has_processed_suffix(clip_path: Path) -> bool:
+    """Return True if the clip has already been through preprocess (has a tier or NONE suffix)."""
+    stem = clip_path.stem
+    return (
+        any(stem.endswith(f"_{t}") for t in ko_detect.TIERS)
+        or stem.endswith(f"_{ko_detect.NULL_RESULT_SUFFIX}")
+    )
+
+
 def _rename_clip(clip_path: Path, tier: str | None) -> Path:
-    """Rename a clip in-place to embed _TIER in the stem. Also renames the cache file.
+    """Rename a clip in-place to embed _TIER (or _NONE for null results) in the stem.
+    Also renames the cache file.
 
     Returns the new path (or original path if no rename needed).
     """
-    if not tier:
-        return clip_path
     stem = clip_path.stem
-    if any(stem.endswith(f"_{t}") for t in ko_detect.TIERS):
+    if _has_processed_suffix(clip_path):
         return clip_path  # already renamed
-    new_path = clip_path.with_stem(f"{stem}_{tier}")
+
+    label = tier if tier else ko_detect.NULL_RESULT_SUFFIX
+    new_path = clip_path.with_stem(f"{stem}_{label}")
     try:
         clip_path.rename(new_path)
         old_cache = Path(ko_detect.cache_path(str(clip_path)))
@@ -98,6 +108,7 @@ def preprocess_all(config: Config) -> dict[str, int]:
 
         ko_detect.configure(
             ffmpeg=str(config.ffmpeg),
+            ffprobe=str(config.ffprobe),
             tesseract=str(config.tesseract),
             cache_dir=str(config.cache_dir / char_name),
         )
@@ -105,17 +116,28 @@ def preprocess_all(config: Config) -> dict[str, int]:
         char_done = 0
         for clip_path in clips:
             done += 1
+            already_processed = _has_processed_suffix(clip_path)
             hit, cached_result = ko_detect.cache_load(str(clip_path))
-            if hit:
+
+            if hit and already_processed:
+                # Properly processed before - respect cache, just ensure rename is done
                 tier = cached_result["tier"] if cached_result else None
                 clip_path = _rename_clip(clip_path, tier)
                 logging.info("[%d/%d] [cached] %s", done, total, clip_path.name)
                 char_done += 1
                 continue
 
-            logging.info("[%d/%d] Scanning %s...", done, total, clip_path.name)
+            # Either no cache or clip has no suffix (something went wrong) - force rescan
+            if not already_processed and hit:
+                logging.info(
+                    "[%d/%d] No suffix, overriding cache - rescanning %s...",
+                    done, total, clip_path.name,
+                )
+            else:
+                logging.info("[%d/%d] Scanning %s...", done, total, clip_path.name)
+
             t0 = time.perf_counter()
-            result = ko_detect.scan_clip(str(clip_path), use_cache=True)
+            result = ko_detect.scan_clip(str(clip_path), use_cache=already_processed)
             elapsed = time.perf_counter() - t0
 
             tier = result["tier"] if result else None
