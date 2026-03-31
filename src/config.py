@@ -20,6 +20,7 @@ class Config:
     target_batch_seconds: int  # aim for this duration per batch
     protect_recent_clips: int  # skip this many most-recent clips from batching
     state_path: Path           # persistent state log (youtube_confirmed, etc.)
+    force_rescan_cache: bool   # if True, pre-process ignores existing cache entries and rescans all clips
 
 
 def load(path: Path = Path("config/config.json")) -> Config:
@@ -53,4 +54,5 @@ def load(path: Path = Path("config/config.json")) -> Config:
         target_batch_seconds=int(raw.get("target_batch_seconds", 900)),
         protect_recent_clips=int(raw.get("protect_recent_clips", 5)),
         state_path=Path(raw.get("state_path", "data/state.json")),
+        force_rescan_cache=bool(raw.get("force_rescan_cache", False)),
     )

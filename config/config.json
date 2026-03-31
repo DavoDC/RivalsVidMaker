@@ -5,5 +5,6 @@
   "tesseract_path": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
   "cache_dir": "data\\cache",
   "min_batch_seconds": 600,
-  "target_batch_seconds": 900
+  "target_batch_seconds": 900,
+  "force_rescan_cache": false
 }

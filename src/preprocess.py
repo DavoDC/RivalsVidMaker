@@ -61,12 +61,16 @@ def preprocess_all(config: Config) -> dict[str, int]:
     Scan all clips in all character subfolders of config.clips_path.
 
     For each clip:
-      - If a cache entry already exists, skip (counts as scanned).
+      - If a cache entry already exists and config.force_rescan_cache is False,
+        skip (counts as scanned).
+      - If config.force_rescan_cache is True, rescan every clip regardless of cache.
+        Use this after scanner optimisations to get updated scan_time metrics.
       - Otherwise run KO detection and write the cache entry.
 
     Returns {char_name: clip_count} for every character processed.
     Progress is logged at INFO level so it appears in the terminal.
     """
+    force_rescan = config.force_rescan_cache
     clips_path = config.clips_path
     if not clips_path.exists():
         raise FileNotFoundError(f"Clips path not found: {clips_path}")
@@ -119,7 +123,7 @@ def preprocess_all(config: Config) -> dict[str, int]:
             already_processed = _has_processed_suffix(clip_path)
             hit, cached_result = ko_detect.cache_load(str(clip_path))
 
-            if hit and already_processed:
+            if hit and already_processed and not force_rescan:
                 # Properly processed before - respect cache, just ensure rename is done
                 tier = cached_result["tier"] if cached_result else None
                 clip_path = _rename_clip(clip_path, tier)
@@ -127,8 +131,10 @@ def preprocess_all(config: Config) -> dict[str, int]:
                 char_done += 1
                 continue
 
-            # Either no cache or clip has no suffix (something went wrong) - force rescan
-            if not already_processed and hit:
+            # Determine log label and whether to bypass cache
+            if force_rescan and hit and already_processed:
+                logging.info("[%d/%d] [force rescan] %s...", done, total, clip_path.name)
+            elif not already_processed and hit:
                 logging.info(
                     "[%d/%d] No suffix, overriding cache - rescanning %s...",
                     done, total, clip_path.name,
@@ -136,8 +142,9 @@ def preprocess_all(config: Config) -> dict[str, int]:
             else:
                 logging.info("[%d/%d] Scanning %s...", done, total, clip_path.name)
 
+            use_cache = already_processed and not force_rescan
             t0 = time.perf_counter()
-            result = ko_detect.scan_clip(str(clip_path), use_cache=already_processed)
+            result = ko_detect.scan_clip(str(clip_path), use_cache=use_cache)
             elapsed = time.perf_counter() - t0
 
             tier = result["tier"] if result else None
