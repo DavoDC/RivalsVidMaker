@@ -22,9 +22,6 @@ Symptom: if SQUIRREL_GIRL has exactly 5 clips, `clips[:-5]` = empty - all 5 are 
 
 Fix: remove the `protect_recent_clips` slicing from `preprocess_all()` entirely. Pre-process scans character subfolders only - protection is irrelevant there. (Protection logic, if it is ever needed, belongs in the root-folder clip sorter, not in preprocess.)
 
-**Kill-cam false positives - stream VODs only (low priority)**
-
-When a stream VOD (raw game recording) is scanned, kill-cam sequences during respawn can produce false positive KO detections - the killer's banners appear in the same region. Does NOT affect saved highlight clips (always the player's own kills). Only relevant for OldCompilations stream VOD scanning (Phase 2). Potential automated fix: detect "Spectating [name]" UI element and suppress KO detection during that window. Until then, treat any stream VOD scan results as needing manual verification.
 
 ---
 
@@ -50,8 +47,38 @@ When a stream VOD (raw game recording) is scanned, kill-cam sequences during res
 
 ## Lower priority / future
 
+### Quick wins
+
+### README improvements (2 items)
+- **OCR/KO scan section** - the OCR multi-kill detection is the most technically interesting part of the project. Add a dedicated README section explaining how it works: frame extraction at 2fps, banner crop region, Tesseract OCR, tier detection, cooldown logic. Technical but concise - not a wall of text.
+- **Pipeline and folder structure** - README should explain the full end-to-end flow and what each folder contains (Highlights, Output, ClipArchive). Currently lives only in CLAUDE.md.
+
+### Test FFmpeg auto-download on a clean machine
+Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts the binaries correctly. ~70MB download. Only needed before shipping to a new machine.
+
+---
+
+### Time estimation before encode (with data-driven model)
+
+Before starting a batch, show a rough estimate broken into stages: KO scanning (instant if cached, else estimate from clip length), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
+
+**Data-driven approach:** save timing data to each `.ko.json` cache entry: clip duration (seconds) + actual scan time (seconds). Over time this builds a dataset of `(clip_length, scan_time)` pairs. Use a simple linear model from past runs to predict future scan times. Far more accurate than hardcoded constants.
+
+Two separate predictions needed:
+1. **KO scan time** - per-clip, based on clip length. Instant if cached.
+2. **Encode/compile time** - per-batch, based on total clip duration. Different model (GPU vs CPU).
+
+Add the timing fields to the `.ko.json` schema now so data accumulates from the start, even before the estimation UI is built.
+
+### Automated tests for KO detection
+pytest tests for `scan_clip` and OCR logic. Want KO detection solid and well-tested before running big scans (OldCompilations, Best-of). Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
+
+---
+
 ### Best-of compilation from Archive
 Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
+
+> **Related:** OldCompilations (below) feeds directly into this - decompiling old uploaded videos is the main way to fill ClipArchive with pre-2026 kills.
 
 **Archive clip lifecycle (decided):**
 - Archive clips are NEVER deleted - permanent record of best kills.
@@ -61,17 +88,16 @@ Archive submenu should offer "Compile Best-of" per character, running the same K
 - The compiled Best-of video itself goes through the normal Output + cleanup flow (published to YT, then video deleted, clips stay in compiled/).
 - Archive display table should show pending vs compiled counts separately.
 
-### Automated tests for KO detection
-pytest tests for `scan_clip` and OCR logic. Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
-
 ### OldCompilations - retrospective Best-of
-Previously uploaded videos re-downloaded for KO scanning + Best-of extraction.
+Previously uploaded videos re-downloaded for KO scanning + segment extraction into ClipArchive.
 Location: `C:\Users\David\Videos\MarvelRivals\OldCompilations\`
 Playlist: `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
 
+> **Related:** This feeds the Best-of compilation above - extracted Quad+ segments land in ClipArchive and become source material for Best-of videos.
+
 Phase 1 (download) complete - see `docs/HISTORY.md`. 27 videos downloaded (20 compilations, 7 gameplay streams).
 
-**Next: Phase 2 - KO scan** (prerequisite: solve large-file efficiency below first).
+**Next: Phase 2 - KO scan** (prerequisite: solve large-file efficiency below first, and have solid automated KO detection tests passing).
 
 **Content inventory (27 videos):**
 
@@ -110,6 +136,8 @@ Gameplay stream videos (7, 39min+, up to ~4hr/7GB - full session recordings, not
 
 **Phase 2 - KO scan:** Run `ko_detect.py` against all OldCompilations videos. Both compilations and gameplay streams should be scanned - gameplay streams will also contain Quad+ kills.
 
+**Kill-cam false positives (stream VODs only):** During Phase 2, stream VODs require extra care. When the player dies, the game shows the killer's POV during respawn - their KO banners appear in the same screen region and will be detected as the player's kills. Compilation videos are not affected (always the player's own clips). For stream VODs, treat scan results as needing manual verification. Potential automated fix: detect "Spectating [name]" UI element in frame and suppress KO detection during that window.
+
 **KO scanner large-file efficiency (must solve before Phase 2):** Gameplay streams can be 4hr / 7GB+. Current 2fps sampling is fine for 15-min clips but becomes expensive at that scale. The scanner must be efficient enough to handle these without taking hours.
 - Current approach: extract every frame at 2fps via ffmpeg pipe, run OCR on each
 - Improvement needed: the banner only appears for ~2s and has a mandatory 2s cooldown - so after detecting a kill event, skip ahead confidently. Also consider: only sample the banner crop region (already done), but investigate whether ffmpeg seek-based extraction (not piping all frames) would be faster for sparse scanning of long videos.
@@ -134,25 +162,6 @@ Two use cases:
 2. **Main pipeline dedup:** before encoding a batch, check for near-duplicate clips within the batch (e.g. same kill captured twice). Warn and let user decide whether to exclude.
 
 Implementation note: `imagehash` library (perceptual hash) or frame-level DCT hash via ffmpeg/Pillow. No heavy ML needed.
-
-### README improvements (2 items)
-- **OCR/KO scan section** - the OCR multi-kill detection is the most technically interesting part of the project. Add a dedicated README section explaining how it works: frame extraction at 2fps, banner crop region, Tesseract OCR, tier detection, cooldown logic. Technical but concise - not a wall of text.
-- **Pipeline and folder structure** - README should explain the full end-to-end flow and what each folder contains (Highlights, Output, ClipArchive). Currently lives only in CLAUDE.md.
-
-### Test FFmpeg auto-download on a clean machine
-Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts the binaries correctly. ~70MB download. Low priority - only needed before shipping to a new machine.
-
-### Time estimation before encode (with data-driven model)
-
-Before starting a batch, show a rough estimate broken into stages: KO scanning (instant if cached, else estimate from clip length), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
-
-**Data-driven approach:** save timing data to each `.ko.json` cache entry: clip duration (seconds) + actual scan time (seconds). Over time this builds a dataset of `(clip_length, scan_time)` pairs. Use a simple linear model from past runs to predict future scan times. Far more accurate than hardcoded constants.
-
-Two separate predictions needed:
-1. **KO scan time** - per-clip, based on clip length. Instant if cached.
-2. **Encode/compile time** - per-batch, based on total clip duration. Different model (GPU vs CPU).
-
-Add the timing fields to the `.ko.json` schema now so data accumulates from the start, even before the estimation UI is built.
 
 ---
 
