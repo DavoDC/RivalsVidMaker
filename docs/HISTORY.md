@@ -37,6 +37,15 @@ Clips are renamed in-place immediately after scanning: `THOR_2026-03-16_22-18-00
 **Timing fields in KO cache entries**
 `cache_save()` accepts optional `clip_duration` and `scan_time` kwargs. `scan_clip()` measures its own elapsed time and calls `get_duration()` before scanning, storing both in the `.ko.json` entry. Accumulates training data for the future time-estimation model. Fields absent on cache hits.
 
+**Two-pass KO scan (fix single-KO miss bug)**
+Root cause: 2fps sampling had a 0.5s miss window - KO banners that appeared and disappeared between frames were missed. Fix: pass 1 sweeps at `SCAN_FPS_FAST=2` (fast), pass 2 re-scans any null-result clips at `SCAN_FPS_FULL=4` (0.25s miss window). Confirmed fix: 3 Thor clips (`_22-20-29`, `_23-19-10`, `_23-23-58`) previously null now correctly detected as `_KO`. Also fixed ffprobe path (`FFPROBE` var passed explicitly through `configure()` instead of string-replace hack).
+
+**NULL_RESULT_SUFFIX for processed-but-no-KO clips**
+Clips with no KO detected after full scan now renamed with `_NONE` suffix. Cache entry uses `_null_result: true` flag (no `tier` field). Allows distinguishing "processed, confirmed no KO" from "not yet scanned". `preprocess` force-rescans clips without any suffix (unprocessed).
+
+**Full rescan run (2026-03-31)**
+Renamed `cache/` to `cache_bak/` and ran full preprocess on all 64 clips to collect `scan_time` and `clip_duration` on every entry. Analysis script `scripts/once_off/analyse_ko_data.py` written to extract statistical insights from the dataset.
+
 **Auto-download FFmpeg on first run**
 `src/ffmpeg_setup.py` - `ensure_ffmpeg(ffmpeg_dir)` checks for `ffmpeg.exe`/`ffprobe.exe` at startup. If missing, downloads latest FFmpeg Windows GPL build from BtbN/FFmpeg-Builds and extracts binaries automatically.
 
