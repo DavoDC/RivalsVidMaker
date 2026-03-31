@@ -14,6 +14,28 @@ Single source of truth for all pending work.
 
 ### Bugs / correctness issues (fix before shipping)
 
+**BUG: KO tier not detected on single-KO clips (OCR miss)**
+
+Manual review of 3 null-result clips confirmed a visible KO banner at ~8s in all three, but `scan_clip` returned null. KO IS in the TIERS list so OCR should detect "KO" text in the banner crop. Possible causes:
+- Banner appears very briefly; 2fps sampling could fall between frames if it shows for <1s
+- Single-KO banner may render differently (position, size, or color) vs multi-kill banners
+- Crop region (right 25%, 40-62% height) may not cover the single-KO banner position
+
+Fix steps: re-scan with `debug=True` to see per-frame OCR output and confirm whether frames are being sampled around 8s and what text is read. If frames look right, check the crop region against a screenshot of a single-KO banner.
+
+Affected clips (manually verified, all have KO at ~8s):
+- `THOR_2026-03-17_22-20-29.mp4`
+- `THOR_2026-03-22_23-19-10.mp4`
+- `THOR_2026-03-27_22-23-58.mp4`
+
+After fixing: re-scan clears their null cache entries and they get renamed `_KO`.
+
+**DESIGN: DOUBLE+ minimum tier for compilations**
+
+Not all highlight clips saved by the game are true multi-kills. Clips with only a single KO (tier=KO) should be renamed/cached like any other clip (processed marker) but excluded from compilation batching. Only DOUBLE and above go into compilations - single KOs are low viewer value and hard to distinguish from assist-inflated clips.
+
+Implementation: in `clip_scanner.py` (or wherever clips are filtered for batching), add a minimum tier filter. Clips with tier=KO or tier=None pass through pre-process but are skipped at the batch-selection stage.
+
 ---
 
 ### Quick wins (do first)
@@ -46,6 +68,19 @@ Single source of truth for all pending work.
 
 ### Test FFmpeg auto-download on a clean machine
 Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts the binaries correctly. ~70MB download. Only needed before shipping to a new machine.
+
+---
+
+### KO scan optimisation using historical timing distribution
+
+Observation from manual review: KO events in highlight clips tend to cluster around certain timestamps (e.g. ~8s in multiple THOR clips). If we aggregate the `start_ts` values from all cached kill results, we can plot a temporal distribution of when KO events tend to occur within clips.
+
+Potential optimisations:
+- **Skip-ahead after detection:** already partially done via cooldown, but could be more aggressive
+- **Priority sampling:** sample at higher density around historically common KO windows, lower density elsewhere - reduces total frames to OCR without missing events
+- **Always skip first N seconds:** data may confirm a reliable dead zone (e.g. first 5s always empty) to push SKIP_SECS higher than current 2s
+
+Prerequisite: accumulate enough `start_ts` data from cached results (already saving). Build a histogram over collected clips and examine before implementing. Low priority until there are 50+ cached results to draw meaningful conclusions.
 
 ---
 
