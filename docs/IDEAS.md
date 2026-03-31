@@ -53,13 +53,13 @@ Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_set
 
 Before starting a batch, show a rough estimate broken into stages: KO scanning (instant if cached, else estimate from clip length), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
 
-**Data-driven approach:** save timing data to each `.ko.json` cache entry: clip duration (seconds) + actual scan time (seconds). Over time this builds a dataset of `(clip_length, scan_time)` pairs. Use a simple linear model from past runs to predict future scan times. Far more accurate than hardcoded constants.
+**Data-driven approach:** `clip_duration` (seconds) and `scan_time` (seconds) are now saved to every `.ko.json` cache entry (implemented). Over time this builds a dataset of `(clip_length, scan_time)` pairs. Use a simple linear model from past runs to predict future scan times.
 
 Two separate predictions needed:
 1. **KO scan time** - per-clip, based on clip length. Instant if cached.
 2. **Encode/compile time** - per-batch, based on total clip duration. Different model (GPU vs CPU).
 
-Add the timing fields to the `.ko.json` schema now so data accumulates from the start, even before the estimation UI is built.
+Next step: build the estimation UI that reads these fields and shows predictions before encode.
 
 ### Automated tests for KO detection
 pytest tests for `scan_clip` and OCR logic. Want KO detection solid and well-tested before running big scans (OldCompilations, Best-of). Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
