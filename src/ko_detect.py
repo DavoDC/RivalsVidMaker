@@ -1,7 +1,7 @@
 """
 ko_detect.py — Multi-kill tier detection for Marvel Rivals clips.
 
-Uses FFmpeg (2fps extraction) + Tesseract OCR to read the kill banner
+Uses FFmpeg (2fps pass 1 / 4fps pass 2) + Tesseract OCR to read the kill banner
 on the right side of the screen.
 
 Output format (YouTube description timestamps):
@@ -28,6 +28,7 @@ import pytesseract
 # ── Config ────────────────────────────────────────────────────────────────────
 
 FFMPEG       = r"C:\Users\David\GitHubRepos\RivalsVidMaker\tools\ffmpeg.exe"
+FFPROBE      = r"C:\Users\David\GitHubRepos\RivalsVidMaker\tools\ffprobe.exe"
 TESSERACT    = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 CLIPS_BASE   = r"C:\Users\David\Videos\MarvelRivals\Highlights\THOR"
 CACHE_DIR    = r"C:\Users\David\GitHubRepos\RivalsVidMaker\data\cache\THOR"
@@ -39,6 +40,7 @@ pytesseract.pytesseract.tesseract_cmd = TESSERACT
 
 def configure(
     ffmpeg: str | None = None,
+    ffprobe: str | None = None,
     tesseract: str | None = None,
     cache_dir: str | None = None,
 ) -> None:
@@ -46,12 +48,14 @@ def configure(
     Override module-level paths at runtime.
 
     Called by pipeline.py so the full pipeline can use config.txt paths
-    rather than the hardcoded defaults above.  Standalone usage (running
-    ko_detect.py directly) is unaffected — defaults still apply.
+    rather than the hardcoded defaults above. Standalone usage (running
+    ko_detect.py directly) is unaffected - defaults still apply.
     """
-    global FFMPEG, TESSERACT, CACHE_DIR
+    global FFMPEG, FFPROBE, TESSERACT, CACHE_DIR
     if ffmpeg:
         FFMPEG = ffmpeg
+    if ffprobe:
+        FFPROBE = ffprobe
     if tesseract:
         TESSERACT = tesseract
         pytesseract.pytesseract.tesseract_cmd = tesseract
@@ -61,7 +65,8 @@ def configure(
 
 # ── Detection parameters ───────────────────────────────────────────────────────
 
-SCAN_FPS      = 2      # frames/sec to extract
+SCAN_FPS_FAST = 2      # pass 1: quick sweep (most multi-kills caught here)
+SCAN_FPS_FULL = 4      # pass 2: detailed retry for null-result clips only
 SKIP_SECS     = 2      # skip first N seconds
 COOLDOWN_SECS = 2.0    # min gap between distinct events
 
@@ -70,8 +75,9 @@ CROP_X  = 0.75
 CROP_Y1 = 0.40
 CROP_Y2 = 0.62
 
-TIERS     = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
-TIER_RANK = {t: i for i, t in enumerate(TIERS)}
+TIERS              = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+TIER_RANK          = {t: i for i, t in enumerate(TIERS)}
+NULL_RESULT_SUFFIX = "NONE"   # appended to clips that were scanned and had no KO
 
 # Only tiers at this rank or above appear in the YouTube description output
 REPORT_MIN_TIER = "QUAD"
@@ -110,21 +116,21 @@ def ocr_tier(img_path: str) -> str | None:
 
 # ── Frame extraction ──────────────────────────────────────────────────────────
 
-def extract_frames(clip_path: str, tmpdir: str) -> list[tuple[float, str]]:
+def extract_frames(clip_path: str, tmpdir: str, fps: int = SCAN_FPS_FAST) -> list[tuple[float, str]]:
     pat = os.path.join(tmpdir, "f_%05d.png")
     subprocess.run(
         [FFMPEG, "-y", "-loglevel", "quiet",
          "-ss", str(SKIP_SECS), "-i", clip_path,
-         "-vf", f"fps={SCAN_FPS}", "-q:v", "2", pat],
+         "-vf", f"fps={fps}", "-q:v", "2", pat],
         check=True
     )
     frames = sorted(glob.glob(os.path.join(tmpdir, "f_*.png")))
-    return [(SKIP_SECS + i / SCAN_FPS, p) for i, p in enumerate(frames)]
+    return [(SKIP_SECS + i / fps, p) for i, p in enumerate(frames)]
 
 
 def get_duration(clip_path: str) -> float:
     r = subprocess.run(
-        [FFMPEG.replace("ffmpeg", "ffprobe"), "-v", "error",
+        [FFPROBE, "-v", "error",
          "-show_entries", "format=duration",
          "-of", "default=noprint_wrappers=1:nokey=1", clip_path],
         capture_output=True, text=True
@@ -249,12 +255,62 @@ def cache_save(
 
 # ── Core scan ─────────────────────────────────────────────────────────────────
 
+def _scan_frames(frames: list[tuple[float, str]], debug: bool) -> dict | None:
+    """Run OCR over a list of (timestamp, image_path) frames. Returns a result dict or None."""
+    events       = []
+    prev_tier    = None
+    cooldown_end = 0.0
+    last_active  = None
+
+    for ts, path in frames:
+        tier = ocr_tier(path)
+
+        if debug:
+            label = f"-> {tier}" if tier else "(none)"
+            print(f"  t={ts:5.1f}s  {label}")
+
+        if tier and ts >= cooldown_end:
+            rank      = TIER_RANK.get(tier, -1)
+            prev_rank = TIER_RANK.get(prev_tier, -1) if prev_tier else -1
+            if prev_tier is None or rank > prev_rank:
+                events.append({"tier": tier, "ts": ts})
+                cooldown_end = ts + COOLDOWN_SECS
+                prev_tier    = tier
+                if debug:
+                    print(f"    *** EVENT: {tier} at {ts:.1f}s ***")
+            elif tier == prev_tier:
+                cooldown_end = ts + COOLDOWN_SECS
+
+        if tier:
+            last_active = ts
+        elif last_active and (ts - last_active) > COOLDOWN_SECS * 2:
+            prev_tier = None
+
+    if not events:
+        return None
+
+    max_event = max(events, key=lambda e: TIER_RANK.get(e["tier"], 0))
+    return {
+        "tier":     max_event["tier"],
+        "start_ts": events[0]["ts"],
+        "max_ts":   max_event["ts"],
+        "end_ts":   (last_active or events[-1]["ts"]) + 1.0,
+        "events":   events,
+    }
+
+
 def scan_clip(clip_path: str, debug: bool = False, use_cache: bool = True) -> dict | None:
     """
+    Two-pass KO detection.
+
+    Pass 1 - SCAN_FPS_FAST (2fps): quick sweep; catches most multi-kills.
+    Pass 2 - SCAN_FPS_FULL (4fps): only runs when pass 1 returns null;
+             catches single KOs and brief banners that fell between frames.
+
     Returns:
         {
             "tier":      "QUAD",   # highest tier achieved
-            "start_ts":  6.0,      # when FIRST banner appeared (streak start — use for YT timestamp)
+            "start_ts":  6.0,      # when FIRST banner appeared (streak start)
             "max_ts":    20.0,     # when the MAX tier banner appeared
             "end_ts":    22.0,     # when last banner disappeared + 1s
             "events":    [{"tier": "KO", "ts": 6.0}, ...]
@@ -272,50 +328,23 @@ def scan_clip(clip_path: str, debug: bool = False, use_cache: bool = True) -> di
     clip_dur = get_duration(clip_path)
     tmpdir = tempfile.mkdtemp(prefix="ko_")
     try:
-        frames       = extract_frames(clip_path, tmpdir)
-        events       = []
-        prev_tier    = None
-        cooldown_end = 0.0
-        last_active  = None
+        # Pass 1: fast sweep
+        frames = extract_frames(clip_path, tmpdir, fps=SCAN_FPS_FAST)
+        result = _scan_frames(frames, debug)
 
-        for ts, path in frames:
-            tier = ocr_tier(path)
-
+        if result is None:
+            # Pass 2: detailed retry - clean pass-1 frames and re-extract at higher FPS
             if debug:
-                label = f"-> {tier}" if tier else "(none)"
-                print(f"  t={ts:5.1f}s  {label}")
-
-            if tier and ts >= cooldown_end:
-                rank      = TIER_RANK.get(tier, -1)
-                prev_rank = TIER_RANK.get(prev_tier, -1) if prev_tier else -1
-                if prev_tier is None or rank > prev_rank:
-                    events.append({"tier": tier, "ts": ts})
-                    cooldown_end = ts + COOLDOWN_SECS
-                    prev_tier    = tier
-                    if debug:
-                        print(f"    *** EVENT: {tier} at {ts:.1f}s ***")
-                elif tier == prev_tier:
-                    cooldown_end = ts + COOLDOWN_SECS
-
-            if tier:
-                last_active = ts
-            elif last_active and (ts - last_active) > COOLDOWN_SECS * 2:
-                prev_tier = None
+                print(f"  [pass 1 null - retrying at {SCAN_FPS_FULL}fps]")
+            for f in glob.glob(os.path.join(tmpdir, "f_*.png")):
+                try:
+                    os.remove(f)
+                except OSError:
+                    pass
+            frames = extract_frames(clip_path, tmpdir, fps=SCAN_FPS_FULL)
+            result = _scan_frames(frames, debug)
 
         elapsed = time.perf_counter() - t_scan_start
-
-        if not events:
-            cache_save(clip_path, None, clip_duration=clip_dur, scan_time=elapsed)
-            return None
-
-        max_event = max(events, key=lambda e: TIER_RANK.get(e["tier"], 0))
-        result = {
-            "tier":     max_event["tier"],
-            "start_ts": events[0]["ts"],        # streak start - use for YT timestamp
-            "max_ts":   max_event["ts"],        # when highest tier appeared
-            "end_ts":   (last_active or events[-1]["ts"]) + 1.0,
-            "events":   events,
-        }
         cache_save(clip_path, result, clip_duration=clip_dur, scan_time=elapsed)
         return result
     finally:
