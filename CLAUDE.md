@@ -201,8 +201,9 @@ Full technical reference: `docs/MULTIKILL_DETECTION.md`.
 
 - 2fps frame extraction, banner crop: right 25%, y 40–62%, 2s cooldown between events
 - **Threshold:** Quad+ only in YouTube description output; Triple and below detected internally
-- **Cache:** `data/cache/<char>/<YYYY-MM>/<clip_stem>.ko.json` — re-runs are instant; null = no kill (valid)
+- **Cache:** `data/cache/<char>/<YYYY-MM>/<clip_stem>.ko.json` - re-runs are instant; null = no kill (valid); also stores `clip_duration` + `scan_time` for future time estimation
 - **Cache keying:** each entry stores `file_mtime`; if the clip file changes, the cache is automatically invalidated and the clip is re-scanned
+- **Not all highlight clips are multi-kills:** game DVR saves single-KO + assist sequences too. DOUBLE+ minimum for compilations (pending - see IDEAS.md)
 - **`ko_detect.configure(ffmpeg, tesseract, cache_dir)`** — injects runtime paths from config.json so the pipeline isn't hardcoded to THOR. Standalone usage is unaffected.
 
 ## YouTube description format
