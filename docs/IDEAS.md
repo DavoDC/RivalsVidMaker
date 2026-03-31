@@ -13,6 +13,21 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
+### Bugs / correctness issues (fix before shipping)
+
+**BUG: Kill-cam false positives in KO scanner**
+
+When the player dies, Marvel Rivals shows the killer's POV during the respawn wait. The killer can get multi-kills during this window. Their KO banners appear in the same screen region as the player's banners, so the OCR scanner can accidentally log them as the player's kills.
+
+- The UI does show a different player's username/gamertag during the kill-cam, but this is not currently used for detection.
+- Potential future fix: detect whether the kill-cam is active (e.g. "Spectating [name]" UI element present in frame) and suppress KO detection during that window.
+
+**Current mitigation: manual review gate.** After KO scanning, show the user each detected KO clip (or a key frame around the detected timestamp) and ask them to confirm it is their kill before including it in the compilation. This is the recommended approach until an automated fix is in place.
+
+Action needed: add a review/confirmation step in the pipeline after KO scan results are returned, before clips are moved or used.
+
+---
+
 ### Quick wins (do first)
 
 1. **Test on a different character** - run pre-process on Squirrel Girl clips and verify KO tiers look correct on the renamed filenames (e.g. `SQUIRREL_GIRL_..._QUAD.mp4`). Fairly confident detection works character-agnostically but this confirms it cheaply.
