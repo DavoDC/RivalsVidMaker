@@ -20,10 +20,9 @@ from datetime import datetime
 # Paths
 # ---------------------------------------------------------------------------
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CACHE_DIR = REPO_ROOT / "data" / "cache"
 OUTPUT_DIR = REPO_ROOT / "data" / "analysis"
-OUTPUT_FILE = OUTPUT_DIR / "ko_analysis_report.md"
 
 # ---------------------------------------------------------------------------
 # Data loading
@@ -452,8 +451,12 @@ def main():
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+    now_dt = datetime.now()
+    stamp = now_dt.strftime("%Y%m%d_%H%M")
+    output_file = OUTPUT_DIR / f"ko_analysis_report_{stamp}.md"
+
     lines = []
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now = now_dt.strftime("%Y-%m-%d %H:%M")
     lines.append(f"# KO Scan Data Analysis")
     lines.append(f"")
     lines.append(f"Generated: {now} | Source: `data/cache/` | {len(records)} total entries")
@@ -472,8 +475,8 @@ def main():
     section_raw_summary(records, lines)
 
     report = "\n".join(lines)
-    OUTPUT_FILE.write_text(report, encoding="utf-8")
-    print(f"Report saved to: {OUTPUT_FILE}")
+    output_file.write_text(report, encoding="utf-8")
+    print(f"Report saved to: {output_file}")
     print()
     # Also print key stats to terminal
     print("=== KEY FINDINGS ===")
