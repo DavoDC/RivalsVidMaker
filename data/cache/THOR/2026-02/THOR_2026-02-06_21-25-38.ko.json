@@ -1,1 +1,0 @@
-{"tier": "QUAD", "start_ts": 7.5, "max_ts": 17.0, "end_ts": 18.0, "events": [{"tier": "DOUBLE", "ts": 7.5}, {"tier": "TRIPLE", "ts": 13.0}, {"tier": "QUAD", "ts": 17.0}]}
