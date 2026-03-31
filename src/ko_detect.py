@@ -27,8 +27,8 @@ import pytesseract
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-FFMPEG       = r"C:\Users\David\GitHubRepos\RivalsVidMaker\tools\ffmpeg.exe"
-FFPROBE      = r"C:\Users\David\GitHubRepos\RivalsVidMaker\tools\ffprobe.exe"
+FFMPEG       = r"C:\Users\David\GitHubRepos\RivalsVidMaker\dependencies\ffmpeg\ffmpeg.exe"
+FFPROBE      = r"C:\Users\David\GitHubRepos\RivalsVidMaker\dependencies\ffmpeg\ffprobe.exe"
 TESSERACT    = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 CLIPS_BASE   = r"C:\Users\David\Videos\MarvelRivals\Highlights\THOR"
 CACHE_DIR    = r"C:\Users\David\GitHubRepos\RivalsVidMaker\data\cache\THOR"
@@ -65,10 +65,14 @@ def configure(
 
 # ── Detection parameters ───────────────────────────────────────────────────────
 
-SCAN_FPS_FAST = 2      # pass 1: quick sweep (most multi-kills caught here)
-SCAN_FPS_FULL = 4      # pass 2: detailed retry for null-result clips only
-SKIP_SECS     = 2      # skip first N seconds
-COOLDOWN_SECS = 2.0    # min gap between distinct events
+# Constants derived from statistical analysis of 64 clips (2026-03-31).
+# Source: data/analysis/ko_analysis_report_20260331.md
+SCAN_FPS_FAST        = 2     # pass 1: quick sweep (most multi-kills caught here)
+SCAN_FPS_FULL        = 4     # pass 2: detailed retry for null-result clips only
+SKIP_SECS            = 6     # skip first N seconds; data: earliest KO = 7.0s, -1s safety margin
+COOLDOWN_SECS        = 2.0   # min gap between distinct kill events (keep low -- p10 inter-kill = 2s)
+SCAN_STOP_SECS       = 22    # pass 1 early exit if no KO found; data: p90 start_ts = 18.5s + 3.5s buffer
+POST_KO_SILENCE_SECS = 16    # exit after N seconds silence post-sequence; data: p90 sequence duration = 16s
 
 # Banner region: right 25% of frame width, vertically 40–62%
 CROP_X  = 0.75
@@ -263,6 +267,17 @@ def _scan_frames(frames: list[tuple[float, str]], debug: bool) -> dict | None:
     last_active  = None
 
     for ts, path in frames:
+        # Early exit: no KO yet and past the likely-KO window -- let pass 2 handle edge cases
+        if not events and ts > SCAN_STOP_SECS:
+            if debug:
+                print(f"  [early exit: no KO by {SCAN_STOP_SECS}s, handing off to pass 2]")
+            break
+        # Early exit: kill sequence is done -- enough silence has elapsed
+        if events and last_active and (ts - last_active) > POST_KO_SILENCE_SECS:
+            if debug:
+                print(f"  [early exit: {ts - last_active:.1f}s silence after last kill]")
+            break
+
         tier = ocr_tier(path)
 
         if debug:
@@ -427,11 +442,11 @@ def run_batch(batch_name: str, clips: list[str], clips_dir: str):
         if result:
             video_start_ts = running + result["start_ts"]
             video_max_ts   = running + result["max_ts"]
-            print(f"  [{i+1:2d}/{len(clips)}] {tag}{name}  →  {tier_str}  ({fmt(video_start_ts)}–{fmt(video_max_ts)} in video)")
+            print(f"  [{i+1:2d}/{len(clips)}] {tag}{name}  ->  {tier_str}  ({fmt(video_start_ts)}-{fmt(video_max_ts)} in video)")
             if TIER_RANK.get(result["tier"], 0) >= TIER_RANK[REPORT_MIN_TIER]:
                 highlights.append((video_start_ts, video_max_ts, result["tier"], name))
         else:
-            print(f"  [{i+1:2d}/{len(clips)}] {tag}{name}  →  {tier_str}")
+            print(f"  [{i+1:2d}/{len(clips)}] {tag}{name}  ->  {tier_str}")
 
         running += dur
 
@@ -468,7 +483,7 @@ def run_ground_truth():
     print()
     if result:
         print(f"RESULT:  {result['tier']} KILL")
-        print(f"Streak:  {fmt(result['start_ts'])} → {fmt(result['end_ts'])}")
+        print(f"Streak:  {fmt(result['start_ts'])} -> {fmt(result['end_ts'])}")
         print(f"Events:  {', '.join(e['tier'] + '@' + fmt(e['ts']) for e in result['events'])}")
         ok_tier  = result["tier"] == "QUAD"
         ok_start = abs(result["start_ts"] - 6) <= 3
@@ -484,7 +499,7 @@ def run_single(clip_path: str):
     print()
     if result:
         print(f"RESULT:  {result['tier']} KILL")
-        print(f"Streak:  {fmt(result['start_ts'])} → {fmt(result['end_ts'])}")
+        print(f"Streak:  {fmt(result['start_ts'])} -> {fmt(result['end_ts'])}")
         print(f"Events:  {', '.join(e['tier'] + '@' + fmt(e['ts']) for e in result['events'])}")
     else:
         print("No multi-kill detected.")
