@@ -6,7 +6,7 @@
 - FPS: 60fps (r_frame_rate=120/1 is container rate; actual avg ~60fps — confirmed 1801 frames / 29.83s)
 - Total frames extracted: 1801 (at native fps)
 - Tier classification: **QUAD KILL** (KO → Double → Triple → Quad)
-- Frames live at: `Examples/frame_by_frame_example_THOR_2026-02-06_22-38-56/frames/`
+- Frames live at: `data/examples/ko_frames/THOR_2026-02-06_22-38-56/`
   - Bulk unlabelled frames: `frame_000001.png` … `frame_001801.png`
   - **Labelled frames** (ground truth): files with text suffix after frame number
 
@@ -125,7 +125,7 @@ Clips verified correct by watching the actual video after running `ko_detect.py`
 **Known limitations:**
 - Short banners (<1s) may be missed at 2fps - mostly affects KO/DOUBLE, not Quad+
 - `KO` (2 chars) is harder for Tesseract than longer tier names like `TRIPLE` or `QUAD`
-- **Kill-cam false positives (unresolved):** When the player dies, the game shows the killer's POV during the respawn wait. The killer can chain multi-kills in this window, and their KO banners appear in the same screen region as the player's own banners. The OCR scanner cannot distinguish these from the player's kills. See IDEAS.md for the planned mitigation (manual review gate).
+- **Kill-cam false positives (stream VODs only):** When the player dies in a stream VOD (raw game recording), the game shows the killer's POV during the respawn wait. The killer can chain multi-kills in this window, and their KO banners appear in the same region as the player's own banners. Does NOT affect saved highlight clips - those are always the player's own kills captured by the in-game DVR. Only relevant for OldCompilations stream VODs. See IDEAS.md for notes.
 
 ## Notes / Gotchas
 

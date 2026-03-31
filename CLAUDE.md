@@ -132,7 +132,7 @@ Understanding this flow is essential for designing pipeline features.
 - Pressing SAVE writes the `.mp4` file to `C:\Users\David\Videos\MarvelRivals\Highlights\` on disk.
 - Saved clips show a **"SAVED" badge** on the thumbnail; clips being written show **"SAVING"**.
 - Clips David does NOT save are lost when new clips push them out of the buffer.
-- Reference screenshot: `docs/Marvel_Rivals_Highlights_UI.png`
+- Reference screenshot: `data/examples/Marvel_Rivals_Highlights_UI.png`
 
 ### Stage 3: Clips on disk (RVM intake zone)
 - The **"HIGHLIGHTS SAVED"** panel in-game shows clips already on disk (with SHARE buttons).
@@ -154,7 +154,9 @@ Understanding this flow is essential for designing pipeline features.
 ### Design implication: protect recent clips from processing
 The 5 most recently created clips on the filesystem match what the game shows as "SAVED" in the Recent Highlights UI. If RVM moves or processes those clips, the game's UI loses track of them - the "SAVED" badge disappears and it becomes confusing which clips were saved.
 
-**Planned feature:** protect the N most recently created clips in `Highlights\` from being batched/moved (default N=5, matching the game's buffer size). These clips are skipped entirely until newer clips are saved on top of them. See IDEAS.md "Protect 5 most-recent clips" for implementation detail.
+**Scope: ROOT folder only.** Protection applies ONLY to `Highlights\` root (the in-game save destination). It does NOT apply to character subfolders (`Highlights\THOR\`, `Highlights\SQUIRREL_GIRL\`, etc.) - clips there have already been sorted and are safe to process without restriction.
+
+**Planned feature:** protect the N most recently created clips in `Highlights\` ROOT from being batched/moved (default N=5). These clips are skipped until newer clips are saved on top of them. The protection guard must NOT be applied inside character subfolders.
 
 ---
 
