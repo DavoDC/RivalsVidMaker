@@ -6,8 +6,7 @@ Single source of truth for all pending work.
 - `docs/YOUTUBE_API.md` - YouTube Data API v3 research, auth flow, upload endpoint
 - `docs/MULTIKILL_DETECTION.md` - KO detection algorithm, OCR, frame sampling
 - `docs/YOUTUBE_TITLE_AND_DESC.md` - canonical format for titles and descriptions
-- `docs/MANUAL_TESTING.md` - end-to-end testing steps
-- `docs/DONE.md` - completed features (moved here to keep this file clean)
+- `docs/HISTORY.md` - completed features, settled design decisions, parked ideas
 
 ---
 
@@ -70,7 +69,7 @@ Previously uploaded videos re-downloaded for KO scanning + Best-of extraction.
 Location: `C:\Users\David\Videos\MarvelRivals\OldCompilations\`
 Playlist: `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
 
-Phase 1 (download) complete - see `docs/DONE.md`. 27 videos downloaded (20 compilations, 7 gameplay streams).
+Phase 1 (download) complete - see `docs/HISTORY.md`. 27 videos downloaded (20 compilations, 7 gameplay streams).
 
 **Next: Phase 2 - KO scan** (prerequisite: solve large-file efficiency below first).
 
@@ -136,10 +135,9 @@ Two use cases:
 
 Implementation note: `imagehash` library (perceptual hash) or frame-level DCT hash via ffmpeg/Pillow. No heavy ML needed.
 
-### README improvements (3 items)
+### README improvements (2 items)
 - **OCR/KO scan section** - the OCR multi-kill detection is the most technically interesting part of the project. Add a dedicated README section explaining how it works: frame extraction at 2fps, banner crop region, Tesseract OCR, tier detection, cooldown logic. Technical but concise - not a wall of text.
 - **Pipeline and folder structure** - README should explain the full end-to-end flow and what each folder contains (Highlights, Output, ClipArchive). Currently lives only in CLAUDE.md.
-- **Docs audit** - go through all docs (CLAUDE.md, IDEAS.md, DONE.md, MULTIKILL_DETECTION.md, YOUTUBE_API.md, YOUTUBE_TITLE_AND_DESC.md, MANUAL_TESTING.md) and remove/update outdated or duplicated info.
 
 ### Test FFmpeg auto-download on a clean machine
 Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts the binaries correctly. ~70MB download. Low priority - only needed before shipping to a new machine.
@@ -158,39 +156,4 @@ Add the timing fields to the `.ko.json` schema now so data accumulates from the 
 
 ---
 
-## Design decisions (settled)
-
-**Slug always includes batch number** - output folders always use `_BATCH1`, `_BATCH2` etc. even when compiling one at a time. Safer to always have a unique, predictable name than to special-case the first batch.
-
-**One batch at a time** - the pipeline always compiles the first batch only. Re-run for subsequent batches. Rationale: clips no longer build up to 30-min backlogs now that the process is automated. Multi-batch prompt removed 2026-03-28.
-
-**State-driven pipeline** - parked indefinitely. The current system's implicit state (clips in Highlights = uncompiled, output folder exists = compiled) is sufficient. The one genuine benefit (multi-batch flow) is solved by the one-at-a-time approach above.
-
----
-
-## Parked: state-driven pipeline (major redesign)
-
-Full redesign spec kept here for reference. Not being pursued - parked indefinitely (see design decision above).
-
-### Concept
-Replace the current linear pipeline with a stage-aware model where the program tracks which stage each clip/batch is in and only progresses clips forward when the user confirms. Stages:
-
-```
-intake -> KO detection -> (batch) selection -> compilation -> cleanup
-```
-
-On startup, the program scans all three video folders and displays a status table showing every character group and what state their clips are in. The user selects which stage to advance, rather than the program running the whole pipeline automatically.
-
-**Safety and idempotency requirements:**
-- Safe to re-run without duplicating work or re-processing already-handled clips.
-- Dry-run mode for all destructive actions.
-- Explicit user confirmation required before any deletion or file move.
-- Partial failure resilience: if interrupted mid-stage, re-running must pick up from the last safe checkpoint.
-
-**Partially implemented:**
-- `src/state.py` + `data/state.json` - tracks `youtube_confirmed` per output folder. Load/save/mark/query fully tested.
-- `data/cache/` - caching layer complete (see `docs/DONE.md`).
-- `_print_multizone_status()` - startup display complete.
-- `src/cleanup.py` - cleanup workflow skeleton complete.
-
-**Still needed if ever resumed:** clip-level state (which clips belong to which batch, KO tier per clip).
+Settled design decisions and parked ideas are in `docs/HISTORY.md`.

@@ -166,9 +166,6 @@ Default save path for Marvel Rivals (set in-game). New clips land here after Dav
 - Structure: `Highlights\CHARACTER\*.mp4` - **no further subfolders**.
 - Unsorted clips in the root are auto-sorted into character subfolders on each run.
 - Character folders contain only raw uncompiled clips. Once compiled, clips move out to Output.
-- Current state:
-  - `THOR\` - 9 uncompiled clips (ready for next batch)
-
 ### Output\
 All compiled videos live here. One subfolder per published video.
 
@@ -238,7 +235,7 @@ Validated clips and known limitations: `docs/MULTIKILL_DETECTION.md`.
 
 See `docs/IDEAS.md` for all pending ideas and next actions, ordered by priority.
 
-**Keep IDEAS.md clean:** when a feature is implemented or a task is done, move its entry from `docs/IDEAS.md` to `docs/DONE.md`. Never leave completed items in IDEAS.md. Look for items marked DONE, with checkmarks, or fully implemented before ending a session.
+**Keep IDEAS.md clean:** when a feature is implemented or a task is done, move its entry from `docs/IDEAS.md` to `docs/HISTORY.md`. Never leave completed items in IDEAS.md. Look for items marked DONE, with checkmarks, or fully implemented before ending a session.
 
 ## Dependencies
 - Python 3.10+
