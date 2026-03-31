@@ -30,8 +30,6 @@ Cache results stored in `data/cache/<char>/<YYYY-MM>/<stem>.ko.json` keyed by `(
 **Clip KO-tier rename at scan stage**
 Clips are renamed in-place immediately after scanning: `THOR_2026-03-16_22-18-00.mp4` -> `THOR_2026-03-16_22-18-00_QUAD.mp4`. Cache file renamed too. `_move_clips()` simplified - tier already embedded.
 
-**Legacy KO-tier rename migration**
-`thor_vid1` and `thor_vid2/vid2_clips` clips renamed with KO tier via `scripts/migrate_ko_tiers.py`.
 
 **Protect 5 most-recent clips from batching/moving**
 `sort_clips()` and `scan_folder()` accept `protect_recent=N`. The N most recently saved clips in `Highlights\` ROOT are skipped by sort and never moved. Default N=5, matches the game's buffer size. Config key: `protect_recent_clips`. Only applies to the root folder - character subfolders are never protected. Bug fix (2026-03-31): `preprocess_all()` was incorrectly applying this guard to character subfolders too, zeroing the clip list when folder size <= N.

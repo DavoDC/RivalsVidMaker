@@ -183,12 +183,6 @@ When the user confirms the YouTube video is in good shape, the cleanup process:
 - Deletes the remaining clips from `clips\` (after explicit user confirmation listing each file)
 - The compiled `.mp4` may also be deleted to save disk space (user confirms)
 
-**Legacy folders (pre-convention, before program was fully set up):**
-- `thor_vid1\` — 31 clips in root, published ✅, 7 Quad kills verified — clips not yet renamed with KO tier
-- `thor_vid2\vid2_clips\` — 33 clips, published ✅, 6 kills verified (incl. Hexa) — clips not yet renamed
-  - Title: "THOR OVERLOAD ⚡ Back-to-Back Multikills (Feb–Mar 2026)"
-  These need KO-tier renaming done as a one-off migration (see IDEAS.md).
-
 ### ClipArchive\
 Long-term archive for Quad+ clips. Never deleted automatically.
 - Purpose: source material for a future "Best of 202X" compilation.
