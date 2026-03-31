@@ -71,8 +71,6 @@ def preprocess_all(config: Config) -> dict[str, int]:
     for folder in char_folders:
         folder_clips = sorted(p for p in folder.iterdir()
                               if p.is_file() and p.suffix.lower() in VIDEO_EXTS)
-        if config.protect_recent_clips > 0 and len(folder_clips) > config.protect_recent_clips:
-            folder_clips = folder_clips[:-config.protect_recent_clips]
         for p in folder_clips:
             all_clips.append((folder.name, p))
 
@@ -97,8 +95,6 @@ def preprocess_all(config: Config) -> dict[str, int]:
         )
         if not clips:
             continue
-        if config.protect_recent_clips > 0:
-            clips = clips[:-config.protect_recent_clips]
 
         ko_detect.configure(
             ffmpeg=str(config.ffmpeg),
