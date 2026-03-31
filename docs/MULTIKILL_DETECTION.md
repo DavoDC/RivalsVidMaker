@@ -133,7 +133,7 @@ Clips verified correct by watching the actual video after running `ko_detect.py`
 **Known limitations:**
 - Short banners (<1s) may be missed at 2fps - mostly affects KO/DOUBLE, not Quad+
 - `KO` (2 chars) is harder for Tesseract than longer tier names like `TRIPLE` or `QUAD`
-- **Single-KO false negatives (confirmed bug):** 3 clips with visible KO banners at ~8s returned null. Single-KO banner may render differently or 2fps sampling missed the window. See IDEAS.md for investigation steps.
+- **Single-KO false negatives (confirmed bug):** 3 clips with visible KO banners at ~8s returned null. Crop region confirmed correct (same position as multi-kill banners). Root cause: 2fps has a 0.5s miss window - KO banner can appear and disappear between samples. Fix: raise `SCAN_FPS` to 4. See IDEAS.md.
 - **Not all highlight clips are multi-kills:** The game's DVR saves single-KO + assist sequences too. These scan as null or KO-tier. Compilations should filter to DOUBLE+ minimum - see IDEAS.md.
 - **Kill-cam false positives (stream VODs only):** When the player dies in a stream VOD (raw game recording), the game shows the killer's POV during the respawn wait. The killer can chain multi-kills in this window, and their KO banners appear in the same region as the player's own banners. Does NOT affect saved highlight clips - those are always the player's own kills captured by the in-game DVR. Only relevant for OldCompilations stream VODs. See IDEAS.md for notes.
 
