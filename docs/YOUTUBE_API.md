@@ -142,11 +142,13 @@ Output at exactly **1280×720** to match YouTube's recommended thumbnail size.
 
 ---
 
-## 3. Recommended Architecture — CVM-Publisher
+## 3. Architecture (SUPERSEDED)
+
+> **Note:** This section described a separate `cvm_publisher` tool when the pipeline was C++. The pipeline is now Python throughout and the plan is to integrate upload directly into RivalsVidMaker (see `docs/IDEAS.md` item 4). The code snippets below are still useful reference for building the integration, but the separate-tool structure is not the target.
 
 A separate Python tool (`cvm_publisher`) that reads CVM's output folder and handles upload.
 
-**Why separate from CVM:**
+**Original rationale (no longer applies - now Python throughout):**
 - C++ has no first-class support for OAuth or YouTube API
 - Python has 3-line installs for all needed libraries
 - Different lifecycles: CVM encodes; publisher runs later when you decide to upload

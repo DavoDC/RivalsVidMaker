@@ -21,28 +21,29 @@ RivalsVidMaker/
 │   ├── config.example.json  # Template - copy to config.json and fill in your paths
 │   └── config.json          # Your paths and batch settings (gitignored)
 ├── src/
-│   ├── main.py              # CLI entrypoint
-│   ├── batcher.py           # Clip scanning and duration-based batching
-│   ├── ocr.py               # Tesseract OCR multi-kill detection
-│   ├── encoder.py           # FFmpeg encoding (NVENC / CPU fallback)
-│   └── description.py       # YouTube description + timestamp generation
+│   ├── main.py              # CLI entrypoint and interactive menu
+│   ├── pipeline.py          # Main orchestrator: sort -> scan -> batch -> encode -> describe
+│   ├── ko_detect.py         # Tesseract OCR multi-kill banner detection
+│   ├── encoder.py           # FFmpeg encoding (NVENC GPU / libx264 CPU fallback)
+│   ├── preprocess.py        # Pre-process mode: warm KO cache for all clips
+│   └── cleanup.py           # Post-YouTube cleanup (archive Quad+, delete rest)
 ├── scripts/
-│   └── run.bat              # Windows launcher
+│   └── run.bat              # Windows launcher (double-click to run)
 ├── tests/                   # Pytest test suite
 ├── dependencies/
-│   ├── ffmpeg/              # FFmpeg binaries (gitignored)
+│   ├── ffmpeg/              # FFmpeg binaries - auto-downloaded on first run (gitignored)
 │   └── yt-dlp.exe           # YouTube downloader (gitignored)
-└── data/                    # Runtime cache (gitignored)
+└── data/                    # Runtime cache and logs (gitignored)
 ```
 
 ## Setup
 
 ```bash
-pip install pytesseract Pillow
+pip install pytesseract Pillow inquirer
 winget install UB-Mannheim.TesseractOCR
 ```
 
-Place `ffmpeg.exe` + `ffprobe.exe` in `dependencies/ffmpeg/`.
+FFmpeg is downloaded automatically on first run. No manual installation needed.
 
 Copy and edit the config:
 
@@ -50,10 +51,9 @@ Copy and edit the config:
 {
   "clips_path": "C:\\Users\\You\\Videos\\MarvelRivals\\Highlights",
   "output_path": "C:\\Users\\You\\Videos\\MarvelRivals\\Output",
-  "ffmpeg_path": "dependencies\\ffmpeg",
+  "archive_path": "C:\\Users\\You\\Videos\\MarvelRivals\\ClipArchive",
   "tesseract_path": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
   "cache_dir": "data\\cache",
-  "min_batch_seconds": 600,
   "target_batch_seconds": 900
 }
 ```
@@ -83,4 +83,4 @@ pytest              # run tests
 
 ## Development
 
-**Developed:** March 2026 · **Status:** Actively developed
+**Developed:** March 2026
