@@ -21,3 +21,11 @@ dependencies/*.exe
 # Local state log (machine-specific, not committed)
 data/state.json
 *.log
+
+# Temporary cache backup (created during full rescans, delete when confirmed)
+data/cache_bak/
+
+# Terminal export logs (one-off, not committed)
+data/logs/*.txt
+
+# Analysis output is committed (timestamped reports)
