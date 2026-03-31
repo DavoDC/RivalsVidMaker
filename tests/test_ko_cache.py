@@ -146,3 +146,41 @@ class TestStaleCacheInvalidation:
 
         assert hit is False
         assert result is None
+
+
+# ── Timing fields ─────────────────────────────────────────────────────────────
+
+class TestTimingFields:
+
+    def test_kill_entry_saves_timing_fields(self, tmp_path):
+        clip = _make_clip(tmp_path)
+        result = {"tier": "QUAD", "start_ts": 6.0, "max_ts": 20.0, "end_ts": 22.0, "events": []}
+        with _override_cache_dir(tmp_path):
+            ko_detect.cache_save(str(clip), result, clip_duration=45.2, scan_time=12.3)
+            cache_file = ko_detect.cache_path(str(clip))
+            raw = json.loads(Path(cache_file).read_text())
+
+        assert raw["clip_duration"] == 45.2
+        assert raw["scan_time"] == 12.3
+
+    def test_null_entry_saves_timing_fields(self, tmp_path):
+        clip = _make_clip(tmp_path)
+        with _override_cache_dir(tmp_path):
+            ko_detect.cache_save(str(clip), None, clip_duration=30.0, scan_time=8.5)
+            cache_file = ko_detect.cache_path(str(clip))
+            raw = json.loads(Path(cache_file).read_text())
+
+        assert raw["_null_result"] is True
+        assert raw["clip_duration"] == 30.0
+        assert raw["scan_time"] == 8.5
+
+    def test_timing_fields_are_optional(self, tmp_path):
+        clip = _make_clip(tmp_path)
+        result = {"tier": "QUAD", "start_ts": 6.0, "max_ts": 20.0, "end_ts": 22.0, "events": []}
+        with _override_cache_dir(tmp_path):
+            ko_detect.cache_save(str(clip), result)
+            cache_file = ko_detect.cache_path(str(clip))
+            raw = json.loads(Path(cache_file).read_text())
+
+        assert "clip_duration" not in raw
+        assert "scan_time" not in raw
