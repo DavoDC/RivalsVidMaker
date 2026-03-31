@@ -8,5 +8,6 @@
   "min_batch_seconds": 600,
   "target_batch_seconds": 900,
   "protect_recent_clips": 5,
-  "state_path": "data/state.json"
+  "state_path": "data/state.json",
+  "force_rescan_cache": false
 }
