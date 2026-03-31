@@ -15,16 +15,17 @@ Single source of truth for all pending work.
 
 ### Bugs / correctness issues (fix before shipping)
 
-**BUG: Kill-cam false positives in KO scanner**
+**BUG: protect_recent_clips applied to character subfolders (WRONG)**
 
-When the player dies, Marvel Rivals shows the killer's POV during the respawn wait. The killer can get multi-kills during this window. Their KO banners appear in the same screen region as the player's banners, so the OCR scanner can accidentally log them as the player's kills.
+`preprocess.py` applies the `protect_recent_clips` guard to every character subfolder (THOR, SQUIRREL_GIRL, etc.). This is wrong - protection should only apply to the `Highlights\` ROOT folder. That's the only folder the in-game save UI writes to; clips in character subfolders have already been sorted and are safe to process without restriction.
 
-- The UI does show a different player's username/gamertag during the kill-cam, but this is not currently used for detection.
-- Potential future fix: detect whether the kill-cam is active (e.g. "Spectating [name]" UI element present in frame) and suppress KO detection during that window.
+Symptom: if SQUIRREL_GIRL has exactly 5 clips, `clips[:-5]` = empty - all 5 are "protected" and nothing gets scanned/renamed. With THOR having more clips, the last 5 are silently skipped.
 
-**Current mitigation: manual review gate.** After KO scanning, show the user each detected KO clip (or a key frame around the detected timestamp) and ask them to confirm it is their kill before including it in the compilation. This is the recommended approach until an automated fix is in place.
+Fix: remove the `protect_recent_clips` slicing from `preprocess_all()` entirely. Pre-process scans character subfolders only - protection is irrelevant there. (Protection logic, if it is ever needed, belongs in the root-folder clip sorter, not in preprocess.)
 
-Action needed: add a review/confirmation step in the pipeline after KO scan results are returned, before clips are moved or used.
+**Kill-cam false positives - stream VODs only (low priority)**
+
+When a stream VOD (raw game recording) is scanned, kill-cam sequences during respawn can produce false positive KO detections - the killer's banners appear in the same region. Does NOT affect saved highlight clips (always the player's own kills). Only relevant for OldCompilations stream VOD scanning (Phase 2). Potential automated fix: detect "Spectating [name]" UI element and suppress KO detection during that window. Until then, treat any stream VOD scan results as needing manual verification.
 
 ---
 
@@ -44,7 +45,7 @@ Action needed: add a review/confirmation step in the pipeline after KO scan resu
 
    **Phase 2 (pipeline integration - only if Phase 1 works):** Compile video -> upload as private (title/description/tags from the AI prompt file) -> record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
 
-5. **Test end-to-end with Thor** - 31 clips ready, all KO-cached as of 2026-03-28. Full pipeline test covering all of the above: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private). This is the integration test for items 1-4.
+5. **Test end-to-end with Thor** - 31 clips ready, all KO-cached as of 2026-03-28. Full pipeline test: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private). Integration test for items 1-4. Run items 3 (transition trimming) and 4 (YouTube API Phase 1) first - these are prerequisites for a clean end-to-end test.
 
 ---
 
@@ -143,8 +144,17 @@ Implementation note: `imagehash` library (perceptual hash) or frame-level DCT ha
 ### Test FFmpeg auto-download on a clean machine
 Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts the binaries correctly. ~70MB download. Low priority - only needed before shipping to a new machine.
 
-### Time estimation before encode
-Before starting a batch, show a rough estimate broken into stages: KO scanning (~3-9s per uncached clip, instant if cached), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
+### Time estimation before encode (with data-driven model)
+
+Before starting a batch, show a rough estimate broken into stages: KO scanning (instant if cached, else estimate from clip length), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
+
+**Data-driven approach:** save timing data to each `.ko.json` cache entry: clip duration (seconds) + actual scan time (seconds). Over time this builds a dataset of `(clip_length, scan_time)` pairs. Use a simple linear model from past runs to predict future scan times. Far more accurate than hardcoded constants.
+
+Two separate predictions needed:
+1. **KO scan time** - per-clip, based on clip length. Instant if cached.
+2. **Encode/compile time** - per-batch, based on total clip duration. Different model (GPU vs CPU).
+
+Add the timing fields to the `.ko.json` schema now so data accumulates from the start, even before the estimation UI is built.
 
 ---
 
