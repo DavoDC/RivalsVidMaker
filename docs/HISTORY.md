@@ -34,7 +34,10 @@ Clips are renamed in-place immediately after scanning: `THOR_2026-03-16_22-18-00
 `thor_vid1` and `thor_vid2/vid2_clips` clips renamed with KO tier via `scripts/migrate_ko_tiers.py`.
 
 **Protect 5 most-recent clips from batching/moving**
-`sort_clips()` and `scan_folder()` accept `protect_recent=N`. The N most recently saved clips in `Highlights\` ROOT are skipped by sort and never moved. Default N=5, matches the game's buffer size. Config key: `protect_recent_clips`. NOTE: only applies to the root folder - character subfolders are never protected.
+`sort_clips()` and `scan_folder()` accept `protect_recent=N`. The N most recently saved clips in `Highlights\` ROOT are skipped by sort and never moved. Default N=5, matches the game's buffer size. Config key: `protect_recent_clips`. Only applies to the root folder - character subfolders are never protected. Bug fix (2026-03-31): `preprocess_all()` was incorrectly applying this guard to character subfolders too, zeroing the clip list when folder size <= N.
+
+**Timing fields in KO cache entries**
+`cache_save()` accepts optional `clip_duration` and `scan_time` kwargs. `scan_clip()` measures its own elapsed time and calls `get_duration()` before scanning, storing both in the `.ko.json` entry. Accumulates training data for the future time-estimation model. Fields absent on cache hits.
 
 **Auto-download FFmpeg on first run**
 `src/ffmpeg_setup.py` - `ensure_ffmpeg(ffmpeg_dir)` checks for `ffmpeg.exe`/`ffprobe.exe` at startup. If missing, downloads latest FFmpeg Windows GPL build from BtbN/FFmpeg-Builds and extracts binaries automatically.
