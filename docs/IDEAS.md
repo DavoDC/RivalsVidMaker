@@ -14,21 +14,18 @@ Single source of truth for all pending work.
 
 ### Bugs / correctness issues (fix before shipping)
 
-**BUG: KO tier not detected on single-KO clips (OCR miss)**
+**BUG: KO tier not detected on single-KO clips (sampling gap)**
 
-Manual review of 3 null-result clips confirmed a visible KO banner at ~8s in all three, but `scan_clip` returned null. KO IS in the TIERS list so OCR should detect "KO" text in the banner crop. Possible causes:
-- Banner appears very briefly; 2fps sampling could fall between frames if it shows for <1s
-- Single-KO banner may render differently (position, size, or color) vs multi-kill banners
-- Crop region (right 25%, 40-62% height) may not cover the single-KO banner position
+Manual review of 3 null-result clips confirmed a visible KO banner at ~8s in all three, but `scan_clip` returned null. Crop region is confirmed correct (visually same position as multi-kill banners - right side, middle). Root cause: 2fps sampling has a 0.5s miss window. If the KO banner appears and disappears within that gap, no frame captures it.
 
-Fix steps: re-scan with `debug=True` to see per-frame OCR output and confirm whether frames are being sampled around 8s and what text is read. If frames look right, check the crop region against a screenshot of a single-KO banner.
+Fix: increase `SCAN_FPS` from 2 to 4 (0.25s miss window). This is complementary with the histogram-guided sampling optimisation below - scan denser in the likely KO zone, sparser elsewhere, net OCR cost stays low.
 
 Affected clips (manually verified, all have KO at ~8s):
 - `THOR_2026-03-17_22-20-29.mp4`
 - `THOR_2026-03-22_23-19-10.mp4`
 - `THOR_2026-03-27_22-23-58.mp4`
 
-After fixing: re-scan clears their null cache entries and they get renamed `_KO`.
+After fixing: delete their null cache entries so they get re-scanned and renamed `_KO`.
 
 **DESIGN: DOUBLE+ minimum tier for compilations**
 
@@ -73,14 +70,14 @@ Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_set
 
 ### KO scan optimisation using historical timing distribution
 
-Observation from manual review: KO events in highlight clips tend to cluster around certain timestamps (e.g. ~8s in multiple THOR clips). If we aggregate the `start_ts` values from all cached kill results, we can plot a temporal distribution of when KO events tend to occur within clips.
+Manual review shows KO events cluster around ~8s in multiple clips. `start_ts` is already saved to every cache entry. Once enough data accumulates, build a histogram of KO event times across clips and use it to guide sampling.
 
-Potential optimisations:
-- **Skip-ahead after detection:** already partially done via cooldown, but could be more aggressive
-- **Priority sampling:** sample at higher density around historically common KO windows, lower density elsewhere - reduces total frames to OCR without missing events
-- **Always skip first N seconds:** data may confirm a reliable dead zone (e.g. first 5s always empty) to push SKIP_SECS higher than current 2s
+**Planned approach (combines with the SCAN_FPS fix above):**
+- Increase `SCAN_FPS` to 4 globally (fixes the sampling gap bug, modest cost increase)
+- Then apply histogram-guided density: sample even denser in the likely KO zone (e.g. 5-15s), drop back to lower rate outside it - net OCR cost stays comparable to current 2fps flat
+- Raise `SKIP_SECS` if data confirms a reliable dead zone at the start
 
-Prerequisite: accumulate enough `start_ts` data from cached results (already saving). Build a histogram over collected clips and examine before implementing. Low priority until there are 50+ cached results to draw meaningful conclusions.
+Prerequisite: accumulate `start_ts` data from 50+ cached results before tuning the density curve. The bug fix (raise to 4fps flat) can be done immediately without the histogram.
 
 ---
 
@@ -124,6 +121,8 @@ Playlist: `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
 Phase 1 (download) complete - see `docs/HISTORY.md`. 27 videos downloaded (20 compilations, 7 gameplay streams).
 
 **Next: Phase 2 - KO scan** (prerequisite: solve large-file efficiency below first, and have solid automated KO detection tests passing).
+
+**Scan order: compilation videos first, stream VODs last.** Compilation videos are clean (always the player's own clips, no kill-cam false positives, shorter files). Run Phase 2 on all 20 compilation videos first to refine detection and build data. Stream VODs (7 videos, up to 4hr/7GB, kill-cam false positive risk) are harder - tackle only after the scanner is proven on the easier set.
 
 **Content inventory (27 videos):**
 
