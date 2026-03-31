@@ -217,12 +217,21 @@ def cache_load(clip_path: str) -> tuple[bool, dict | None]:
     return True, result if result else None
 
 
-def cache_save(clip_path: str, result: dict | None):
+def cache_save(
+    clip_path: str,
+    result: dict | None,
+    *,
+    clip_duration: float | None = None,
+    scan_time: float | None = None,
+):
     """Write result to the cache.
 
     All entries (including null = no kill found) store file_mtime so future
     loads can detect if the clip file has been replaced or modified.
     Null results are stored as {"_null_result": true, "file_mtime": <mtime>}.
+
+    Optional timing fields (clip_duration, scan_time) are saved when provided
+    so that time-estimation models can be built from accumulated data.
     """
     p = cache_path(clip_path)
     os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -231,6 +240,10 @@ def cache_save(clip_path: str, result: dict | None):
     else:
         entry = dict(result)
         entry["file_mtime"] = _file_mtime(clip_path)
+    if clip_duration is not None:
+        entry["clip_duration"] = round(clip_duration, 2)
+    if scan_time is not None:
+        entry["scan_time"] = round(scan_time, 2)
     with open(p, "w") as f:
         json.dump(entry, f)
 
@@ -255,6 +268,8 @@ def scan_clip(clip_path: str, debug: bool = False, use_cache: bool = True) -> di
                 print("  [cache hit]")
             return cached
 
+    t_scan_start = time.perf_counter()
+    clip_dur = get_duration(clip_path)
     tmpdir = tempfile.mkdtemp(prefix="ko_")
     try:
         frames       = extract_frames(clip_path, tmpdir)
@@ -267,7 +282,7 @@ def scan_clip(clip_path: str, debug: bool = False, use_cache: bool = True) -> di
             tier = ocr_tier(path)
 
             if debug:
-                label = f"→ {tier}" if tier else "(none)"
+                label = f"-> {tier}" if tier else "(none)"
                 print(f"  t={ts:5.1f}s  {label}")
 
             if tier and ts >= cooldown_end:
@@ -287,19 +302,21 @@ def scan_clip(clip_path: str, debug: bool = False, use_cache: bool = True) -> di
             elif last_active and (ts - last_active) > COOLDOWN_SECS * 2:
                 prev_tier = None
 
+        elapsed = time.perf_counter() - t_scan_start
+
         if not events:
-            cache_save(clip_path, None)
+            cache_save(clip_path, None, clip_duration=clip_dur, scan_time=elapsed)
             return None
 
         max_event = max(events, key=lambda e: TIER_RANK.get(e["tier"], 0))
         result = {
             "tier":     max_event["tier"],
-            "start_ts": events[0]["ts"],        # streak start → use for YT timestamp
+            "start_ts": events[0]["ts"],        # streak start - use for YT timestamp
             "max_ts":   max_event["ts"],        # when highest tier appeared
             "end_ts":   (last_active or events[-1]["ts"]) + 1.0,
             "events":   events,
         }
-        cache_save(clip_path, result)
+        cache_save(clip_path, result, clip_duration=clip_dur, scan_time=elapsed)
         return result
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
