@@ -14,10 +14,6 @@ Single source of truth for all pending work.
 
 ### Bugs / correctness issues (fix before shipping)
 
-**INVESTIGATE: cache null-result entries**
-
-`THOR_2026-03-27_22-23-58.ko.json` contains `{"_null_result": true, "file_mtime": ...}`. This is the intended format for "scanned, no kill found" but worth verifying: (1) is the mtime value correct/valid? (2) does `cache_load` handle this correctly and return `(True, None)`? (3) do other no-kill clips have the same format? Cross-check against a QUAD cache entry to confirm schema consistency.
-
 **BUG: protect_recent_clips applied to character subfolders (WRONG)**
 
 `preprocess.py` applies the `protect_recent_clips` guard to every character subfolder (THOR, SQUIRREL_GIRL, etc.). This is wrong - protection should only apply to the `Highlights\` ROOT folder. That's the only folder the in-game save UI writes to; clips in character subfolders have already been sorted and are safe to process without restriction.
