@@ -123,8 +123,9 @@ Clips verified correct by watching the actual video after running `ko_detect.py`
 **Notes on misses:** DOUBLE was missed in the TRIPLE clip (banner visible ~1s, fell between 2fps sample points). This is acceptable — intermediate tiers don't affect the final classification as long as the highest tier is caught.
 
 **Known limitations:**
-- Short banners (<1s) may be missed at 2fps — mostly affects KO/DOUBLE, not Quad+
+- Short banners (<1s) may be missed at 2fps - mostly affects KO/DOUBLE, not Quad+
 - `KO` (2 chars) is harder for Tesseract than longer tier names like `TRIPLE` or `QUAD`
+- **Kill-cam false positives (unresolved):** When the player dies, the game shows the killer's POV during the respawn wait. The killer can chain multi-kills in this window, and their KO banners appear in the same screen region as the player's own banners. The OCR scanner cannot distinguish these from the player's kills. See IDEAS.md for the planned mitigation (manual review gate).
 
 ## Notes / Gotchas
 
