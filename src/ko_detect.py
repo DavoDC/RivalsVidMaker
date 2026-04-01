@@ -1,8 +1,14 @@
 """
-ko_detect.py — Multi-kill tier detection for Marvel Rivals clips.
+ko_detect.py - Multi-kill tier detection for Marvel Rivals clips.
 
-Uses FFmpeg (2fps pass 1 / 4fps pass 2) + Tesseract OCR to read the kill banner
-on the right side of the screen.
+Uses FFmpeg + Tesseract OCR to read the kill banner on the right side of the screen.
+
+Default mode: pass 1 only (2fps). Clips where pass 1 finds nothing or only a single
+KO are considered low-value and surfaced to the user for deletion.
+
+Pass 2 (8fps, full-clip, no early exit) is kept in code but disabled by default.
+Enable via use_pass2=True in scan_clip() -- used by rescan_and_report.py for data
+collection runs where every result is recorded regardless of tier value.
 
 Output format (YouTube description timestamps):
     <streak start> - <max tier time> = Quad Kill
@@ -274,11 +280,10 @@ def _scan_frames(frames: list[tuple[float, str]], debug: bool, stop_early: bool 
     last_active  = None
 
     for ts, path in frames:
-        # Early exit: no KO yet and past the likely-KO window -- let pass 2 handle edge cases
-        # Pass 2 disables this so a brief KO near SCAN_STOP_SECS doesn't hide a later DOUBLE+
+        # Early exit: no KO yet and past the likely-KO window
         if stop_early and not events and ts > SCAN_STOP_SECS:
             if debug:
-                print(f"  [early exit: no KO by {SCAN_STOP_SECS}s, handing off to pass 2]")
+                print(f"  [early exit: no KO by {SCAN_STOP_SECS}s]")
             break
         # Early exit: kill sequence is done -- enough silence has elapsed
         if events and last_active and (ts - last_active) > POST_KO_SILENCE_SECS:
@@ -322,13 +327,19 @@ def _scan_frames(frames: list[tuple[float, str]], debug: bool, stop_early: bool 
     }
 
 
-def scan_clip(clip_path: str, debug: bool = False, use_cache: bool = True) -> dict | None:
+def scan_clip(
+    clip_path: str,
+    debug: bool = False,
+    use_cache: bool = True,
+    use_pass2: bool = False,
+) -> dict | None:
     """
-    Two-pass KO detection.
+    KO detection. Pass 1 (2fps) runs always. Pass 2 (8fps, full clip) is optional.
 
-    Pass 1 - SCAN_FPS_FAST (2fps): quick sweep; catches most multi-kills.
-    Pass 2 - SCAN_FPS_FULL (4fps): only runs when pass 1 returns null;
-             catches single KOs and brief banners that fell between frames.
+    use_pass2=False (default): pass 1 only. Clips that return null or KO-tier are
+        low-value; the caller decides what to do with them (preprocess prompts deletion).
+    use_pass2=True: if pass 1 returns null, retry at SCAN_FPS_FULL with no early exit.
+        Used by rescan_and_report.py for full data collection.
 
     Returns:
         {
@@ -356,7 +367,7 @@ def scan_clip(clip_path: str, debug: bool = False, use_cache: bool = True) -> di
         result = _scan_frames(frames, debug)
         scan_pass = 1
 
-        if result is None:
+        if result is None and use_pass2:
             # Pass 2: thorough retry at higher FPS, no early exit
             # stop_early=False ensures SCAN_STOP_SECS doesn't suppress kills near/after that window
             if debug:
