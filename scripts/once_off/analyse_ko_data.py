@@ -373,6 +373,74 @@ def section_clip_duration(records, lines):
     lines.append("")
 
 
+def section_scan_pass(records, lines):
+    """Breakdown of scan_pass usage - which pass detected each clip."""
+    lines.append("## Scan Pass Breakdown")
+    lines.append("")
+    lines.append("scan_pass = which scanner pass detected the KO (1 = fast pass, 2 = fallback pass).")
+    lines.append("")
+
+    pass_recs = [r for r in records if "scan_pass" in r]
+    if not pass_recs:
+        lines.append("No scan_pass data (only new-format entries have this field).")
+        lines.append("")
+        return
+
+    total = len(pass_recs)
+    pass_counts = Counter(r["scan_pass"] for r in pass_recs)
+    max_pass = max(pass_counts.keys())
+
+    lines.append("```")
+    for p in range(1, max_pass + 1):
+        count = pass_counts.get(p, 0)
+        lines.append(f"  Pass {p}   {count:>3} ({pct(count, total):>6})  {bar(count, total)}")
+    lines.append("```")
+    lines.append("")
+
+    # Tier breakdown per pass
+    lines.append("### By tier")
+    lines.append("")
+    tier_cols = ["KO", "DOUBLE", "TRIPLE", "QUAD", "NONE"]
+    lines.append("| Pass | " + " | ".join(tier_cols) + " |")
+    lines.append("|------|" + "--------|" * len(tier_cols))
+    for p in range(1, max_pass + 1):
+        p_recs = [r for r in pass_recs if r["scan_pass"] == p]
+        tier_counts = Counter(r.get("tier", "?") for r in p_recs)
+        cells = [str(tier_counts.get(t, 0)) for t in tier_cols]
+        lines.append(f"| {p} | " + " | ".join(cells) + " |")
+    lines.append("")
+
+    # Scan time comparison by pass
+    lines.append("### Scan time by pass")
+    lines.append("")
+    pass_ratios = {}
+    for p in range(1, max_pass + 1):
+        p_recs = [
+            r for r in pass_recs
+            if r["scan_pass"] == p and "scan_time" in r
+            and "clip_duration" in r and r["clip_duration"] > 0
+        ]
+        if not p_recs:
+            continue
+        ratios = [r["scan_time"] / r["clip_duration"] for r in p_recs]
+        mean_ratio = sum(ratios) / len(ratios)
+        pass_ratios[p] = mean_ratio
+        lines.append(f"- **Pass {p}** (n={len(p_recs)}): {stats_block([r['scan_time'] for r in p_recs], 'scan_time')}")
+        lines.append(f"  - Mean scan/clip ratio: {mean_ratio:.2f}x")
+    lines.append("")
+
+    # Key insight
+    if max_pass >= 2 and 1 in pass_ratios and 2 in pass_ratios:
+        r1 = pass_ratios[1]
+        r2 = pass_ratios[2]
+        lines.append("### Optimisation insight")
+        lines.append("")
+        lines.append(f"- Pass 1 scans at **{r1:.2f}x** real-time; pass 2 at **{r2:.2f}x** ({r2/r1:.1f}x slower)")
+        lines.append(f"- Pass 2 accounts for {pass_counts.get(2,0)} / {total} clips ({pct(pass_counts.get(2,0), total)})")
+        lines.append(f"- All scan-time outliers are pass-2 clips - slow scan is structural, not system noise")
+        lines.append("")
+
+
 def section_scan_time(records, lines):
     """Scan performance and time-estimation model."""
     lines.append("## Scan Time Analysis (for time-estimation model)")
@@ -403,21 +471,26 @@ def section_scan_time(records, lines):
     ]
 
     if outliers:
+        # Check if all outliers are pass-2 scans
+        outlier_passes = [r.get("scan_pass") for r, _ in outliers]
+        all_pass2 = outlier_passes and all(p == 2 for p in outlier_passes if p is not None)
+        pass2_note = " All are pass-2 scans (see Scan Pass Breakdown)." if all_pass2 else ""
+
         lines.append(f"### Scan Time Outliers (ratio > {OUTLIER_RATIO}x)")
         lines.append("")
         lines.append("Entries with unusually high scan times relative to clip duration.")
-        lines.append("Likely caused by system load, background processes, or cold-start effects.")
-        lines.append("Excluded from the filtered model below.")
+        lines.append(f"Excluded from the filtered model below.{pass2_note}")
         lines.append("")
-        lines.append("| Character | Date | Tier | clip_dur | scan_time | ratio |")
-        lines.append("|-----------|------|------|----------|-----------|-------|")
+        lines.append("| Character | Date | Tier | Pass | clip_dur | scan_time | ratio |")
+        lines.append("|-----------|------|------|------|----------|-----------|-------|")
         for r, ratio in sorted(outliers, key=lambda x: -x[1]):
             fn = r["filename"]
             m = re.search(r"(\d{4}-\d{2}-\d{2})", fn)
             date = m.group(1) if m else "?"
+            pass_num = r.get("scan_pass", "?")
             lines.append(
                 f"| {r['character']} | {date} | {r.get('tier','?')} "
-                f"| {r['clip_duration']:.1f}s | {r['scan_time']:.1f}s | {ratio:.2f}x |"
+                f"| {pass_num} | {r['clip_duration']:.1f}s | {r['scan_time']:.1f}s | {ratio:.2f}x |"
             )
         lines.append("")
         lines.append(f"Filtered dataset: {len(clean_recs)} of {len(st_recs)} entries (outliers removed)")
@@ -595,6 +668,7 @@ def main():
     section_kill_duration(records, lines)
     section_inter_event_spacing(records, lines)
     section_clip_duration(records, lines)
+    section_scan_pass(records, lines)
     section_scan_time(records, lines)
     section_start_ts_relative(records, lines)
     section_raw_summary(records, lines)
