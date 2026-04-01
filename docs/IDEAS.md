@@ -14,28 +14,7 @@ Single source of truth for all pending work.
 
 ### Bugs / correctness issues (fix before shipping)
 
-**B1. DESIGN: Pass 1 only - delete clips pass 1 misses**
-
-Remove pass 2 from the scanner entirely. Pass 1 is sufficient: across 68 clips, every TRIPLE and QUAD was caught by pass 1. Pass 2 only ever found KO and DOUBLE tier - the lower-value tiers - and runs 4.4x slower (3.62x vs 0.83x real-time).
-
-New scanning model:
-- Run pass 1 only.
-- If pass 1 finds DOUBLE or above: keep clip, result is good.
-- If pass 1 finds KO-tier (single kill) or nothing (NONE): prompt user to delete the clip.
-  - Print: "Clip X - pass 1 found [KO / nothing]. Single kills are not used in compilations. Delete? [y/N]"
-  - Default No so bulk preprocessing never deletes on Enter.
-  - Delete both the clip file and its cache entry if confirmed.
-
-When to prompt:
-- During KO scanning / preprocessing (immediately after scan result is known).
-- During compilation / batch selection (if a sub-DOUBLE clip is encountered and still present).
-
-Benefits:
-- Removes the 7 pass-2 outliers from the scan-time model entirely (all were KO/DOUBLE/NONE).
-- Filtered linear model becomes cleaner: R²=0.885 on pass-1-only data.
-- Scan time per clip becomes predictable (~0.83x real-time, no surprise 3-4x spikes).
-- Clip library stays clean - no accumulation of single-kill dead weight.
-
+*(none currently open)*
 
 ### Quick wins (do these first - small effort, high value)
 
