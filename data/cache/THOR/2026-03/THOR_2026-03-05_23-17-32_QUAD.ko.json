@@ -1,1 +1,1 @@
-{"tier": "QUAD", "start_ts": 12.5, "max_ts": 24.5, "end_ts": 25.5, "events": [{"tier": "DOUBLE", "ts": 12.5}, {"tier": "TRIPLE", "ts": 17.5}, {"tier": "QUAD", "ts": 24.5}], "file_mtime": 1772723896.7847626, "clip_duration": 34.65, "scan_time": 31.82}
+{"tier": "QUAD", "start_ts": 12.5, "max_ts": 24.5, "end_ts": 25.5, "events": [{"tier": "DOUBLE", "ts": 12.5}, {"tier": "TRIPLE", "ts": 17.5}, {"tier": "QUAD", "ts": 24.5}], "file_mtime": 1772723896.7847626, "clip_duration": 34.65, "scan_time": 32.13, "scan_pass": 1}
