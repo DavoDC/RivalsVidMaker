@@ -14,31 +14,62 @@ Single source of truth for all pending work.
 
 ### Bugs / correctness issues (fix before shipping)
 
-**DESIGN: DOUBLE+ minimum tier for compilations**
+**B1. DESIGN: DOUBLE+ minimum tier for compilations**
 
 Not all highlight clips saved by the game are true multi-kills. Clips with only a single KO (tier=KO) should be renamed/cached like any other clip (processed marker) but excluded from compilation batching. Only DOUBLE and above go into compilations - single KOs are low viewer value and hard to distinguish from assist-inflated clips.
 
 Implementation: in `clip_scanner.py` (or wherever clips are filtered for batching), add a minimum tier filter. Clips with tier=KO or tier=None pass through pre-process but are skipped at the batch-selection stage.
 
+**B2. Scanner regression: THOR_2026-03-26_22-37-28 previously DOUBLE, now null**
+
+Cache file `THOR_2026-03-26_22-37-28_DOUBLE.ko.json` has `_null_result: true` after force rescan - meaning it was previously detected as DOUBLE (hence the filename) but the optimised scanner now finds nothing. Either the scanner missed a real kill after the SKIP_SECS/SCAN_STOP_SECS optimisation raised the thresholds, or the clip has an edge-case banner. Investigate by watching the clip and checking whether the KO starts before 6s or after 22s.
+
 ---
 
-### Quick wins (do first)
+### Quick wins (do these first - small effort, high value)
 
-1. **R-squared on scan-time model is low (0.39)** - the linear model `scan_time = 0.838 * clip_duration + 7.173` has low fit. Possible cause: KO scan in pass 1 always processes the full clip at 2fps even when a KO is found early (no early exit). Adding early-exit after confirmed detection (after the cooldown window) would reduce scan time variance and improve model fit. Related: OCR cooldown window could be set to p90 inter-kill gap of 9s (data-driven).
+**Q1. Histogram-guided sampling density**
+
+Currently ko_detect.py samples at a flat 2fps across the full scan window. Data shows 90% of KOs start between 6.5s and 18s. Sampling could be denser in this window and sparse (or skipped) outside it, reducing total OCR calls without missing detections. Small change to `ko_detect.py` frame sampling logic.
+
+**Q2. Dry-run mode**
+
+`--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
+
+**Q3. README: OCR/KO scan section**
+
+The OCR multi-kill detection is the most technically interesting part of the project. Add a dedicated README section explaining how it works: frame extraction at 2fps, banner crop region, Tesseract OCR, tier detection, cooldown logic. Technical but concise.
+
+---
 
 ### Main work
 
-2. **Dry-run mode** - `--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
+**M1. Time estimation UI (model ready)**
 
-3. **Clip transition trimming** - each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap (don't remove entirely). Requires frame analysis to find the transition start reliably.
+Before starting a batch, show a rough estimate: KO scanning (instant if cached, else model-based), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
 
-4. **YouTube API / upload automation** - automate the full YouTube upload. See `docs/YOUTUBE_API.md` for existing API research.
+Model (68 clips, R²=0.90, outliers excluded): `scan_time = 0.977 * clip_duration - 4.118`
+- 20s clip -> ~15s scan, 30s clip -> ~25s scan, 45s clip -> ~40s scan
 
-   **Phase 1 (feasibility probe - do first, standalone script):** Write the smallest possible standalone script (`scripts/yt_upload_test.py`) that authenticates via OAuth and uploads a single hardcoded clip as **private** to confirm the API actually works. Small channels may not have upload quota or the right API access tier - verify this before building anything else. Success = a private video appears on the channel.
+Two separate predictions needed:
+1. KO scan time - per-clip, from clip length. Instant if cached.
+2. Encode/compile time - per-batch, from total clip duration. Different model (GPU vs CPU).
 
-   **Phase 2 (pipeline integration - only if Phase 1 works):** Compile video -> upload as private (title/description/tags from the AI prompt file) -> record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
+**M2. Clip transition trimming**
 
-5. **Test end-to-end with Thor** - 31 clips ready, all KO-cached as of 2026-03-28. Full pipeline test: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private). Integration test for items 1-4. Run items 3 (transition trimming) and 4 (YouTube API Phase 1) first - these are prerequisites for a clean end-to-end test.
+Each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap. Requires frame analysis to find the transition start reliably.
+
+**M3. YouTube API / upload automation**
+
+See `docs/YOUTUBE_API.md` for existing API research.
+
+**Phase 1 (feasibility probe - do first, standalone script):** Write the smallest possible standalone script (`scripts/yt_upload_test.py`) that authenticates via OAuth and uploads a single hardcoded clip as **private** to confirm the API actually works. Small channels may not have upload quota or the right API access tier - verify this before building anything else. Success = a private video appears on the channel.
+
+**Phase 2 (pipeline integration - only if Phase 1 works):** Compile video -> upload as private (title/description/tags from the AI prompt file) -> record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
+
+**M4. Test end-to-end with Thor**
+
+31 clips ready, all KO-cached. Full pipeline test: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private). Integration test for M1-M3. Run M2 (transition trimming) and M3 Phase 1 (YouTube API) first - these are prerequisites for a clean end-to-end test.
 
 ---
 
@@ -46,50 +77,10 @@ Implementation: in `clip_scanner.py` (or wherever clips are filtered for batchin
 
 ### Quick wins
 
-### README improvements (2 items)
-- **OCR/KO scan section** - the OCR multi-kill detection is the most technically interesting part of the project. Add a dedicated README section explaining how it works: frame extraction at 2fps, banner crop region, Tesseract OCR, tier detection, cooldown logic. Technical but concise - not a wall of text.
 - **Pipeline and folder structure** - README should explain the full end-to-end flow and what each folder contains (Highlights, Output, ClipArchive). Currently lives only in CLAUDE.md.
 
 ### Test FFmpeg auto-download on a clean machine
 Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts the binaries correctly. ~70MB download. Only needed before shipping to a new machine.
-
----
-
-### KO scan optimisation using historical timing distribution
-
-**Data now available** - 64 clips scanned, all with `start_ts`, `clip_duration`, `scan_time`. Analysis script: `scripts/once_off/analyse_ko_data.py`. Report: `data/analysis/ko_analysis_report_YYYYMMDD.md`.
-
-**Key findings from 64-clip dataset (2026-03-31):**
-- KO events range from 7.0s to 33.0s (mean 13.3s). No KO ever in first 7s.
-- 90% of KOs occur before 18.5s. Scanning past 22s is wasted for most clips.
-- SKIP_SECS could be safely raised to ~6.5s (earliest KO is 7.0s - 0.5s safety).
-- 90% of KOs occur within the first 58% of the clip. Early bail-out is viable.
-- Sequence duration (first to last kill): mean 7.6s, p90 16s. After detecting a KO, skip 16s ahead before resuming.
-- Inter-kill gap p90 = 9s. OCR cooldown window can be data-driven at 9s.
-
-**Planned approach:**
-- Apply histogram-guided density: sample denser in 5-22s window, drop back outside - net OCR cost falls
-- Raise `SKIP_SECS` to 6s (was probably 0 or 2)
-- Add early-exit after confirmed KO + cooldown window (reduces scan time variance)
-- Re-run analysis after OldCompilations scan (hundreds of clips) to refine numbers
-
----
-
-### Time estimation before encode (with data-driven model)
-
-Before starting a batch, show a rough estimate broken into stages: KO scanning (instant if cached, else estimate from clip length), encoding (~1x realtime for NVENC). Shown after menu selection, before processing begins.
-
-**Data-driven approach:** `clip_duration` and `scan_time` are saved to every `.ko.json` entry (implemented). 64 clips now in dataset.
-
-**Current model (64 clips):** `scan_time = 0.838 * clip_duration + 7.173` (R^2 = 0.39)
-- Low R^2 due to scan time variance (no early-exit after KO detection). Will improve once early-exit is implemented (see KO optimisation above).
-- Example predictions: 20s clip -> 23.9s scan, 30s clip -> 32.3s scan
-
-Two separate predictions needed:
-1. **KO scan time** - per-clip, based on clip length. Instant if cached.
-2. **Encode/compile time** - per-batch, based on total clip duration. Different model (GPU vs CPU).
-
-Next step: build the estimation UI that reads these fields and shows predictions before encode.
 
 ### Automated tests for KO detection
 pytest tests for `scan_clip` and OCR logic. Want KO detection solid and well-tested before running big scans (OldCompilations, Best-of). Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
