@@ -1,1 +1,1 @@
-{"tier": "DOUBLE", "start_ts": 10.5, "max_ts": 19.5, "end_ts": 22.0, "events": [{"tier": "KO", "ts": 10.5}, {"tier": "DOUBLE", "ts": 19.5}], "file_mtime": 1774789849.7796693, "clip_duration": 34.59, "scan_time": 29.11}
+{"tier": "DOUBLE", "start_ts": 10.5, "max_ts": 19.5, "end_ts": 22.0, "events": [{"tier": "KO", "ts": 10.5}, {"tier": "DOUBLE", "ts": 19.5}], "file_mtime": 1774789849.7796693, "clip_duration": 34.59, "scan_time": 28.87, "scan_pass": 1}
