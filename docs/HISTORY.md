@@ -9,6 +9,15 @@ Active work stays in `docs/IDEAS.md`.
 
 ### One-off tasks
 
+**B1. Pass-1-only scanner with low-value clip delete prompt (2026-04-02)**
+
+`scan_clip()` now defaults to pass 1 only (`use_pass2=False`). Pass 2 is kept in code but opt-in.
+- `use_pass2_scanner` config flag (default false) passed through preprocess -> scan_clip.
+- After a fresh scan returns KO-tier or null, preprocess prompts: "Delete clip and cache? [y/N]". Default No.
+- Prompt suppressed during force_rescan runs (data collection, not cleanup).
+- `rescan_and_report.py` sets `use_pass2_scanner: true` + `force_rescan_cache: true` for full two-pass data runs, restores both on exit.
+- Key data behind the decision: pass 2 only ever found KO/DOUBLE/NONE (never TRIPLE/QUAD) and was 4.4x slower. DOUBLE+ from pass 1 is the standard; clips below that have no value in compilations.
+
 **T1. Force-rescan all clips to rebuild cache with new algorithm data (2026-04-01)**
 
 All 68 clips re-scanned using `scripts/once_off/rescan_and_report.py`. Results:
