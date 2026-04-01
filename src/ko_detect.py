@@ -68,7 +68,7 @@ def configure(
 # Constants derived from statistical analysis of 64 clips (2026-03-31).
 # Source: data/analysis/ko_analysis_report_20260331.md
 SCAN_FPS_FAST        = 2     # pass 1: quick sweep (most multi-kills caught here)
-SCAN_FPS_FULL        = 4     # pass 2: detailed retry for null-result clips only
+SCAN_FPS_FULL        = 8     # pass 2: thorough retry; 0.125s resolution makes brief banners infallible
 SKIP_SECS            = 6     # skip first N seconds; data: earliest KO = 7.0s, -1s safety margin
 COOLDOWN_SECS        = 2.0   # min gap between distinct kill events (keep low -- p10 inter-kill = 2s)
 SCAN_STOP_SECS       = 22    # pass 1 early exit if no KO found; data: p90 start_ts = 18.5s + 3.5s buffer
@@ -233,6 +233,7 @@ def cache_save(
     *,
     clip_duration: float | None = None,
     scan_time: float | None = None,
+    scan_pass: int | None = None,
 ):
     """Write result to the cache.
 
@@ -240,8 +241,8 @@ def cache_save(
     loads can detect if the clip file has been replaced or modified.
     Null results are stored as {"_null_result": true, "file_mtime": <mtime>}.
 
-    Optional timing fields (clip_duration, scan_time) are saved when provided
-    so that time-estimation models can be built from accumulated data.
+    Optional fields (clip_duration, scan_time, scan_pass) are saved when provided.
+    scan_pass (1 or 2) records which pass detected the kill -- useful for tuning.
     """
     p = cache_path(clip_path)
     os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -254,13 +255,19 @@ def cache_save(
         entry["clip_duration"] = round(clip_duration, 2)
     if scan_time is not None:
         entry["scan_time"] = round(scan_time, 2)
+    if scan_pass is not None:
+        entry["scan_pass"] = scan_pass
     with open(p, "w") as f:
         json.dump(entry, f)
 
 # ── Core scan ─────────────────────────────────────────────────────────────────
 
-def _scan_frames(frames: list[tuple[float, str]], debug: bool) -> dict | None:
-    """Run OCR over a list of (timestamp, image_path) frames. Returns a result dict or None."""
+def _scan_frames(frames: list[tuple[float, str]], debug: bool, stop_early: bool = True) -> dict | None:
+    """Run OCR over a list of (timestamp, image_path) frames. Returns a result dict or None.
+
+    stop_early=True  (pass 1): exits at SCAN_STOP_SECS if no KO found yet.
+    stop_early=False (pass 2): scans the full clip regardless -- no early exit.
+    """
     events       = []
     prev_tier    = None
     cooldown_end = 0.0
@@ -268,7 +275,8 @@ def _scan_frames(frames: list[tuple[float, str]], debug: bool) -> dict | None:
 
     for ts, path in frames:
         # Early exit: no KO yet and past the likely-KO window -- let pass 2 handle edge cases
-        if not events and ts > SCAN_STOP_SECS:
+        # Pass 2 disables this so a brief KO near SCAN_STOP_SECS doesn't hide a later DOUBLE+
+        if stop_early and not events and ts > SCAN_STOP_SECS:
             if debug:
                 print(f"  [early exit: no KO by {SCAN_STOP_SECS}s, handing off to pass 2]")
             break
@@ -346,21 +354,24 @@ def scan_clip(clip_path: str, debug: bool = False, use_cache: bool = True) -> di
         # Pass 1: fast sweep
         frames = extract_frames(clip_path, tmpdir, fps=SCAN_FPS_FAST)
         result = _scan_frames(frames, debug)
+        scan_pass = 1
 
         if result is None:
-            # Pass 2: detailed retry - clean pass-1 frames and re-extract at higher FPS
+            # Pass 2: thorough retry at higher FPS, no early exit
+            # stop_early=False ensures SCAN_STOP_SECS doesn't suppress kills near/after that window
             if debug:
-                print(f"  [pass 1 null - retrying at {SCAN_FPS_FULL}fps]")
+                print(f"  [pass 1 null - retrying at {SCAN_FPS_FULL}fps, full clip, no early exit]")
             for f in glob.glob(os.path.join(tmpdir, "f_*.png")):
                 try:
                     os.remove(f)
                 except OSError:
                     pass
             frames = extract_frames(clip_path, tmpdir, fps=SCAN_FPS_FULL)
-            result = _scan_frames(frames, debug)
+            result = _scan_frames(frames, debug, stop_early=False)
+            scan_pass = 2
 
         elapsed = time.perf_counter() - t_scan_start
-        cache_save(clip_path, result, clip_duration=clip_dur, scan_time=elapsed)
+        cache_save(clip_path, result, clip_duration=clip_dur, scan_time=elapsed, scan_pass=scan_pass)
         return result
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
