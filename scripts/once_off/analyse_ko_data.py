@@ -9,6 +9,7 @@ Usage:
 """
 
 import json
+import math
 import os
 import re
 import sys
@@ -67,7 +68,7 @@ def load_all_cache_entries():
 # Helpers
 # ---------------------------------------------------------------------------
 
-TIER_ORDER = ["KO", "DOUBLE", "TRIPLE", "QUAD", "NONE"]
+TIER_ORDER = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA", "NONE"]
 
 def pct(n, total):
     return f"{100 * n / total:.1f}%" if total else "n/a"
@@ -111,6 +112,32 @@ def r_squared(xs, ys, slope, intercept):
     mean_y = sum(ys) / len(ys)
     ss_tot = sum((y - mean_y) ** 2 for y in ys)
     ss_res = sum((y - (slope * x + intercept)) ** 2 for x, y in zip(xs, ys))
+    if ss_tot == 0:
+        return 1.0
+    return 1 - ss_res / ss_tot
+
+def power_regression(xs, ys):
+    """Fits y = a * x^b via log-linear regression. Returns (a, b) or (None, None)."""
+    pairs = [(x, y) for x, y in zip(xs, ys) if x > 0 and y > 0]
+    if len(pairs) < 2:
+        return None, None
+    log_xs = [math.log(x) for x, _ in pairs]
+    log_ys = [math.log(y) for _, y in pairs]
+    b, log_a = linear_regression(log_xs, log_ys)
+    if b is None:
+        return None, None
+    return math.exp(log_a), b
+
+def r_squared_power(xs, ys, a, b):
+    """R² for y = a * x^b."""
+    if a is None:
+        return None
+    pairs = [(x, y) for x, y in zip(xs, ys) if x > 0 and y > 0]
+    ys_f = [y for _, y in pairs]
+    predicted = [a * (x ** b) for x, _ in pairs]
+    mean_y = sum(ys_f) / len(ys_f)
+    ss_tot = sum((y - mean_y) ** 2 for y in ys_f)
+    ss_res = sum((y - p) ** 2 for y, p in zip(ys_f, predicted))
     if ss_tot == 0:
         return 1.0
     return 1 - ss_res / ss_tot
@@ -162,7 +189,7 @@ def section_tier_dist(records, lines):
     tiers = [r.get("tier") if r.get("tier") is not None else "null" for r in records]
     c = Counter(tiers)
     total = len(records)
-    order = ["QUAD", "TRIPLE", "DOUBLE", "KO", "NONE", "null"]
+    order = ["HEXA", "PENTA", "QUAD", "TRIPLE", "DOUBLE", "KO", "NONE", "null"]
     max_count = max(c.values()) if c else 1
     lines.append("```")
     for t in order:
@@ -199,12 +226,13 @@ def section_ko_timing(records, lines):
     lines.append("")
 
     # Histogram
-    hist = bucket_histogram(start_ts_vals, bucket_size=5, max_val=60)
-    max_count = max(v for _, v in hist)
-    lines.append("### Histogram (5s buckets)")
+    hist = bucket_histogram(start_ts_vals, bucket_size=2, max_val=30)
+    max_count = max((v for _, v in hist), default=1)
+    lines.append("### Histogram (2s buckets)")
     lines.append("```")
     for label, count in hist:
-        lines.append(f"  {label:<10}  {count:>3}  {bar(count, max_count)}")
+        if count:
+            lines.append(f"  {label:<10}  {count:>3}  {bar(count, max_count)}")
     lines.append("```")
     lines.append("")
 
@@ -360,27 +388,122 @@ def section_scan_time(records, lines):
     lines.append(stats_block(ratios, "scan/clip ratio", unit="x"))
     lines.append("")
 
-    # Linear regression: scan_time = slope * clip_duration + intercept
-    slope, intercept = linear_regression(clip_durs, scan_times)
-    if slope is not None:
-        r2 = r_squared(clip_durs, scan_times, slope, intercept)
-        lines.append(f"### Linear model: scan_time = {slope:.3f} * clip_duration + {intercept:.3f}")
-        lines.append(f"R-squared: {r2:.4f}")
+    # --- Outlier detection ---
+    OUTLIER_RATIO = 1.5  # flag if scan_time > 1.5x clip_duration
+    outliers = [
+        (r, r["scan_time"] / r["clip_duration"])
+        for r in st_recs
+        if r["clip_duration"] > 0 and r["scan_time"] / r["clip_duration"] > OUTLIER_RATIO
+    ]
+    clean_recs = [
+        r for r in st_recs
+        if r["clip_duration"] > 0 and r["scan_time"] / r["clip_duration"] <= OUTLIER_RATIO
+    ]
+
+    if outliers:
+        lines.append(f"### Scan Time Outliers (ratio > {OUTLIER_RATIO}x)")
         lines.append("")
-        lines.append("Use this model in the time-estimation UI:")
-        lines.append(f"  `predicted_scan_s = {slope:.3f} * clip_duration_s + {intercept:.3f}`")
+        lines.append("Entries with unusually high scan times relative to clip duration.")
+        lines.append("Likely caused by system load, background processes, or cold-start effects.")
+        lines.append("Excluded from the filtered model below.")
         lines.append("")
-        # Example predictions
+        lines.append("| Character | Date | Tier | clip_dur | scan_time | ratio |")
+        lines.append("|-----------|------|------|----------|-----------|-------|")
+        for r, ratio in sorted(outliers, key=lambda x: -x[1]):
+            fn = r["filename"]
+            m = re.search(r"(\d{4}-\d{2}-\d{2})", fn)
+            date = m.group(1) if m else "?"
+            lines.append(
+                f"| {r['character']} | {date} | {r.get('tier','?')} "
+                f"| {r['clip_duration']:.1f}s | {r['scan_time']:.1f}s | {ratio:.2f}x |"
+            )
+        lines.append("")
+        lines.append(f"Filtered dataset: {len(clean_recs)} of {len(st_recs)} entries (outliers removed)")
+        lines.append("")
+
+    # --- Model comparison ---
+    lines.append("### Model Comparison")
+    lines.append("")
+
+    # 1. Raw linear
+    slope_raw, intercept_raw = linear_regression(clip_durs, scan_times)
+    r2_raw = r_squared(clip_durs, scan_times, slope_raw, intercept_raw)
+
+    # 2. Filtered linear
+    if clean_recs:
+        clean_xs = [r["clip_duration"] for r in clean_recs]
+        clean_ys = [r["scan_time"] for r in clean_recs]
+        slope_flt, intercept_flt = linear_regression(clean_xs, clean_ys)
+        r2_flt = r_squared(clean_xs, clean_ys, slope_flt, intercept_flt)
+    else:
+        clean_xs, clean_ys = clip_durs, scan_times
+        slope_flt, intercept_flt, r2_flt = slope_raw, intercept_raw, r2_raw
+
+    # 3. Power model on filtered data
+    a_pow, b_pow = power_regression(clean_xs, clean_ys)
+    r2_pow = r_squared_power(clean_xs, clean_ys, a_pow, b_pow)
+
+    lines.append("| Model | Formula | R² | Dataset |")
+    lines.append("|-------|---------|-----|---------|")
+    if slope_raw is not None:
+        sign = "+" if intercept_raw >= 0 else "-"
+        lines.append(
+            f"| Linear (all data) | {slope_raw:.3f}x {sign} {abs(intercept_raw):.3f} "
+            f"| {r2_raw:.4f} | {len(st_recs)} entries |"
+        )
+    if slope_flt is not None and clean_recs:
+        sign = "+" if intercept_flt >= 0 else "-"
+        lines.append(
+            f"| Linear (filtered) | {slope_flt:.3f}x {sign} {abs(intercept_flt):.3f} "
+            f"| {r2_flt:.4f} | {len(clean_recs)} entries |"
+        )
+    if a_pow is not None:
+        lines.append(
+            f"| Power (filtered) | {a_pow:.3f} * x^{b_pow:.3f} "
+            f"| {r2_pow:.4f} | {len(clean_recs)} entries |"
+        )
+    lines.append("")
+
+    # Pick best model
+    candidates = []
+    if slope_flt is not None and r2_flt is not None:
+        candidates.append(("filtered_linear", r2_flt))
+    if r2_pow is not None:
+        candidates.append(("power", r2_pow))
+    best_model = max(candidates, key=lambda x: x[1])[0] if candidates else "raw_linear"
+
+    lines.append("### Recommended model")
+    lines.append("")
+    if best_model == "power" and a_pow is not None:
+        lines.append(f"**Power model** has best fit (R²={r2_pow:.4f}):")
+        lines.append(f"  `predicted_scan_s = {a_pow:.3f} * clip_duration_s ^ {b_pow:.3f}`")
+        lines.append("")
         lines.append("| Clip length | Predicted scan time |")
         lines.append("|-------------|---------------------|")
         for cl in [15, 20, 25, 30, 45, 60]:
-            pred = slope * cl + intercept
+            pred = a_pow * (cl ** b_pow)
             lines.append(f"| {cl}s | {pred:.1f}s |")
+    elif slope_flt is not None:
+        sign = "+" if intercept_flt >= 0 else "-"
+        lines.append(f"**Filtered linear model** (R²={r2_flt:.4f}):")
+        lines.append(f"  `predicted_scan_s = {slope_flt:.3f} * clip_duration_s {sign} {abs(intercept_flt):.3f}`")
         lines.append("")
-    lines.append("### Optimisation insight")
+        lines.append("| Clip length | Predicted scan time |")
+        lines.append("|-------------|---------------------|")
+        for cl in [15, 20, 25, 30, 45, 60]:
+            pred = slope_flt * cl + intercept_flt
+            lines.append(f"| {cl}s | {pred:.1f}s |")
+    lines.append("")
+
+    lines.append("### Optimisation insights")
     lines.append("")
     mean_ratio = sum(ratios) / len(ratios) if ratios else 0
     lines.append(f"- Average scan overhead: {mean_ratio:.2f}x real-time (scan takes ~{mean_ratio:.1f}s per 1s of clip)")
+    if outliers:
+        clean_ratios = [r["scan_time"] / r["clip_duration"] for r in clean_recs if r["clip_duration"] > 0]
+        if clean_ratios:
+            mean_clean = sum(clean_ratios) / len(clean_ratios)
+            lines.append(f"- Excluding outliers: {mean_clean:.2f}x real-time")
     lines.append("")
 
 
