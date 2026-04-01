@@ -14,21 +14,27 @@ Single source of truth for all pending work.
 
 ### Bugs / correctness issues (fix before shipping)
 
-**B1. DESIGN: Prompt user to delete KO-tier (single kill) clips**
+**B1. DESIGN: Pass 1 only - delete clips pass 1 misses**
 
-Single-kill clips (tier=KO) are low viewer value and should not appear in compilations. Rather than silently filtering them, prompt the user to delete them at scan time so they do not accumulate.
+Remove pass 2 from the scanner entirely. Pass 1 is sufficient: across 68 clips, every TRIPLE and QUAD was caught by pass 1. Pass 2 only ever found KO and DOUBLE tier - the lower-value tiers - and runs 4.4x slower (3.62x vs 0.83x real-time).
 
-Why:
-- A KO-tier clip is a single solo elimination - uninteresting for compilation viewers; DOUBLE and above is the minimum bar.
-- KO-tier clips disproportionately require pass 2 (3 of 5 KO clips = pass 2 in current data), making scans slower and bloating the time-estimation model with outliers.
-- Deleting them keeps the clip library clean and simplifies future scan-time modelling.
+New scanning model:
+- Run pass 1 only.
+- If pass 1 finds DOUBLE or above: keep clip, result is good.
+- If pass 1 finds KO-tier (single kill) or nothing (NONE): prompt user to delete the clip.
+  - Print: "Clip X - pass 1 found [KO / nothing]. Single kills are not used in compilations. Delete? [y/N]"
+  - Default No so bulk preprocessing never deletes on Enter.
+  - Delete both the clip file and its cache entry if confirmed.
 
-Behaviour (when should the prompt appear):
-- During KO scanning / preprocessing: after a clip is scanned and found to be KO-tier, print "Clip X is a single kill only (no DOUBLE+) - delete it? [y/N]" and delete if confirmed.
-- During compilation / batch selection: if a KO-tier clip is encountered, warn and offer to delete before skipping.
-- NONE-tier clips (scan found nothing): same prompt - these are also low/zero value.
+When to prompt:
+- During KO scanning / preprocessing (immediately after scan result is known).
+- During compilation / batch selection (if a sub-DOUBLE clip is encountered and still present).
 
-The prompt should show the clip filename and detected tier so the user can make an informed choice. Default to No (keep) so bulk rescans don't accidentally delete on Enter.
+Benefits:
+- Removes the 7 pass-2 outliers from the scan-time model entirely (all were KO/DOUBLE/NONE).
+- Filtered linear model becomes cleaner: R²=0.885 on pass-1-only data.
+- Scan time per clip becomes predictable (~0.83x real-time, no surprise 3-4x spikes).
+- Clip library stays clean - no accumulation of single-kill dead weight.
 
 
 ### Quick wins (do these first - small effort, high value)
