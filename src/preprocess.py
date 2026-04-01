@@ -20,6 +20,9 @@ import ko_detect
 from clip_scanner import VIDEO_EXTS
 from config import Config
 
+# Tiers considered too low-value for compilations; user is prompted to delete these
+_LOW_VALUE_TIERS = {"KO", None}  # None = NONE suffix (no kill detected)
+
 
 def _has_processed_suffix(clip_path: Path) -> bool:
     """Return True if the clip has already been through preprocess (has a tier or NONE suffix)."""
@@ -54,6 +57,38 @@ def _rename_clip(clip_path: Path, tier: str | None) -> Path:
     except OSError as e:
         logging.warning("Could not rename %s: %s", clip_path.name, e)
         return clip_path
+
+
+def _prompt_delete(clip_path: Path, tier: str | None) -> bool:
+    """Offer to delete a low-value clip after scanning. Returns True if deleted.
+
+    Deletes both the clip file and its cache entry.
+    Default answer is No so a bulk run never deletes on an accidental Enter.
+    """
+    reason = "single kill only (KO tier)" if tier == "KO" else "no kill detected"
+    print(f"\n  [LOW VALUE] {clip_path.name}")
+    print(f"  Pass 1 found: {reason}. Not usable in compilations.")
+    answer = input("  Delete clip and cache? [y/N] ").strip().lower()
+    if answer != "y":
+        return False
+
+    deleted_clip = False
+    try:
+        clip_path.unlink()
+        deleted_clip = True
+    except OSError as e:
+        print(f"  Could not delete clip: {e}")
+
+    cache = Path(ko_detect.cache_path(str(clip_path)))
+    if cache.exists():
+        try:
+            cache.unlink()
+        except OSError:
+            pass
+
+    if deleted_clip:
+        print(f"  Deleted.")
+    return deleted_clip
 
 
 def preprocess_all(config: Config) -> dict[str, int]:
@@ -144,7 +179,11 @@ def preprocess_all(config: Config) -> dict[str, int]:
 
             use_cache = already_processed and not force_rescan
             t0 = time.perf_counter()
-            result = ko_detect.scan_clip(str(clip_path), use_cache=use_cache)
+            result = ko_detect.scan_clip(
+                str(clip_path),
+                use_cache=use_cache,
+                use_pass2=config.use_pass2_scanner,
+            )
             elapsed = time.perf_counter() - t0
 
             tier = result["tier"] if result else None
@@ -157,6 +196,10 @@ def preprocess_all(config: Config) -> dict[str, int]:
             logging.info("[%d/%d] Done (%s) - %s", done, total, elapsed_str, tier_label)
             clip_path = _rename_clip(clip_path, tier)
             char_done += 1
+
+            # Prompt to delete low-value clips (skip during force_rescan data runs)
+            if not force_rescan and tier in _LOW_VALUE_TIERS:
+                _prompt_delete(clip_path, tier)
 
         results[char_name] = char_done
 
