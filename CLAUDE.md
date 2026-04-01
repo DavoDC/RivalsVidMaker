@@ -90,9 +90,12 @@ Marvel Rivals clips follow: `{CHARACTER NAME}_{YYYY}-{MM}-{DD}_{HH}-{MM}-{SS}.mp
 Character names may contain letters, digits, spaces, or underscores.
 Spaces are normalised to underscores for the folder name.
 
+**The game never includes KO tier in filenames.** The `_DOUBLE`, `_TRIPLE` etc. suffix is appended by the RVM pipeline after KO scanning. Raw game-saved clips end at the timestamp.
+
 Examples:
 ```
-THOR_2026-02-06_22-38-56.mp4           →  Highlights/THOR/
+THOR_2026-02-06_22-38-56.mp4           →  game-saved (raw)
+THOR_2026-02-06_22-38-56_TRIPLE.mp4   →  after pipeline renames (tier appended by RVM)
 SQUIRREL GIRL_2026-03-13_21-51-02.mp4  →  Highlights/SQUIRREL_GIRL/
 BLACK WIDOW_2026-01-15_08-00-00.mp4   →  Highlights/BLACK_WIDOW/
 ```
