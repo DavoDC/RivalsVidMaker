@@ -1,1 +1,1 @@
-{"tier": "TRIPLE", "start_ts": 16.0, "max_ts": 26.5, "end_ts": 28.5, "events": [{"tier": "KO", "ts": 16.0}, {"tier": "DOUBLE", "ts": 20.5}, {"tier": "TRIPLE", "ts": 26.5}], "file_mtime": 1774789669.1117206, "clip_duration": 36.56, "scan_time": 31.75}
+{"tier": "TRIPLE", "start_ts": 16.0, "max_ts": 26.5, "end_ts": 28.5, "events": [{"tier": "KO", "ts": 16.0}, {"tier": "DOUBLE", "ts": 20.5}, {"tier": "TRIPLE", "ts": 26.5}], "file_mtime": 1774789669.1117206, "clip_duration": 36.56, "scan_time": 31.55, "scan_pass": 1}
