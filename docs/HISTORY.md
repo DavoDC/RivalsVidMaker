@@ -7,6 +7,17 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### One-off tasks
+
+**T1. Force-rescan all clips to rebuild cache with new algorithm data (2026-04-01)**
+
+All 68 clips re-scanned using `scripts/once_off/rescan_and_report.py`. Results:
+- 67/68 KO detected (98.5%). 1 NONE (THOR_2026-03-28_23-22-42 - confirmed no kill).
+- `scan_pass` recorded for all entries: 61 pass 1 (89.7%), 7 pass 2 (10.3%).
+- Key finding: pass 1 averages 0.83x real-time; pass 2 averages 3.62x (4.4x slower). All scan-time outliers are pass-2 clips - slow scan is structural, not system noise.
+- Pass 2 only detected KO/DOUBLE/NONE tiers - never TRIPLE or QUAD. Consistent with multi-kill banners being larger and easier for pass 1 to catch.
+- Full analysis in `data/analysis/ko_analysis_report_20260401_2340.md`.
+
 ### Pipeline & architecture
 
 **Rewrite pipeline in Python**
