@@ -128,7 +128,7 @@ Clips verified correct by watching the actual video after running `ko_detect.py`
 | `THOR_2026-03-22_23-19-10.mp4` | KO at ~8s, then assists | null | Bug - missed |
 | `THOR_2026-03-27_22-23-58.mp4` | KO at ~8s, clip ends | null | Bug - missed |
 | `THOR_2026-03-28_23-22-42.mp4` | KO at ~8s, nothing else (18.5s clip) | null | Bug - missed |
-| `THOR_2026-03-26_22-37-28.mp4` | KO at 18.5s (single-frame flash), DOUBLE at 25.9s (39s clip) | null (fixed) | Was regression -- fixed by 8fps pass 2 + no early exit; now correctly returns DOUBLE |
+| `THOR_2026-03-26_22-37-28.mp4` | KO at 18.5s (single-frame flash), DOUBLE at 25.9s (39s clip) | null | Pass 1 misses the KO (single-frame) and early-exits before 25.9s. Pass 2 fixed this, but pass 2 is being removed (B1). Clip will be flagged for deletion. |
 
 **Notes on misses:** DOUBLE was missed in the TRIPLE clip (banner visible ~1s, fell between 2fps sample points). Acceptable - intermediate tiers don't affect final classification as long as the highest tier is caught.
 
@@ -136,8 +136,8 @@ Clips verified correct by watching the actual video after running `ko_detect.py`
 - Short banners (<1s) may be missed at 2fps - mostly affects KO/DOUBLE, not Quad+
 - `KO` (2 chars) is harder for Tesseract than longer tier names like `TRIPLE` or `QUAD`
 - **Single-KO false negatives (confirmed bug):** 4 clips with visible KO banners at ~8s returned null (THOR_2026-03-17_22-20-29, THOR_2026-03-22_23-19-10, THOR_2026-03-27_22-23-58, THOR_2026-03-28_23-22-42). Crop region confirmed correct (same position as multi-kill banners). Root cause: 2fps has a 0.5s miss window - KO banner can appear and disappear between samples. Fix: raise `SCAN_FPS` to 4. See IDEAS.md.
-- **Single-frame KO banners (~0.125s):** confirmed in THOR_2026-03-26_22-37-28 -- KO banner appeared for a single 8fps frame at 18.5s. Pass 1 at 2fps will always miss these. Pass 2 at 8fps with no early exit is the fix (applied 2026-04-01).
-- **Not all highlight clips are multi-kills:** The game's DVR saves single-KO + assist sequences too. These scan as null or KO-tier. Compilations should filter to DOUBLE+ minimum - see IDEAS.md.
+- **Single-frame KO banners (~0.125s):** confirmed in THOR_2026-03-26_22-37-28 -- KO banner at 18.5s lasted ~0.125s, always missed by pass 1 at 2fps. Previously fixed by pass 2; pass 2 is being removed (B1 design). These clips will be flagged for deletion -- accepted tradeoff.
+- **Not all highlight clips are multi-kills:** The game's DVR saves single-KO + assist sequences too. These scan as null or KO-tier. Pass 1 only is the intended scanner; clips where pass 1 finds nothing or only a single KO are prompted for deletion. Only DOUBLE+ from pass 1 go into compilations - see B1 in IDEAS.md.
 - **Kill-cam false positives (stream VODs only):** When the player dies in a stream VOD (raw game recording), the game shows the killer's POV during the respawn wait. The killer can chain multi-kills in this window, and their KO banners appear in the same region as the player's own banners. Does NOT affect saved highlight clips - those are always the player's own kills captured by the in-game DVR. Only relevant for OldCompilations stream VODs. See IDEAS.md for notes.
 
 ## Notes / Gotchas
