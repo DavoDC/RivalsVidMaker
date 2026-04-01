@@ -21,6 +21,7 @@ class Config:
     protect_recent_clips: int  # skip this many most-recent clips from batching
     state_path: Path           # persistent state log (youtube_confirmed, etc.)
     force_rescan_cache: bool   # if True, pre-process ignores existing cache entries and rescans all clips
+    use_pass2_scanner: bool    # if True, scan_clip falls back to pass 2 when pass 1 finds nothing (rescan/data mode only)
 
 
 def load(path: Path = Path("config/config.json")) -> Config:
@@ -55,4 +56,5 @@ def load(path: Path = Path("config/config.json")) -> Config:
         protect_recent_clips=int(raw.get("protect_recent_clips", 5)),
         state_path=Path(raw.get("state_path", "data/state.json")),
         force_rescan_cache=bool(raw.get("force_rescan_cache", False)),
+        use_pass2_scanner=bool(raw.get("use_pass2_scanner", False)),
     )
