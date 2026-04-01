@@ -33,26 +33,6 @@ Not all highlight clips saved by the game are true multi-kills. Clips with only 
 
 Implementation: in `clip_scanner.py` (or wherever clips are filtered for batching), add a minimum tier filter. Clips with tier=KO or tier=None pass through pre-process but are skipped at the batch-selection stage.
 
-**B2. Scanner regression: THOR_2026-03-26_22-37-28 previously DOUBLE, now null** -- FIXED (2026-04-01)
-
-**Root cause (confirmed by debug scan 2026-04-01):**
-- KO banner visible at exactly 18.5s -- single frame (~0.125s flash). At 2fps, frame extraction timing differs slightly between runs, so this single-frame banner was missed by pass 1.
-- DOUBLE banner at 25.9-28.1s (solid 2s+ banner, easily detectable once reached).
-- Old pass 2 inherited `SCAN_STOP_SECS=22` early exit -- never reached 25.9s.
-
-**Fix applied:**
-1. `SCAN_FPS_FULL` raised from 4 to 8 (0.125s resolution catches single-frame KO banners).
-2. `_scan_frames` gained `stop_early` flag. Pass 2 now passes `stop_early=False` -- scans full clip regardless of when first KO appears.
-
-**Verified fix output:**
-```
-[pass 1 null - retrying at 8fps, full clip, no early exit]
-  t=18.5s  -> KO  *** EVENT: KO at 18.5s ***
-  t=25.9s  -> DOUBLE  *** EVENT: DOUBLE at 25.9s ***
-RESULT:  DOUBLE KILL  |  Streak: 0:18 -> 0:29
-```
-
----
 
 ### Quick wins (do these first - small effort, high value)
 

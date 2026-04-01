@@ -40,6 +40,9 @@ Clips are renamed in-place immediately after scanning: `THOR_2026-03-16_22-18-00
 **Two-pass KO scan (fix single-KO miss bug)**
 Root cause: 2fps sampling had a 0.5s miss window - KO banners that appeared and disappeared between frames were missed. Fix: pass 1 sweeps at `SCAN_FPS_FAST=2` (fast), pass 2 re-scans any null-result clips at `SCAN_FPS_FULL=4` (0.25s miss window). Confirmed fix: 3 Thor clips (`_22-20-29`, `_23-19-10`, `_23-23-58`) previously null now correctly detected as `_KO`. Also fixed ffprobe path (`FFPROBE` var passed explicitly through `configure()` instead of string-replace hack).
 
+**Pass 2 scanner hardening - 8fps + no early exit (2026-04-01)**
+Root cause (B2 regression): THOR_2026-03-26_22-37-28 had a single-frame KO flash at 18.5s (~0.125s visible). Pass 1 at 2fps missed it. Old pass 2 inherited `SCAN_STOP_SECS=22` early exit so it also exited before reaching the DOUBLE at 25.9s. Fix: `SCAN_FPS_FULL` raised 4 -> 8 (0.125s resolution, single-frame banners now infallible); `_scan_frames` gains `stop_early` flag; pass 2 passes `stop_early=False` to scan the full clip. Also added `scan_pass` field to cache entries (1 or 2) for future tuning analysis.
+
 **NULL_RESULT_SUFFIX for processed-but-no-KO clips**
 Clips with no KO detected after full scan now renamed with `_NONE` suffix. Cache entry uses `_null_result: true` flag (no `tier` field). Allows distinguishing "processed, confirmed no KO" from "not yet scanned". `preprocess` force-rescans clips without any suffix (unprocessed).
 
