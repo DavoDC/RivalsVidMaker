@@ -335,7 +335,9 @@ def section_inter_event_spacing(records, lines):
     s = sorted(gaps)
     n = len(s)
     p90 = s[min(int(n * 0.90), n - 1)]
-    lines.append(f"- p90 inter-kill gap = {p90:.2f}s - OCR cooldown window can be set to this safely")
+    p10 = s[max(int(n * 0.10), 0)]
+    lines.append(f"- p90 inter-kill gap = {p90:.2f}s, p10 = {p10:.2f}s")
+    lines.append(f"- OCR COOLDOWN_SECS should stay <= p10 ({p10:.1f}s) to avoid missing rapid kill chains - do NOT set to p90")
     lines.append("")
 
 
