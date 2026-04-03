@@ -28,4 +28,8 @@ data/cache_bak/
 # Terminal export logs (one-off, not committed)
 data/logs/*.txt
 
+# YouTube OAuth credentials - never commit these
+credentials.json
+token.json
+
 # Analysis output is committed (timestamped reports)
