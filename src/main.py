@@ -85,7 +85,7 @@ def main() -> None:
         _run_cleanup_mode(config, dry_run=dry_run)
     else:
         try:
-            run(config, force_encode=force_encode)
+            run(config, force_encode=force_encode, dry_run=dry_run)
         except KeyboardInterrupt:
             logging.info("Interrupted.")
             sys.exit(0)
