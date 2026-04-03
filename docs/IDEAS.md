@@ -16,7 +16,11 @@ See `docs/YOUTUBE_API.md` for existing API research.
 
 **2. End-to-end test with Thor** *(main near-term goal - requires item 1)*
 
-31 clips ready, all KO-cached. Full pipeline test: sort -> scan -> clip rename -> compile -> describe -> YouTube upload (private).
+31 clips ready, all KO-cached.
+
+**Step 1 - dry run first:** `python src/main.py --dry-run` to preview sort, batch selection, and expected encode without touching files. Verify the right clips are picked and nothing looks wrong before committing.
+
+**Step 2 - live run:** sort -> scan -> clip rename -> compile -> describe -> YouTube upload (private).
 
 ---
 
