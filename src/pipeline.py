@@ -460,8 +460,11 @@ def _print_multizone_status(config: Config) -> None:
 
 # ── Main pipeline ─────────────────────────────────────────────────────────────
 
-def run(config: Config, force_encode: bool = False) -> None:
+def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> None:
     t0 = time.perf_counter()
+
+    if dry_run:
+        print("\n*** DRY RUN - no files will be moved or encoded ***\n")
 
     config.output_path.mkdir(parents=True, exist_ok=True)
 
@@ -469,7 +472,10 @@ def run(config: Config, force_encode: bool = False) -> None:
         raise FileNotFoundError(f"Clips path not found: {config.clips_path}")
 
     # --- Step 1: sort any unsorted clips into character subfolders ---
-    sort_clips(config.clips_path, protect_recent=config.protect_recent_clips)
+    if dry_run:
+        print("[DRY RUN] Skipping clip sort")
+    else:
+        sort_clips(config.clips_path, protect_recent=config.protect_recent_clips)
 
     # --- Step 2: show full folder status (Highlights + Output + Archive) ---
     _print_multizone_status(config)
@@ -579,28 +585,35 @@ def run(config: Config, force_encode: bool = False) -> None:
 
         slug = _batch_slug(char_name, batch, len(batches))
         out_dir = config.output_path / slug
-        t_enc = time.perf_counter()
-        encode(batch, char_name, out_dir, config.ffmpeg, out_stem=slug, force=force_encode)
-        logging.debug("Encode took %.1fs", time.perf_counter() - t_enc)
-        desc_path = write_description(batch, char_name, highlights, out_dir, out_stem=slug,
-                                      clip_tiers=clip_tiers)
 
-        # Tally detected KO tiers for the AI prompts context block
-        ko_tier_counts: dict[str, int] = {}
-        for tier in clip_tiers.values():
-            ko_tier_counts[tier] = ko_tier_counts.get(tier, 0) + 1
-        prompts_path = write_ai_prompts(
-            out_dir=out_dir,
-            char_name=char_name,
-            clip_count=len(batch.clips),
-            date_range=_date_range(char_path),
-            ko_tiers=ko_tier_counts,
-            description_path=desc_path,
-            out_stem=slug,
-        )
-        print(f"AI prompts \u2192 {prompts_path}")
+        if dry_run:
+            print(f"[DRY RUN] Would encode {len(batch.clips)} clips ({batch.duration_str}) -> {out_dir / slug}.mp4")
+            print(f"[DRY RUN] Would write description -> {out_dir / slug}_description.txt")
+            print(f"[DRY RUN] Would write AI prompts  -> {out_dir / slug}_ai_prompts.txt")
+            print(f"[DRY RUN] Would move {len(batch.clips)} clips -> {out_dir / 'clips'}/")
+        else:
+            t_enc = time.perf_counter()
+            encode(batch, char_name, out_dir, config.ffmpeg, out_stem=slug, force=force_encode)
+            logging.debug("Encode took %.1fs", time.perf_counter() - t_enc)
+            desc_path = write_description(batch, char_name, highlights, out_dir, out_stem=slug,
+                                          clip_tiers=clip_tiers)
 
-        _move_clips(batch, out_dir / "clips")
+            # Tally detected KO tiers for the AI prompts context block
+            ko_tier_counts: dict[str, int] = {}
+            for tier in clip_tiers.values():
+                ko_tier_counts[tier] = ko_tier_counts.get(tier, 0) + 1
+            prompts_path = write_ai_prompts(
+                out_dir=out_dir,
+                char_name=char_name,
+                clip_count=len(batch.clips),
+                date_range=_date_range(char_path),
+                ko_tiers=ko_tier_counts,
+                description_path=desc_path,
+                out_stem=slug,
+            )
+            print(f"AI prompts \u2192 {prompts_path}")
+
+            _move_clips(batch, out_dir / "clips")
 
         total_batches += 1
 
