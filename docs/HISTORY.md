@@ -9,6 +9,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ### Parked ideas
 
+**Clip transition trimming** *(parked 2026-04-03 - not needed after review)*
+
+Original idea: each clip ends with a "hammer icon + black screen" game-appended ending; trim the tail before concatenation to improve watch time. Reviewed an actual compiled video and the pause between clips is acceptable - the clear distinction between clips is actually a positive. No trimming needed.
+
+---
+
 **Histogram-guided KO sampling density** *(parked 2026-04-03 - superseded by existing early-exit logic)*
 
 Original idea: sample more densely in the 6.5s-18s window where 90% of KOs start. Superseded: pass 1 already has `SCAN_STOP_SECS=22` (exits if no KO by 22s) and `POST_KO_SILENCE_SECS=16` (exits after kill sequence ends). Pass 2 is disabled by default. Only remaining gap: FFmpeg still extracts at flat 2fps before early exits trigger - variable FPS could save extraction overhead, but only worth doing if large-file scan speed becomes a problem.

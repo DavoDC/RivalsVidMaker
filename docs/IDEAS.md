@@ -4,13 +4,7 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. Clip transition trimming** *(medium - requires frame analysis; prerequisite for end-to-end test)*
-
-Each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap. Requires frame analysis to find the transition start reliably.
-
----
-
-**2. YouTube API / upload automation** *(medium - OAuth + script + pipeline integration; prerequisite for end-to-end test)*
+**1. YouTube API / upload automation** *(medium - OAuth + script + pipeline integration; prerequisite for end-to-end test)*
 
 See `docs/YOUTUBE_API.md` for existing API research.
 
@@ -20,9 +14,9 @@ See `docs/YOUTUBE_API.md` for existing API research.
 
 ---
 
-**3. End-to-end test with Thor** *(main near-term goal - requires items 1 and 2)*
+**2. End-to-end test with Thor** *(main near-term goal - requires item 1)*
 
-31 clips ready, all KO-cached. Full pipeline test: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private).
+31 clips ready, all KO-cached. Full pipeline test: sort -> scan -> clip rename -> compile -> describe -> YouTube upload (private).
 
 ---
 
