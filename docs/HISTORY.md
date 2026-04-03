@@ -7,6 +7,20 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Pipeline features
+
+**KO scan time estimation upgrade (2026-04-03)**
+
+`_estimate_seconds` in pipeline.py upgraded from flat 6s-per-uncached-clip to the data-fitted formula `scan_time = 0.977 * clip_duration - 4.118` (68 clips, R2=0.90). Uses average clip duration as proxy (avoids extra ffprobe calls). Clamped to 1.0s minimum for very short clips. 5 tests added to `test_pipeline_helpers.py`.
+
+**Encode timing logs (2026-04-03)**
+
+`encoder.py` now logs a structured JSON line at INFO level after each encode: `encode_timing: {"encoder": "nvenc"/"cpu", "clip_count": N, "input_dur_s": X, "elapsed_s": Y}`. Grep `encode_timing` in `data/logs/` to extract data for future encode-time model fitting.
+
+**Dry-run mode for main pipeline (2026-04-03)**
+
+`--dry-run` flag wired into `pipeline.run()`. Skips: clip sort, encode, description/AI prompt file writes, clip move. KO scan still runs (read-only, useful for previewing results). Prints `[DRY RUN]` lines showing what would happen. Flag already parsed in `main.py`; was previously only wired to cleanup mode.
+
 ### Documentation
 
 **README: Clip pipeline + Kill detection sections (2026-04-03)**
