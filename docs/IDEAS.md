@@ -44,18 +44,6 @@ Add per-batch timing logs (total clip duration in, encode time out) so data can 
 
 ---
 
-**7. README: OCR/KO scan section** *(separate commit)*
-
-The OCR multi-kill detection is the most technically interesting part of the project. Add a dedicated README section explaining how it works: frame extraction at 2fps, banner crop region, Tesseract OCR, tier detection, cooldown logic. Technical but concise.
-
----
-
-**8. README: Pipeline and folder structure** *(separate commit)*
-
-README should explain the full end-to-end flow and what each folder contains (Highlights, Output, ClipArchive). Currently lives only in CLAUDE.md.
-
----
-
 ## Lower priority / future
 
 **Histogram-guided KO sampling density** *(deprioritised - KO scanning has improved significantly since this was written, likely outdated; revisit before large-file scans)*

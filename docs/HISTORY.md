@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Documentation
+
+**README: Clip pipeline + Kill detection sections (2026-04-03)**
+
+Added two README sections: "Clip pipeline" (Highlights -> Output -> ClipArchive flow with folder structure) and "How kill detection works" (OCR approach: frame extraction, crop, preprocessing, Tesseract, cooldown, caching). Written conceptually to stay accurate as tuning params change.
+
 ### One-off tasks
 
 **B1. Pass-1-only scanner with low-value clip delete prompt (2026-04-02)**
