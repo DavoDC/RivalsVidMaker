@@ -4,13 +4,31 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. Clip transition trimming** *(prerequisite for end-to-end test)*
+**1. KO scan time estimation** *(tiny - 1 function change, formula + infrastructure already exist)*
+
+The pipeline already shows an estimated time before the y/N confirm (`_estimate_seconds` in pipeline.py). Currently uses a flat ~6s per uncached clip. Upgrade to use the formula from data: `scan_time = 0.977 * clip_duration - 4.118` (68 clips, R2=0.90). 20s clip ~15s, 30s clip ~25s, 45s clip ~40s. Instant if cached.
+
+---
+
+**2. Encode/compile timing logs** *(small - add logging so data is collected during Thor run)*
+
+Add per-batch timing logs (total clip duration in, encode time out) so data can be collected. Do NOT build estimation UI yet - gather enough data to fit a GPU (NVENC) encode model first. Goal: eventually full pipeline time estimate before a batch starts.
+
+---
+
+**3. Dry-run mode** *(small - add flag + bypass logic, useful before Thor batch)*
+
+`--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
+
+---
+
+**4. Clip transition trimming** *(medium - requires frame analysis; prerequisite for end-to-end test)*
 
 Each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap. Requires frame analysis to find the transition start reliably.
 
 ---
 
-**2. YouTube API / upload automation** *(prerequisite for end-to-end test)*
+**5. YouTube API / upload automation** *(medium - OAuth + script + pipeline integration; prerequisite for end-to-end test)*
 
 See `docs/YOUTUBE_API.md` for existing API research.
 
@@ -20,27 +38,9 @@ See `docs/YOUTUBE_API.md` for existing API research.
 
 ---
 
-**3. Dry-run mode** *(separate commit - do before Thor batch so we can test safely)*
+**6. End-to-end test with Thor** *(main near-term goal - requires items 4 and 5)*
 
-`--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
-
----
-
-**4. Encode/compile timing logs** *(separate commit - do before Thor vid so data is collected during that run)*
-
-Add per-batch timing logs (total clip duration in, encode time out) so data can be collected. Do NOT build estimation UI yet - gather enough data to fit a GPU (NVENC) encode model first. Goal: eventually full pipeline time estimate before a batch starts.
-
----
-
-**5. KO scan time estimation** *(separate commit - should be easy, infrastructure already exists)*
-
-The pipeline already shows an estimated time before the y/N confirm (`_estimate_seconds` in pipeline.py). Currently uses a flat ~6s per uncached clip. Upgrade to use the formula from data: `scan_time = 0.977 * clip_duration - 4.118` (68 clips, R2=0.90). 20s clip ~15s, 30s clip ~25s, 45s clip ~40s. Instant if cached.
-
----
-
-**6. End-to-end test with Thor** *(main near-term goal)*
-
-31 clips ready, all KO-cached. Full pipeline test: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private). Requires items 1 and 2 first; items 3-5 should be done before this run.
+31 clips ready, all KO-cached. Full pipeline test: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private).
 
 ---
 
