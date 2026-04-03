@@ -2,21 +2,7 @@
 
 Single source of truth for all pending work.
 
-## See also
-- `docs/YOUTUBE_API.md` - YouTube Data API v3 research, auth flow, upload endpoint
-- `docs/MULTIKILL_DETECTION.md` - KO detection algorithm, OCR, frame sampling
-- `docs/YOUTUBE_TITLE_AND_DESC.md` - canonical format for titles and descriptions
-- `docs/HISTORY.md` - completed features, settled design decisions, parked ideas
-
----
-
 ## Pending - ordered by priority
-
-### Bugs / correctness issues (fix before shipping)
-
-*(none currently open)*
-
----
 
 **1. Clip transition trimming** *(prerequisite for end-to-end test)*
 
@@ -187,3 +173,11 @@ Implementation note: `imagehash` library (perceptual hash) or frame-level DCT ha
 ---
 
 Settled design decisions and parked ideas are in `docs/HISTORY.md`.
+
+---
+
+## See also
+- `docs/YOUTUBE_API.md` - YouTube Data API v3 research, auth flow, upload endpoint
+- `docs/MULTIKILL_DETECTION.md` - KO detection algorithm, OCR, frame sampling
+- `docs/YOUTUBE_TITLE_AND_DESC.md` - canonical format for titles and descriptions
+- `docs/HISTORY.md` - completed features, settled design decisions, parked ideas
