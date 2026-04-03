@@ -18,13 +18,13 @@ Single source of truth for all pending work.
 
 ---
 
-### Main work (pipeline automation - Thor vid goal)
-
-**M2. Clip transition trimming** *(prerequisite for M4)*
+**1. Clip transition trimming** *(prerequisite for end-to-end test)*
 
 Each clip ends with ~5s "hammer icon + black screen" (game-appended ending). In a compilation these stack up and hurt watch time. Trim the tail of each clip before concatenation, but keep a short gap. Requires frame analysis to find the transition start reliably.
 
-**M3. YouTube API / upload automation** *(prerequisite for M4)*
+---
+
+**2. YouTube API / upload automation** *(prerequisite for end-to-end test)*
 
 See `docs/YOUTUBE_API.md` for existing API research.
 
@@ -32,51 +32,66 @@ See `docs/YOUTUBE_API.md` for existing API research.
 
 **Phase 2 (pipeline integration - only if Phase 1 works):** Compile video -> upload as private (title/description/tags from the AI prompt file) -> record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
 
-**M4. Test end-to-end with Thor** *(main goal - run full pipeline on Thor clips)*
+---
 
-31 clips ready, all KO-cached. Full pipeline test: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private). Integration test for M2+M3. Run M2 (transition trimming) and M3 Phase 1 (YouTube API) first - these are prerequisites for a clean end-to-end test.
+**3. End-to-end test with Thor** *(main near-term goal)*
+
+31 clips ready, all KO-cached. Full pipeline test: sort -> scan -> clip rename -> transition trim -> compile -> describe -> YouTube upload (private). Requires items 1 and 2 first.
 
 ---
 
-### Quick wins (separate commits, do alongside main work)
-
-**M1a. KO scan time estimation** *(model already ready - do quickly)*
+**4. KO scan time estimation** *(separate commit - model already ready)*
 
 Before starting a KO scan batch, show a rough time estimate based on clip durations. Model (68 clips, R2=0.90, outliers excluded): `scan_time = 0.977 * clip_duration - 4.118` (20s clip ~15s, 30s clip ~25s, 45s clip ~40s). Instant if cached.
 
-**M1b. Encode/compile time estimation** *(needs data first - add logging as pre-req)*
+---
 
-Add per-batch timing logs (total clip duration in, encode time out) so data can be collected. Do NOT build the estimation UI yet - gather enough data to fit a GPU (NVENC) encode model first. Add to pipeline as a future estimation feature once model is ready. Goal: eventually full pipeline time estimate before a batch starts.
+**5. Encode/compile timing logs** *(separate commit - data collection pre-req)*
 
-**Q2. Dry-run mode** *(separate commit - implement now)*
+Add per-batch timing logs (total clip duration in, encode time out) so data can be collected. Do NOT build estimation UI yet - gather enough data to fit a GPU (NVENC) encode model first. Goal: eventually full pipeline time estimate before a batch starts.
+
+---
+
+**6. Dry-run mode** *(separate commit)*
 
 `--dry-run` flag for the full pipeline. Prints everything the pipeline would do without moving files or running FFmpeg. Useful for previewing batches and checking KO detection results before committing.
 
-**Q3. README: OCR/KO scan section** *(separate commit - quick)*
+---
+
+**7. README: OCR/KO scan section** *(separate commit)*
 
 The OCR multi-kill detection is the most technically interesting part of the project. Add a dedicated README section explaining how it works: frame extraction at 2fps, banner crop region, Tesseract OCR, tier detection, cooldown logic. Technical but concise.
 
 ---
 
+**8. README: Pipeline and folder structure** *(separate commit)*
+
+README should explain the full end-to-end flow and what each folder contains (Highlights, Output, ClipArchive). Currently lives only in CLAUDE.md.
+
+---
+
 ## Lower priority / future
 
-### Quick wins
-
-- **Pipeline and folder structure** - README should explain the full end-to-end flow and what each folder contains (Highlights, Output, ClipArchive). Currently lives only in CLAUDE.md.
-
-**Q1. Histogram-guided sampling density** *(deprioritised - KO scanning has improved significantly since this was written, likely outdated; revisit before large-file scans)*
+**Histogram-guided KO sampling density** *(deprioritised - KO scanning has improved significantly since this was written, likely outdated; revisit before large-file scans)*
 
 Currently ko_detect.py samples at a flat 2fps across the full scan window. Data shows 90% of KOs start between 6.5s and 18s. Sampling could be denser in this window and sparse (or skipped) outside it, reducing total OCR calls without missing detections. Small change to `ko_detect.py` frame sampling logic. Do NOT re-run on existing cached clips - only relevant for new large-file scans.
 
-### Test FFmpeg auto-download on a clean machine
+---
+
+**Test FFmpeg auto-download on a clean machine**
+
 Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts the binaries correctly. ~70MB download. Only needed before shipping to a new machine.
 
-### Automated tests for KO detection
+---
+
+**Automated tests for KO detection**
+
 pytest tests for `scan_clip` and OCR logic. Want KO detection solid and well-tested before running big scans (OldCompilations, Best-of). Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
 
 ---
 
-### Best-of compilation from Archive
+**Best-of compilation from Archive**
+
 Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
 
 > **Related:** OldCompilations (below) feeds directly into this - decompiling old uploaded videos is the main way to fill ClipArchive with pre-2026 kills.
@@ -89,7 +104,10 @@ Archive submenu should offer "Compile Best-of" per character, running the same K
 - The compiled Best-of video itself goes through the normal Output + cleanup flow (published to YT, then video deleted, clips stay in compiled/).
 - Archive display table should show pending vs compiled counts separately.
 
-### OldCompilations - retrospective Best-of
+---
+
+**OldCompilations - retrospective Best-of**
+
 Previously uploaded videos re-downloaded for KO scanning + segment extraction into ClipArchive.
 Location: `C:\Users\David\Videos\MarvelRivals\OldCompilations\`
 Playlist: `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
@@ -154,7 +172,7 @@ Uses:
 - **Timestamp validation:** Compare KO scanner output against the manually-entered timestamps in the description. Not a strict test (human timestamps may be wrong or missing) - treat as a rough sanity check. Trust the scanner if it disagrees.
 - **Clip reconstruction:** Descriptions list original clip filenames in order. Combined with transition-counting (count the black-screen transitions in the compiled video), you can reconstruct which clip maps to which segment - giving a clip order list that links back to the original filenames. This is difficult because clips vary in length, but transition detection makes it tractable.
 
-Note: YouTube API auth setup (OAuth) overlaps with the higher-priority upload automation (M3). Auth work done for M3 can be reused here - no point doing it twice.
+Note: YouTube API auth setup (OAuth) overlaps with the higher-priority upload automation (item 2 above). Auth work done for item 2 can be reused here - no point doing it twice.
 
 **Duplicate clip detection (also relevant to Phase 4):** Gameplay streams are full session recordings and may contain footage that also appears in compilation videos, resulting in duplicate extracted clips. Also relevant to the main pipeline: before compiling, check that no clip is a near-duplicate of another in the same batch.
 
