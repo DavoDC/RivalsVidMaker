@@ -13,6 +13,38 @@ Automates building ~15-minute YouTube compilation videos from short [Marvel Riva
 3. **Encodes** each batch into a single MP4 using FFmpeg (NVENC GPU-accelerated, CPU fallback)
 4. **Generates** a YouTube description `.txt` per batch with clickable multi-kill timestamps
 
+## Clip pipeline
+
+Video clips move through three folders as they are processed:
+
+```
+Highlights/THOR/          <- raw clips from gameplay, sorted by character
+Output/THOR_Mar_2026/     <- compiled video, description, AI prompts, source clips
+ClipArchive/THOR/         <- permanent archive of Quad+ clips
+```
+
+**Full flow:**
+
+1. Drop new clips into `Highlights/`
+2. Run the tool - it sorts clips into character subfolders, scans for kill events, batches by duration, and encodes
+3. Upload the compiled MP4 to YouTube
+4. Run cleanup - Quad+ source clips are archived to `ClipArchive/`, the rest deleted
+
+`ClipArchive` clips are never deleted. They feed future Best-of compilations.
+
+## How kill detection works
+
+The tool scans each clip for multi-kill events using OCR, without needing game API access or video labels:
+
+1. **Frame extraction** - FFmpeg extracts frames at a low framerate (fast pass by default)
+2. **Region crop** - only the banner region (right side of frame, mid-height) is kept, where the kill tier banner appears
+3. **Image preprocessing** - crop is converted to grayscale, upscaled, inverted, and sharpened for better OCR accuracy
+4. **OCR** - Tesseract reads the tier text from the crop (KO, Double, Triple, Quad, Penta, Hexa)
+5. **Event logic** - a cooldown between events prevents double-counting the same kill; early exit if no kill is found within the likely window
+6. **Caching** - results are cached per clip; re-running the pipeline on cached clips is instant
+
+Only **Quad kills and above** appear as clickable timestamps in the YouTube description.
+
 ## Project Structure
 
 ```
