@@ -10,11 +10,36 @@ See `docs/YOUTUBE_API.md` for existing API research.
 
 **Phase 1 (feasibility probe - do first, standalone script):** Write the smallest possible standalone script (`scripts/yt_upload_test.py`) that authenticates via OAuth and uploads a single hardcoded clip as **private** to confirm the API actually works. Small channels may not have upload quota or the right API access tier - verify this before building anything else. Success = a private video appears on the channel.
 
+**Channel verification (must be part of Phase 1):** Before uploading, call `channels.list?part=id&mine=true` to get the authenticated account's channel ID and compare against a configured expected value. Abort with a clear error if they don't match - this prevents accidentally uploading to the wrong Google account. Store expected channel ID in `config/config.json` (e.g. `"youtube_channel_id": "UC4xPDj5h-MRmTaa8-xIBfaA"`). Target channel: `@dave369_` / `UC4xPDj5h-MRmTaa8-xIBfaA`.
+
 **Phase 2 (pipeline integration - only if Phase 1 works):** Compile video -> upload as private (title/description/tags from the AI prompt file) -> record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
 
 ---
 
-**2. End-to-end test with Thor** *(main near-term goal - requires item 1)*
+**2. Duplicate clip detection / dedup before compile** *(important - do before E2E test; clips have doubled up in previous compilations)*
+
+Before encoding a batch, fingerprint every clip and check for near-duplicates. Known issue: clips have doubled up in previous compilations (both early manual and early pipeline runs).
+
+**Approach - perceptual hashing:**
+- Extract 5 frames spread evenly across each clip via ffmpeg (fast - no full decode needed)
+- Compute a perceptual hash (pHash) for each frame using `imagehash` library
+- Clip fingerprint = the 5 hashes concatenated
+- Compare all clip pairs: if average pHash distance < threshold → flag as likely duplicate
+- Threshold to determine empirically (start with ~10 bits Hamming distance per frame)
+
+**Speed vs accuracy tradeoff:** 5 frames/clip is the sweet spot - fast enough to run on 30+ clips in seconds, accurate enough to catch same-kill captures and re-encoded duplicates. More frames only needed if false negatives appear in testing.
+
+**Output:** Print a warning table listing suspected duplicate pairs and let the user decide whether to exclude before proceeding. Do not silently drop clips.
+
+**Two use cases:**
+1. **Main pipeline dedup (do first):** run before every encode - catch duplicates within the current batch.
+2. **OldCompilations dedup (later):** after Phase 3 segment extraction, check extracted clips against each other and against existing ClipArchive clips before archiving.
+
+**Library:** `imagehash` (perceptual hash / DCT hash). No ML needed.
+
+---
+
+**3. End-to-end test with Thor** *(main near-term goal - requires items 1 and 2)*
 
 31 clips ready, all KO-cached.
 
@@ -123,15 +148,13 @@ Uses:
 
 Note: YouTube API auth setup (OAuth) overlaps with the higher-priority upload automation (item 2 above). Auth work done for item 2 can be reused here - no point doing it twice.
 
-**Duplicate clip detection (also relevant to Phase 4):** Gameplay streams are full session recordings and may contain footage that also appears in compilation videos, resulting in duplicate extracted clips. Also relevant to the main pipeline: before compiling, check that no clip is a near-duplicate of another in the same batch.
+**Duplicate clip detection:** See item 2 above for implementation design. OldCompilations use case: after Phase 3 segment extraction, check extracted clips against each other and against existing ClipArchive clips before archiving.
 
-Approach: perceptual hashing of keyframes gives each clip a fingerprint. Compare fingerprints across clips; high similarity = likely duplicate. Exact match threshold to be determined empirically.
+---
 
-Two use cases:
-1. **OldCompilations dedup:** after Phase 3 segment extraction, check extracted clips against each other and against existing ClipArchive clips. Flag duplicates before archiving.
-2. **Main pipeline dedup:** before encoding a batch, check for near-duplicate clips within the batch (e.g. same kill captured twice). Warn and let user decide whether to exclude.
+**Compilation length tolerance when clips are deleted**
 
-Implementation note: `imagehash` library (perceptual hash) or frame-level DCT hash via ffmpeg/Pillow. No heavy ML needed.
+When NONE/KO-tier clips are deleted during preprocessing, the remaining batch may fall below `min_batch_seconds` (currently 15 min). Current behaviour: pipeline aborts if batch is too short. Decided: this is acceptable - publish a shorter video rather than padding with low-quality clips. Consider either lowering `min_batch_seconds` or adding a `--allow-short` override flag so the pipeline can proceed without changing the default guard.
 
 ---
 
