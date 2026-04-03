@@ -188,13 +188,22 @@ def _menu_status(dur: float, target: int) -> str:
 
 
 def _estimate_seconds(folder: Path, cache_dir: Path, total_dur: float) -> float:
-    """Rough pipeline estimate: KO scan (~6s uncached, ~0.5s cached) + encode (~0.4× duration)."""
+    """Rough pipeline estimate: KO scan (model-based for uncached, ~0.5s cached) + encode (~0.4x duration).
+
+    KO scan model (68 clips, R2=0.90): scan_time = 0.977 * clip_duration - 4.118
+    Uses average clip duration as proxy to avoid extra ffprobe calls here.
+    """
     char_cache = cache_dir / folder.name
+    clips = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTS]
+    n_clips = len(clips)
+    avg_dur = total_dur / n_clips if n_clips else 0.0
+
     ko_est = 0.0
-    for p in folder.iterdir():
-        if p.is_file() and p.suffix.lower() in VIDEO_EXTS:
-            cached = _cache_exists(p, char_cache)
-            ko_est += 0.5 if cached else 6.0
+    for p in clips:
+        if _cache_exists(p, char_cache):
+            ko_est += 0.5
+        else:
+            ko_est += max(1.0, 0.977 * avg_dur - 4.118)
     encode_est = total_dur * 0.4
     return ko_est + encode_est
 

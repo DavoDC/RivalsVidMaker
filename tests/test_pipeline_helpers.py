@@ -15,6 +15,7 @@ from clip_scanner import Clip
 from pipeline import (
     _batch_slug,
     _date_range,
+    _estimate_seconds,
     _fmt_duration,
     _fmt_estimate,
     _menu_status,
@@ -22,6 +23,82 @@ from pipeline import (
     _scan_archive_folder,
     _scan_output_folder,
 )
+
+
+# ── _estimate_seconds ────────────────────────────────────────────────────────
+
+def _make_mp4(directory: Path, name: str) -> Path:
+    p = directory / name
+    p.write_bytes(b"")
+    return p
+
+
+def _make_cache(cache_dir: Path, clip: Path) -> None:
+    """Create a .ko.json cache entry for a clip (mirrors _cache_exists logic)."""
+    import re
+    m = re.search(r"(\d{4}-\d{2})-\d{2}", clip.stem)
+    if m:
+        entry = cache_dir / m.group(1) / (clip.stem + ".ko.json")
+    else:
+        entry = cache_dir / (clip.stem + ".ko.json")
+    entry.parent.mkdir(parents=True, exist_ok=True)
+    entry.write_text("{}")
+
+
+class TestEstimateSeconds:
+
+    def test_empty_folder_returns_zero(self, tmp_path):
+        folder = tmp_path / "THOR"
+        folder.mkdir()
+        result = _estimate_seconds(folder, tmp_path / "cache", 0.0)
+        assert result == 0.0
+
+    def test_all_cached_clips(self, tmp_path):
+        folder = tmp_path / "THOR"
+        folder.mkdir()
+        cache_root = tmp_path / "cache"
+        char_cache = cache_root / "THOR"
+        clip = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
+        _make_cache(char_cache, clip)
+
+        result = _estimate_seconds(folder, cache_root, 30.0)
+        # 1 cached clip: 0.5s + encode: 30 * 0.4 = 12.0
+        assert result == pytest.approx(0.5 + 12.0)
+
+    def test_uncached_clip_uses_formula(self, tmp_path):
+        folder = tmp_path / "THOR"
+        folder.mkdir()
+        _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
+        # total_dur=30s, avg=30s, formula: 0.977*30 - 4.118 = 25.192
+        result = _estimate_seconds(folder, tmp_path / "cache", 30.0)
+        expected_ko = 0.977 * 30 - 4.118  # = 25.192
+        expected = expected_ko + 30.0 * 0.4
+        assert result == pytest.approx(expected, rel=1e-3)
+
+    def test_short_clip_formula_clamped_to_one(self, tmp_path):
+        # Formula for a 4s clip: 0.977*4 - 4.118 = -0.21 -> clamped to 1.0
+        folder = tmp_path / "THOR"
+        folder.mkdir()
+        _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
+        result = _estimate_seconds(folder, tmp_path / "cache", 4.0)
+        expected = 1.0 + 4.0 * 0.4
+        assert result == pytest.approx(expected)
+
+    def test_mix_cached_and_uncached(self, tmp_path):
+        folder = tmp_path / "THOR"
+        folder.mkdir()
+        cache_root = tmp_path / "cache"
+        char_cache = cache_root / "THOR"
+        cached_clip = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
+        _make_cache(char_cache, cached_clip)
+        _make_mp4(folder, "THOR_2026-02-07_18-00-00.mp4")  # uncached
+
+        total_dur = 60.0  # 2 clips, avg = 30s
+        result = _estimate_seconds(folder, cache_root, total_dur)
+        ko_cached = 0.5
+        ko_uncached = 0.977 * 30 - 4.118
+        expected = ko_cached + ko_uncached + total_dur * 0.4
+        assert result == pytest.approx(expected, rel=1e-3)
 
 
 # ── _fmt_duration ─────────────────────────────────────────────────────────────
