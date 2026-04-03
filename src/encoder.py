@@ -5,9 +5,11 @@ Replaces C++: Encoder.cpp
 Uses NVENC (GPU) if available, falls back to libx264 (CPU).
 """
 
+import json
 import logging
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from batcher import Batch
@@ -80,6 +82,7 @@ def encode(
     ]
     logging.debug("  FFmpeg cmd: %s", " ".join(cmd))
 
+    t0 = time.perf_counter()
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.stderr:
@@ -90,5 +93,16 @@ def encode(
     finally:
         Path(concat_list).unlink(missing_ok=True)
 
+    elapsed = time.perf_counter() - t0
+    input_dur = sum(c.duration for c in batch.clips)
+    logging.info(
+        "encode_timing: %s",
+        json.dumps({
+            "encoder": "nvenc" if use_nvenc else "cpu",
+            "clip_count": len(batch.clips),
+            "input_dur_s": round(input_dur, 1),
+            "elapsed_s": round(elapsed, 1),
+        }),
+    )
     logging.info("Encoded → %s", out_path)
     return out_path
