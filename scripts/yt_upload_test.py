@@ -10,9 +10,9 @@ Usage:
 Prerequisites:
     pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
-    credentials.json must exist at the project root (or config/).
+    A client_secret_*.json file must exist in config/.
     Download from Google Cloud Console -> APIs & Services -> Credentials -> OAuth 2.0 Client IDs -> Desktop app.
-    Never commit credentials.json or token.json to git.
+    Never commit client_secret_*.json or token.json to git.
 
 On first run, a browser window opens for OAuth consent. token.json is saved for future runs.
 """
@@ -31,13 +31,8 @@ TOKEN_PATH = REPO_ROOT / "token.json"
 
 
 def _credentials_candidates():
-    explicit = [
-        REPO_ROOT / "credentials.json",
-        REPO_ROOT / "config" / "credentials.json",
-    ]
     # Auto-detect any client_secret_*.json Google downloads into config/
-    auto = sorted((REPO_ROOT / "config").glob("client_secret_*.json"))
-    return explicit + auto
+    return sorted((REPO_ROOT / "config").glob("client_secret_*.json"))
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
@@ -50,13 +45,11 @@ def find_credentials() -> Path:
     for candidate in candidates:
         if candidate.exists():
             return candidate
-    print("ERROR: credentials.json not found.")
-    print("Expected locations:")
-    for c in candidates:
-        print(f"  {c}")
+    print("ERROR: No client_secret_*.json found in config/")
     print()
     print("Download from Google Cloud Console:")
     print("  APIs & Services -> Credentials -> OAuth 2.0 Client IDs -> Desktop app -> Download JSON")
+    print("  Save to: config/")
     sys.exit(1)
 
 
