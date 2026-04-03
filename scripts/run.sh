@@ -1,4 +1,4 @@
 #!/bin/bash
 cd /c/Users/David/GitHubRepos/RivalsVidMaker
-python src/main.py
+python src/main.py $DRY_RUN
 exec bash
