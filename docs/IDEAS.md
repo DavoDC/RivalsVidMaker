@@ -10,6 +10,8 @@ See `docs/YOUTUBE_API.md` for existing API research.
 
 **Phase 1 (feasibility probe - do first, standalone script):** Write the smallest possible standalone script (`scripts/yt_upload_test.py`) that authenticates via OAuth and uploads a single hardcoded clip as **private** to confirm the API actually works. Small channels may not have upload quota or the right API access tier - verify this before building anything else. Success = a private video appears on the channel.
 
+> **Blocked:** OAuth consent screen returns 403 until `davo29rhino@gmail.com` is added as a test user. Fix: Google Cloud Console -> APIs & Services -> OAuth consent screen -> Test users -> Add `davo29rhino@gmail.com`. Then re-run `scripts/yt_upload_test.py`.
+
 **Channel verification (must be part of Phase 1):** Before uploading, call `channels.list?part=id&mine=true` to get the authenticated account's channel ID and compare against a configured expected value. Abort with a clear error if they don't match - this prevents accidentally uploading to the wrong Google account. Store expected channel ID in `config/config.json` (e.g. `"youtube_channel_id": "UC4xPDj5h-MRmTaa8-xIBfaA"`). Target channel: `@dave369_` / `UC4xPDj5h-MRmTaa8-xIBfaA`.
 
 **Phase 2 (pipeline integration - only if Phase 1 works):** Compile video -> upload as private (title/description/tags from the AI prompt file) -> record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
