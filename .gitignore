@@ -29,7 +29,6 @@ data/cache_bak/
 data/logs/*.txt
 
 # YouTube OAuth credentials - never commit these
-credentials.json
 token.json
 config/client_secret_*.json
 
