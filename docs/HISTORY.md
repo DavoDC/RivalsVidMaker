@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Parked ideas
+
+**Histogram-guided KO sampling density** *(parked 2026-04-03 - superseded by existing early-exit logic)*
+
+Original idea: sample more densely in the 6.5s-18s window where 90% of KOs start. Superseded: pass 1 already has `SCAN_STOP_SECS=22` (exits if no KO by 22s) and `POST_KO_SILENCE_SECS=16` (exits after kill sequence ends). Pass 2 is disabled by default. Only remaining gap: FFmpeg still extracts at flat 2fps before early exits trigger - variable FPS could save extraction overhead, but only worth doing if large-file scan speed becomes a problem.
+
 ### Pipeline features
 
 **KO scan time estimation upgrade (2026-04-03)**

@@ -28,15 +28,6 @@ See `docs/YOUTUBE_API.md` for existing API research.
 
 ## Lower priority / future
 
-**Histogram-guided KO sampling density** *(likely superseded by existing early-exit logic - revisit only if large-file scan speed becomes a problem)*
-
-Original idea: sample more densely between 6.5s-18s (where 90% of KOs start) and sparsely outside it. However, pass 1 already implements the spirit of this via two early-exit conditions in `_scan_frames`:
-- `SCAN_STOP_SECS = 22`: if no KO found by 22s, exit immediately (already skips the late window for no-kill clips)
-- `POST_KO_SILENCE_SECS = 16`: exits after 16s silence once a kill sequence ends (already stops scanning the tail)
-
-Pass 2 is also now disabled by default, so the main scan is already a lean 2fps fast sweep. The remaining inefficiency is that frames are still extracted at a flat 2fps even before the early exits trigger - variable FPS (denser in 6-18s window, sparse outside) could save some FFmpeg extraction overhead. Only worth doing if large-file scan speed is still a bottleneck after the early-exit improvements. Do NOT re-run on existing cached clips.
-
----
 
 **Test FFmpeg auto-download on a clean machine**
 
