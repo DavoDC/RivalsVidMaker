@@ -25,11 +25,19 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ---- find credentials.json ----
-CREDENTIALS_CANDIDATES = [
-    REPO_ROOT / "credentials.json",
-    REPO_ROOT / "config" / "credentials.json",
-]
+# Google downloads credentials as client_secret_<id>.apps.googleusercontent.com.json
+# Accept that name too so no manual rename is needed.
 TOKEN_PATH = REPO_ROOT / "token.json"
+
+
+def _credentials_candidates():
+    explicit = [
+        REPO_ROOT / "credentials.json",
+        REPO_ROOT / "config" / "credentials.json",
+    ]
+    # Auto-detect any client_secret_*.json Google downloads into config/
+    auto = sorted((REPO_ROOT / "config").glob("client_secret_*.json"))
+    return explicit + auto
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
@@ -38,12 +46,13 @@ SCOPES = [
 
 
 def find_credentials() -> Path:
-    for candidate in CREDENTIALS_CANDIDATES:
+    candidates = _credentials_candidates()
+    for candidate in candidates:
         if candidate.exists():
             return candidate
     print("ERROR: credentials.json not found.")
     print("Expected locations:")
-    for c in CREDENTIALS_CANDIDATES:
+    for c in candidates:
         print(f"  {c}")
     print()
     print("Download from Google Cloud Console:")
