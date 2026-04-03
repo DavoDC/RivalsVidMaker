@@ -25,7 +25,7 @@ ClipArchive/THOR/         <- permanent archive of Quad+ clips
 
 **Full flow:**
 
-1. Drop new clips into `Highlights/`
+1. Game saves new clips to `Highlights/` automatically
 2. Run the tool - it sorts clips into character subfolders, scans for kill events, batches by duration, and encodes
 3. Upload the compiled MP4 to YouTube
 4. Run cleanup - Quad+ source clips are archived to `ClipArchive/`, the rest deleted
