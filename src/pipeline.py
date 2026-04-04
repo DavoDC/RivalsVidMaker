@@ -86,7 +86,7 @@ def _collect_highlights(
                 else f"{elapsed:.1f}s"
             )
             tier_found = result["tier"] if result else None
-            print(f"\rScanning {done}/{total}...", end="", flush=True)
+            print(f"\rScanning {done}/{total}{(' ', '..', '...')[done % 3]}", end="", flush=True)
             logging.debug(
                 "KO scan: %s %.1fs%s", clip_name, elapsed,
                 f" {tier_found}" if tier_found else "",
@@ -660,7 +660,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     elapsed_fmt = f"{elapsed_mins}m {elapsed_secs:02d}s" if elapsed_mins else f"{elapsed_secs}s"
     logging.info("")
     logging.info("=" * 50)
-    logging.info("Done. Actual: %s  (Estimated: %s)", elapsed_fmt, est_str)
+    logging.info("Video processed in %s (estimated: %s)", elapsed_fmt, est_str)
     logging.info("=" * 50)
     print("\a", end="", flush=True)
 
