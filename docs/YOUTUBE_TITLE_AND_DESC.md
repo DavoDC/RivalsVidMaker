@@ -4,6 +4,25 @@ Reference for generating titles, descriptions, and timestamps for Marvel Rivals 
 
 ---
 
+## Upload workflow (manual - current approach)
+
+After a successful pipeline run, a `_description.txt` is produced in the output folder. The upload flow is:
+
+1. **Open the output folder** (path shown in NEXT STEPS at end of run)
+2. **Drag the .mp4 into YouTube Studio** - use the slug (e.g. `THOR_Mar_2026_BATCH1`) as the temporary title
+3. **Paste the full DESCRIPTION section** from `_description.txt` into the YouTube description box
+   - The description starts with an AI prompt - leave it in for now, replace it after
+4. **Click Next and publish as Private** - get it saved fast, don't polish first
+5. **Open the video in YouTube Studio and iterate:**
+   - Paste the TITLE PROMPT into ChatGPT/Grok, pick a title, replace the temp title
+   - Paste the description AI prompt into ChatGPT/Grok, get a one-liner, replace the prompt text in the description
+   - Watch the video back, adjust timestamps if needed
+6. **Change from Private to Public** once happy with title, description, and timestamps
+
+Key principle: get it saved quickly, iterate in YouTube Studio, publish when it looks right.
+
+---
+
 ## Full description structure
 
 ```
