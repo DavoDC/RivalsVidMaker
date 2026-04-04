@@ -29,7 +29,7 @@ data/cache_bak/
 data/logs/*.txt
 
 # YouTube OAuth credentials - never commit these
-token.json
+config/token.json
 config/client_secret_*.json
 
 # Analysis output is committed (timestamped reports)
