@@ -16,7 +16,7 @@ import questionary
 
 def _char_label(name: str, clip_count: int, duration_str: str, batch_count: int, status: str) -> str:
     """Build a Level-2 label for a character folder."""
-    return f"{name}  ({clip_count} clips, {duration_str})  {status}"
+    return name
 
 
 def _folder1_label(folder_name: str, summary: str = "") -> str:
