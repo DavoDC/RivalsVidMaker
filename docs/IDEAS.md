@@ -6,11 +6,9 @@ Single source of truth for all pending work.
 
 **1. End-to-end test with Thor** *(main near-term goal)*
 
-31 clips ready, all KO-cached.
+56 clips ready (48/56 KO-cached). Batch 1 = oldest ~15 min of clips, sorted chronologically.
 
-**Step 1 - dry run first:** `python src/main.py --dry-run` to preview sort, batch selection, and expected encode without touching files. Verify the right clips are picked and nothing looks wrong before committing.
-
-**Step 2 - live run:** sort -> scan -> clip rename -> compile -> describe (with auto-generated title + description). YouTube upload is a separate session (see lower priority section).
+**Next step - live run:** sort -> scan -> clip rename -> compile -> describe (with auto-generated title + description). YouTube upload is a separate session (see lower priority section).
 
 ---
 

@@ -145,7 +145,7 @@ Understanding this flow is essential for designing pipeline features.
 
 ### Stage 4: RVM pipeline
 - Clips stay in `Highlights\CHARACTER\` until compiled.
-- RVM batches them into ~15-min groups (one batch per run - re-run for subsequent batches).
+- RVM batches clips into ~15-min groups, sorted chronologically (oldest first). Batch 1 = the oldest ~15 min of clips. Re-run for subsequent batches.
 - At KO scan stage, clips are renamed in-place with tier suffix (e.g. `THOR_..._QUAD.mp4`).
 - After compilation, clips move to `Output\CHARACTER_DATE\clips\` (already renamed from scan).
 
