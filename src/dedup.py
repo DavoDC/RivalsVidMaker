@@ -142,7 +142,8 @@ def find_duplicates(
                 logging.warning("Dedup: could not fingerprint %s: %s", clip.name, e)
                 fingerprints[clip.path] = []
             with _print_lock:
-                print(f"Dedup [{done_count}/{total}]: fingerprinted {clip.name}")
+                print(f"\r  Fingerprinting {done_count}/{total}...", end="", flush=True)
+    print()  # end the progress line
 
     # base dir (now empty - per-clip subdirs cleaned up by fingerprint_clip) can go
     shutil.rmtree(base, ignore_errors=True)
