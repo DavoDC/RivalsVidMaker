@@ -4,15 +4,13 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. YouTube API / upload automation** *(pipeline integration - Phase 1 done)*
+**1. YouTube API - Phase 2 pipeline integration** *(OAuth working - see HISTORY.md for Phase 1)*
 
-See `docs/YOUTUBE_API.md` for existing API research.
+See `docs/YOUTUBE_API.md` for API reference. Auth: `config/token.json`, `youtube.upload` scope.
 
-**Phase 1 - DONE (2026-04-04):** `scripts/once_off/yt_upload_test.py` confirmed working. OAuth via `davo29rhino@gmail.com`, `youtube.upload` scope only, `OAUTHLIB_RELAX_TOKEN_SCOPE=1` fix applied. Private video appeared on channel. `token.json` saved at repo root (gitignored).
+After compile, upload the video as private using title/description/tags from the description.txt. Record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
 
-**Phase 2 (pipeline integration - next):** After compile, upload the video as private using title/description/tags from the description.txt file. Record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
-
-- Add `uploader.py` to `src/` - reuse auth logic from `yt_upload_test.py`
+- Add `src/uploader.py` - reuse auth logic from `scripts/once_off/yt_upload_test.py`
 - Channel ID check: call `channels.list?part=id&mine=true`, compare against `"youtube_channel_id"` in config.json (target: `UC4xPDj5h-MRmTaa8-xIBfaA` / `@dave369_`). Abort if mismatch.
 - Parse title + description from the `_description.txt` file written by `description_writer.py`
 - After successful upload, write video ID + URL to state.json so cleanup can link to it
