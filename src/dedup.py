@@ -130,7 +130,8 @@ def find_duplicates(
         result = fingerprint_clip(clip, ffmpeg, n_frames, tmp_dir=base)
         return clip, result
 
-    print(f"\rFingerprinting 0/{total}...", end="", flush=True)
+    _dots = (" ", "..", "...")
+    print(f"\rFingerprinting 0/{total} ", end="", flush=True)
     with ThreadPoolExecutor() as pool:
         futures = {pool.submit(_fingerprint_one, clip): clip for clip in clips}
         for future in as_completed(futures):
@@ -143,7 +144,7 @@ def find_duplicates(
                 logging.warning("Dedup: could not fingerprint %s: %s", clip.name, e)
                 fingerprints[clip.path] = []
             with _print_lock:
-                print(f"\rFingerprinting {done_count}/{total}...", end="", flush=True)
+                print(f"\rFingerprinting {done_count}/{total}{_dots[done_count % 3]}", end="", flush=True)
     print()  # end the progress line
 
     # base dir (now empty - per-clip subdirs cleaned up by fingerprint_clip) can go
