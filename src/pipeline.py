@@ -186,20 +186,21 @@ def _menu_status(dur: float, target: int) -> str:
     return "— No clips"
 
 
-def _estimate_seconds(folder: Path, cache_dir: Path, total_dur: float) -> float:
+def _estimate_seconds(clips: list, cache_dir: Path) -> float:
     """Rough pipeline estimate: KO scan (model-based for uncached, ~0.5s cached) + encode (~0.4x duration).
 
     KO scan model (68 clips, R2=0.90): scan_time = 0.977 * clip_duration - 4.118
-    Uses average clip duration as proxy to avoid extra ffprobe calls here.
+    clips: list[Clip] for the batch being compiled (not all clips for the character).
     """
-    char_cache = cache_dir / folder.name
-    clips = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTS]
-    n_clips = len(clips)
-    avg_dur = total_dur / n_clips if n_clips else 0.0
+    if not clips:
+        return 0.0
+    total_dur = sum(c.duration for c in clips)
+    avg_dur = total_dur / len(clips)
+    char_cache = cache_dir / clips[0].path.parent.name
 
     ko_est = 0.0
-    for p in clips:
-        if _cache_exists(p, char_cache):
+    for c in clips:
+        if _cache_exists(c.path, char_cache):
             ko_est += 0.5
         else:
             ko_est += max(1.0, 0.977 * avg_dur - 4.118)
@@ -547,14 +548,22 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                         state_path=config.state_path, dry_run=False)
             return
 
-    # Estimate for selected character
+    # Scan and batch before showing the estimate so it reflects batch 1 only
+    clips = scan_folder(char_path, config.ffprobe, protect_recent=0)
+    if not clips:
+        logging.info("No clips found - nothing to process.")
+        return
+
+    batches = make_batches(clips, config.target_batch_seconds)
+
+    # Estimate and short-clip warning based on batch 1 only
     try:
         char_idx = char_folders.index(char_path)
         _, char_dur = summaries[char_idx]
-        est_str = _fmt_estimate(_estimate_seconds(char_path, config.cache_dir, char_dur))
     except (ValueError, IndexError):
         char_dur = 0.0
-        est_str = "unknown"
+
+    est_str = _fmt_estimate(_estimate_seconds(batches[0].clips, config.cache_dir))
 
     if char_dur < config.target_batch_seconds and char_dur > 0:
         dur_str = _fmt_duration(char_dur)
@@ -575,12 +584,6 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     logging.info("Character: %s", char_name)
     logging.info("=" * 50)
 
-    clips = scan_folder(char_path, config.ffprobe, protect_recent=0)
-    if not clips:
-        logging.info("No clips found - nothing to process.")
-        return
-
-    batches = make_batches(clips, config.target_batch_seconds)
     for i, b in enumerate(batches):
         label = "Video" if i == 0 else "Leftover"
         logging.info("%s: %d clip(s), %s", label, len(b.clips), b.duration_str)
