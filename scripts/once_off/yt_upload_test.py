@@ -5,7 +5,7 @@ Authenticates via OAuth and uploads a single video as PRIVATE.
 Success = a private video appears on the channel with the given title.
 
 Usage:
-    python scripts/yt_upload_test.py <path_to_video.mp4>
+    python scripts/once_off/yt_upload_test.py <path_to_video.mp4>
 
 Prerequisites:
     pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 
 # Allow running from any directory
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # ---- find credentials.json ----
 # Google downloads credentials as client_secret_<id>.apps.googleusercontent.com.json
