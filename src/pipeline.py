@@ -11,7 +11,6 @@ from datetime import datetime
 from pathlib import Path
 
 import ko_detect
-from ai_prompt import write_ai_prompts
 from batcher import make_batches
 from dedup import find_duplicates, print_dup_table
 from clip_scanner import VIDEO_EXTS, scan_folder, summarize_folder
@@ -87,7 +86,7 @@ def _collect_highlights(
                 else f"{elapsed:.1f}s"
             )
             tier_found = result["tier"] if result else None
-            print(f"\r  Scanning KO events: {done}/{total}...", end="", flush=True)
+            print(f"\rScanning KO events: {done}/{total}...", end="", flush=True)
             logging.debug(
                 "KO scan: %s %.1fs%s", clip_name, elapsed,
                 f" {tier_found}" if tier_found else "",
@@ -408,6 +407,11 @@ def _print_multizone_status(config: Config) -> None:
                 f"{cached}/{count}" if count else "-",
                 _date_range(folder),
             ))
+        h_rows.sort(key=lambda r: (
+            0 if r[3] == "✓ Ready" else (1 if r[3] == "~ Almost" else 2),
+            -int(r[1]),
+            r[0],
+        ))
         _print_table(
             h_rows,
             col_headers=("Character", "Clips", "Duration", "Status", "KO cached", "Date range"),
@@ -493,6 +497,20 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     for folder, (count, dur) in zip(char_folders, summaries):
         logging.debug("  %s: %d clips, %s", folder.name, count, _fmt_duration(dur))
 
+    # Sort by readiness first (ready > almost > too short), then clip count desc, then name
+    _pairs = sorted(
+        zip(char_folders, summaries),
+        key=lambda x: (
+            0 if x[1][1] >= config.target_batch_seconds else (
+                1 if x[1][1] >= config.target_batch_seconds * 0.75 else 2
+            ),
+            -x[1][0],
+            x[0].name,
+        ),
+    )
+    if _pairs:
+        char_folders, summaries = map(list, zip(*_pairs))
+
     # --- Step 5: two-level arrow-key menu ---
     output_rows = _scan_output_folder(config.output_path)
     state = load_state(config.state_path)
@@ -535,7 +553,16 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         _, char_dur = summaries[char_idx]
         est_str = _fmt_estimate(_estimate_seconds(char_path, config.cache_dir, char_dur))
     except (ValueError, IndexError):
+        char_dur = 0.0
         est_str = "unknown"
+
+    if char_dur < config.target_batch_seconds and char_dur > 0:
+        dur_str = _fmt_duration(char_dur)
+        target_str = _fmt_duration(config.target_batch_seconds)
+        raw = input(f"Warning: only {dur_str} of clips (target is {target_str}). Compile anyway? [y/N]: ").strip().lower()
+        if raw not in ("y", "yes"):
+            logging.info("Cancelled.")
+            return
 
     raw = input(f"Make this video? Estimated processing time: {est_str}. [y/N]: ").strip().lower()
     if raw not in ("y", "yes"):
@@ -598,9 +625,9 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
 
         logging.info("")
         logging.info("--- Encoding ---")
-        logging.info("  Output: %s", out_dir)
+        logging.info("Output: %s", out_dir)
         if dry_run:
-            logging.info("  [DRY RUN] Would encode %d clips (%s) -> %s.mp4",
+            logging.info("[DRY RUN] Would encode %d clips (%s) -> %s.mp4",
                          len(batch.clips), batch.duration_str, out_dir / slug)
         else:
             t_enc = time.perf_counter()
@@ -609,29 +636,25 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
 
         logging.info("")
         logging.info("--- Metadata ---")
+        ko_tier_counts: dict[str, int] = {}
+        for tier in clip_tiers.values():
+            ko_tier_counts[tier] = ko_tier_counts.get(tier, 0) + 1
         if dry_run:
-            logging.info("  [DRY RUN] Would write description -> %s_description.txt", out_dir / slug)
-            logging.info("  [DRY RUN] Would write AI prompts  -> %s_ai_prompts.txt", out_dir / slug)
+            logging.info("[DRY RUN] Would write %s_description.txt", out_dir / slug)
         else:
-            desc_path = write_description(batch, char_name, highlights, out_dir, out_stem=slug,
-                                          clip_tiers=clip_tiers)
-            ko_tier_counts: dict[str, int] = {}
-            for tier in clip_tiers.values():
-                ko_tier_counts[tier] = ko_tier_counts.get(tier, 0) + 1
-            prompts_path = write_ai_prompts(
-                out_dir=out_dir,
-                char_name=char_name,
-                clip_count=len(batch.clips),
+            desc_path = write_description(
+                batch, char_name, highlights, out_dir, out_stem=slug,
+                clip_tiers=clip_tiers,
                 date_range=_date_range(char_path),
                 ko_tiers=ko_tier_counts,
-                description_path=desc_path,
-                out_stem=slug,
+                clip_count=len(batch.clips),
             )
+            logging.info("Produced text file at %s", desc_path)
 
         logging.info("")
         logging.info("--- Cleanup ---")
         if dry_run:
-            logging.info("  [DRY RUN] Would move %d clips -> %s/clips/", len(batch.clips), out_dir)
+            logging.info("[DRY RUN] Would move %d clips -> %s/clips/", len(batch.clips), out_dir)
         else:
             _move_clips(batch, out_dir / "clips")
 
@@ -652,11 +675,9 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     logging.info("")
     logging.info(">>> NEXT STEPS <<<")
     logging.info("")
-    logging.info("  1. Review video:")
-    logging.info("        %s", last_out_dir / f"{last_slug}.mp4")
-    logging.info("  2. Upload to YouTube (drag & drop the .mp4 above)")
-    logging.info("  3. Check timestamps in the description:")
-    logging.info("        %s", last_out_dir / f"{last_slug}_description.txt")
-    logging.info("  4. Get title and description from AI prompts:")
-    logging.info("        %s", last_out_dir / f"{last_slug}_ai_prompts.txt")
+    logging.info("1. Open folder:")
+    logging.info("   %s", last_out_dir)
+    logging.info("2. Upload video to YouTube using temporary title:")
+    logging.info("   %s.mp4", last_slug)
+    logging.info("3. Paste in description from text file there.")
     logging.info("")
