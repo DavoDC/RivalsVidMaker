@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### YouTube API - Phase 1 feasibility probe (2026-04-04)
+
+`scripts/once_off/yt_upload_test.py` confirmed working end-to-end. OAuth via `davo29rhino@gmail.com`, `youtube.upload` scope, `OAUTHLIB_RELAX_TOKEN_SCOPE=1` needed to handle scope mismatch when user grants narrower scope than requested. Private video uploaded and appeared on channel `@dave369_`. `token.json` gitignored at repo root. Phase 2 (pipeline integration) is next in IDEAS.md.
+
+---
+
 ### Parked ideas
 
 **Clip transition trimming** *(parked 2026-04-03 - not needed after review)*

@@ -4,17 +4,19 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. YouTube API / upload automation** *(medium - OAuth + script + pipeline integration; prerequisite for end-to-end test)*
+**1. YouTube API / upload automation** *(pipeline integration - Phase 1 done)*
 
 See `docs/YOUTUBE_API.md` for existing API research.
 
-**Phase 1 (feasibility probe - do first, standalone script):** Write the smallest possible standalone script (`scripts/yt_upload_test.py`) that authenticates via OAuth and uploads a single hardcoded clip as **private** to confirm the API actually works. Small channels may not have upload quota or the right API access tier - verify this before building anything else. Success = a private video appears on the channel.
+**Phase 1 - DONE (2026-04-04):** `scripts/once_off/yt_upload_test.py` confirmed working. OAuth via `davo29rhino@gmail.com`, `youtube.upload` scope only, `OAUTHLIB_RELAX_TOKEN_SCOPE=1` fix applied. Private video appeared on channel. `token.json` saved at repo root (gitignored).
 
-> **Blocked:** OAuth consent screen returns 403 until `davo29rhino@gmail.com` is added as a test user. Fix: Google Cloud Console -> APIs & Services -> OAuth consent screen -> Test users -> Add `davo29rhino@gmail.com`. Then re-run `scripts/yt_upload_test.py`.
+**Phase 2 (pipeline integration - next):** After compile, upload the video as private using title/description/tags from the description.txt file. Record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
 
-**Channel verification (must be part of Phase 1):** Before uploading, call `channels.list?part=id&mine=true` to get the authenticated account's channel ID and compare against a configured expected value. Abort with a clear error if they don't match - this prevents accidentally uploading to the wrong Google account. Store expected channel ID in `config/config.json` (e.g. `"youtube_channel_id": "UC4xPDj5h-MRmTaa8-xIBfaA"`). Target channel: `@dave369_` / `UC4xPDj5h-MRmTaa8-xIBfaA`.
-
-**Phase 2 (pipeline integration - only if Phase 1 works):** Compile video -> upload as private (title/description/tags from the AI prompt file) -> record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
+- Add `uploader.py` to `src/` - reuse auth logic from `yt_upload_test.py`
+- Channel ID check: call `channels.list?part=id&mine=true`, compare against `"youtube_channel_id"` in config.json (target: `UC4xPDj5h-MRmTaa8-xIBfaA` / `@dave369_`). Abort if mismatch.
+- Parse title + description from the `_description.txt` file written by `description_writer.py`
+- After successful upload, write video ID + URL to state.json so cleanup can link to it
+- Hook into `pipeline.py` after encode + describe steps
 
 ---
 
