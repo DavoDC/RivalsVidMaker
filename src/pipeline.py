@@ -97,7 +97,7 @@ def _collect_highlights(
             if tier_found and ko_detect.TIER_RANK.get(tier_found, 0) >= ko_detect.TIER_RANK[ko_detect.REPORT_MIN_TIER]:
                 video_start = offsets[clip_name] + result["start_ts"]
                 video_max = offsets[clip_name] + result["max_ts"]
-                logging.info("%s @ %s–%s", tier_found, fmt_ts(video_start), fmt_ts(video_max))
+                logging.debug("%s @ %s–%s", tier_found, fmt_ts(video_start), fmt_ts(video_max))
 
     # Rename clips in-place now that tiers are known (e.g. THOR_..._QUAD.mp4).
     # This embeds the tier in the filename before description/archiving use it.
@@ -576,6 +576,8 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                      char_name, batch.number, len(batches), batch.duration_str)
 
         # --- Duplicate detection ---
+        logging.info("")
+        logging.info("--- Checking for duplicates ---")
         dup_pairs = find_duplicates(batch.clips, str(config.ffmpeg), tmp_dir=config.cache_dir.parent / "dedup_tmp")
         if dup_pairs:
             print_dup_table(dup_pairs)
@@ -583,8 +585,11 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
             if raw not in ("y", "yes"):
                 logging.info("Cancelled -- remove duplicates and re-run.")
                 return
+        else:
+            logging.info("No duplicates found.")
 
-        logging.info("Scanning for KO events...")
+        logging.info("")
+        logging.info("--- Scanning for KO events ---")
         t_ko = time.perf_counter()
         highlights, clip_tiers = _collect_highlights(batch, config)
         logging.debug("KO scan took %.1fs", time.perf_counter() - t_ko)
@@ -596,6 +601,8 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         slug = _batch_slug(char_name, batch, len(batches))
         out_dir = config.output_path / slug
 
+        logging.info("")
+        logging.info("--- Encoding ---")
         if dry_run:
             print(f"[DRY RUN] Would encode {len(batch.clips)} clips ({batch.duration_str}) -> {out_dir / slug}.mp4")
             print(f"[DRY RUN] Would write description -> {out_dir / slug}_description.txt")
@@ -631,7 +638,28 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     logging.info("")
     logging.info("=" * 50)
     logging.info("Done.  %d batch(es) encoded in %.1fs", total_batches, elapsed)
-    logging.info("Output: %s", config.output_path)
+    logging.info("=" * 50)
 
     print("\a", end="", flush=True)
-    logging.info(">>> Encoding complete! Please check the output video. <<<")
+
+    if not dry_run:
+        # Print next-steps for the last batch processed
+        last_batch = batches_to_run[-1]
+        last_slug = _batch_slug(char_name, last_batch, len(batches))
+        last_out_dir = config.output_path / last_slug
+        video_path = last_out_dir / f"{last_slug}.mp4"
+        prompts_path = last_out_dir / f"{last_slug}_ai_prompts.txt"
+
+        logging.info("")
+        logging.info(">>> NEXT STEPS <<<")
+        logging.info("")
+        logging.info("  1. Review video:   %s", video_path)
+        logging.info("  2. Upload to YouTube (drag & drop the .mp4 above)")
+        logging.info("  3. Check timestamps in the video description:")
+        logging.info("        %s", last_out_dir / f"{last_slug}_description.txt")
+        logging.info("  4. Get title and description from AI prompts:")
+        logging.info("        %s", prompts_path)
+        logging.info("")
+    else:
+        logging.info("")
+        logging.info("  Output would be: %s", config.output_path)

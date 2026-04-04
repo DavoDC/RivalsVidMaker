@@ -15,6 +15,8 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import imagehash
@@ -121,14 +123,26 @@ def find_duplicates(
 
     total = len(clips)
     fingerprints: dict[Path, list[imagehash.ImageHash]] = {}
+    done_count = 0
+    _print_lock = threading.Lock()
 
-    for i, clip in enumerate(clips, 1):
-        print(f"Dedup [{i}/{total}]: fingerprinting {clip.name}...")
-        try:
-            fingerprints[clip.path] = fingerprint_clip(clip, ffmpeg, n_frames, tmp_dir=base)
-        except Exception as e:
-            logging.warning("Dedup: could not fingerprint %s: %s", clip.name, e)
-            fingerprints[clip.path] = []
+    def _fingerprint_one(clip: "Clip") -> tuple["Clip", list]:
+        result = fingerprint_clip(clip, ffmpeg, n_frames, tmp_dir=base)
+        return clip, result
+
+    with ThreadPoolExecutor() as pool:
+        futures = {pool.submit(_fingerprint_one, clip): clip for clip in clips}
+        for future in as_completed(futures):
+            done_count += 1
+            clip = futures[future]
+            try:
+                _, hashes = future.result()
+                fingerprints[clip.path] = hashes
+            except Exception as e:
+                logging.warning("Dedup: could not fingerprint %s: %s", clip.name, e)
+                fingerprints[clip.path] = []
+            with _print_lock:
+                print(f"Dedup [{done_count}/{total}]: fingerprinted {clip.name}")
 
     # base dir (now empty - per-clip subdirs cleaned up by fingerprint_clip) can go
     shutil.rmtree(base, ignore_errors=True)
