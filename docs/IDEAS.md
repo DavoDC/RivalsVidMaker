@@ -4,30 +4,7 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. Duplicate clip detection / dedup before compile** *(important - do before E2E test; clips have doubled up in previous compilations)*
-
-Before encoding a batch, fingerprint every clip and check for near-duplicates. Known issue: clips have doubled up in previous compilations (both early manual and early pipeline runs).
-
-**Approach - perceptual hashing:**
-- Extract 5 frames spread evenly across each clip via ffmpeg (fast - no full decode needed)
-- Compute a perceptual hash (pHash) for each frame using `imagehash` library
-- Clip fingerprint = the 5 hashes concatenated
-- Compare all clip pairs: if average pHash distance < threshold -> flag as likely duplicate
-- Threshold to determine empirically (start with ~10 bits Hamming distance per frame)
-
-**Speed vs accuracy tradeoff:** 5 frames/clip is the sweet spot - fast enough to run on 30+ clips in seconds, accurate enough to catch same-kill captures and re-encoded duplicates. More frames only needed if false negatives appear in testing.
-
-**Output:** Print a warning table listing suspected duplicate pairs and let the user decide whether to exclude before proceeding. Do not silently drop clips.
-
-**Two use cases:**
-1. **Main pipeline dedup (do first):** run before every encode - catch duplicates within the current batch.
-2. **OldCompilations dedup (later):** after Phase 3 segment extraction, check extracted clips against each other and against existing ClipArchive clips before archiving.
-
-**Library:** `imagehash` (perceptual hash / DCT hash). No ML needed.
-
----
-
-**2. Auto-generate title + description via Claude API** *(local automation - do before E2E test)*
+**1. Auto-generate title + description via Claude API** *(local automation - do before E2E test)*
 
 Currently `ai_prompt.py` generates prompts for the user to paste into Claude manually. Goal: call the Claude API automatically after compile and write the title + one-liner directly into the description.txt - zero manual steps.
 
@@ -48,7 +25,7 @@ See `docs/YOUTUBE_TITLE_AND_DESC.md` for format constraints and confirmed-good e
 
 ---
 
-**3. End-to-end test with Thor** *(main near-term goal - requires items 1 and 2)*
+**2. End-to-end test with Thor** *(main near-term goal - requires item 1)*
 
 31 clips ready, all KO-cached.
 
