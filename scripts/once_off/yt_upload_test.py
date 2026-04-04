@@ -54,6 +54,8 @@ def find_credentials() -> Path:
 
 
 def get_authenticated_service():
+    import os
+    os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     try:
         import google.auth
         from google_auth_oauthlib.flow import InstalledAppFlow
