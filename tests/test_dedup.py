@@ -140,7 +140,7 @@ class TestFindDuplicates:
         fp_a = [imagehash.ImageHash(bits_a)] * 5
         fp_b = [imagehash.ImageHash(bits_b)] * 5
 
-        def fp_side_effect(clip, ffmpeg, n_frames=5):
+        def fp_side_effect(clip, ffmpeg, n_frames=5, tmp_dir=None):
             return fp_a if clip is clip_a else fp_b
 
         with patch("dedup.fingerprint_clip", side_effect=fp_side_effect):
@@ -157,7 +157,7 @@ class TestFindDuplicates:
         fp_same = _make_fingerprint(_zero_hash())
         fp_diff = _make_fingerprint(_ones_hash())
 
-        def fp_side_effect(clip, ffmpeg, n_frames=5):
+        def fp_side_effect(clip, ffmpeg, n_frames=5, tmp_dir=None):
             if clip is clip_c:
                 return fp_diff
             return fp_same

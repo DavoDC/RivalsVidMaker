@@ -13,8 +13,8 @@ clips -- prints a warning table and lets the user decide.
 import glob
 import logging
 import os
+import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 import imagehash
@@ -60,17 +60,24 @@ def fingerprint_clip(
     clip: Clip,
     ffmpeg: str,
     n_frames: int = DEFAULT_N_FRAMES,
+    tmp_dir: Path | None = None,
 ) -> list[imagehash.ImageHash]:
     """Extract n_frames pHashes for the clip. Returns list of ImageHash objects.
 
     Uses Clip.duration (already probed) so no extra ffprobe call is needed.
+    Frames are written to a per-clip subdir inside tmp_dir, then deleted.
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
+    base = Path(tmp_dir) if tmp_dir else Path("data/dedup_tmp")
+    work_dir = base / clip.path.stem
+    work_dir.mkdir(parents=True, exist_ok=True)
+    try:
         images = _extract_frames(
             str(clip.path), ffmpeg=ffmpeg, duration=clip.duration,
-            n_frames=n_frames, tmpdir=tmpdir,
+            n_frames=n_frames, tmpdir=str(work_dir),
         )
-    return [imagehash.phash(img) for img in images]
+        return [imagehash.phash(img) for img in images]
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def avg_distance(
@@ -94,16 +101,23 @@ def find_duplicates(
     ffmpeg: str,
     threshold: int = DEFAULT_THRESHOLD,
     n_frames: int = DEFAULT_N_FRAMES,
+    tmp_dir: Path | None = None,
 ) -> list[tuple[Clip, Clip, float]]:
     """Fingerprint all clips and return suspected duplicate pairs.
 
     A pair (A, B) is flagged when avg_distance(A, B) < threshold.
     The threshold is strict: distance == threshold is NOT flagged.
 
+    Frame images are written under tmp_dir (default: data/dedup_tmp) and
+    cleaned up per-clip. The tmp_dir itself is removed on completion.
+
     Returns list of (clip_a, clip_b, avg_distance) sorted by distance ascending.
     """
     if len(clips) < 2:
         return []
+
+    base = Path(tmp_dir) if tmp_dir else Path("data/dedup_tmp")
+    base.mkdir(parents=True, exist_ok=True)
 
     total = len(clips)
     fingerprints: dict[Path, list[imagehash.ImageHash]] = {}
@@ -111,10 +125,13 @@ def find_duplicates(
     for i, clip in enumerate(clips, 1):
         print(f"Dedup [{i}/{total}]: fingerprinting {clip.name}...")
         try:
-            fingerprints[clip.path] = fingerprint_clip(clip, ffmpeg, n_frames)
+            fingerprints[clip.path] = fingerprint_clip(clip, ffmpeg, n_frames, tmp_dir=base)
         except Exception as e:
             logging.warning("Dedup: could not fingerprint %s: %s", clip.name, e)
             fingerprints[clip.path] = []
+
+    # base dir (now empty - per-clip subdirs cleaned up by fingerprint_clip) can go
+    shutil.rmtree(base, ignore_errors=True)
 
     pairs: list[tuple[Clip, Clip, float]] = []
     for i in range(len(clips)):
