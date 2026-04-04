@@ -1,0 +1,102 @@
+
+#### Welcome David! 🙂 ####
+#### Today's date is: Saturday 4 Apr 2026 ####
+
+==================================================
+                  RivalsVidMaker
+==================================================
+Log: data\logs\run_20260404_173057.log
+
+*** DRY RUN - no files will be moved or encoded ***
+
+[DRY RUN] Skipping clip sort
+
+-- HIGHLIGHTS FOLDER --
+┌─────────────────────┬───────┬──────────┬─────────────┬───────────┬─────────────────────────┐
+│ Character           │ Clips │ Duration │ Status      │ KO cached │ Date range              │
+├─────────────────────┼───────┼──────────┼─────────────┼───────────┼─────────────────────────┤
+│ THOR                │    48 │  24m 59s │ ✓ Ready     │     48/48 │ 5 Mar '26 → 30 Mar '26  │
+├─────────────────────┼───────┼──────────┼─────────────┼───────────┼─────────────────────────┤
+│ SQUIRREL_GIRL       │    16 │   7m 25s │ ✗ Too short │     16/16 │ 16 Feb '26 → 30 Mar '26 │
+├─────────────────────┼───────┼──────────┼─────────────┼───────────┼─────────────────────────┤
+│ DOCTOR_STRANGE      │     3 │   1m 16s │ ✗ Too short │       3/3 │ 5 Dec '25 → 29 Dec '25  │
+├─────────────────────┼───────┼──────────┼─────────────┼───────────┼─────────────────────────┤
+│ JEFF_THE_LAND_SHARK │     1 │   0m 16s │ ✗ Too short │       1/1 │ 29 Dec '25              │
+└─────────────────────┴───────┴──────────┴─────────────┴───────────┴─────────────────────────┘
+
+-- OUTPUT FOLDER --
+(no output folders found)
+
+-- ARCHIVE FOLDER --
+┌───────────┬───────┬──────────┬─────────────┐
+│ Character │ Clips │ Duration │ Status      │
+├───────────┼───────┼──────────┼─────────────┤
+│ THOR      │    13 │   6m 11s │ ✗ Too short │
+└───────────┴───────┴──────────┴─────────────┘
+
+? What would you like to do? Browse the archive
+
+  Archive: 13 clip(s)
+    THOR_2026-02-06_21-25-38_QUAD.mp4
+    THOR_2026-02-06_21-27-07_QUAD.mp4
+    THOR_2026-02-06_22-38-56_QUAD.mp4
+    THOR_2026-02-15_22-39-21_QUAD.mp4
+    THOR_2026-02-15_23-00-22_QUAD.mp4
+    THOR_2026-02-17_23-24-35_QUAD.mp4
+    THOR_2026-02-20_01-20-03_QUAD.mp4
+    THOR_2026-02-21_20-31-53_HEXA.mp4
+    THOR_2026-02-21_23-41-31_QUAD.mp4
+    THOR_2026-02-22_23-46-11_QUAD.mp4
+    THOR_2026-02-22_23-49-23_QUAD.mp4
+    THOR_2026-02-24_23-35-25_QUAD.mp4
+    THOR_2026-02-25_23-25-20_QUAD.mp4
+  Press Enter to go back...
+? What would you like to do? Clean up a completed output folder  (nothing to clean up)
+? What would you like to do? Compile a new highlights video  (THOR ready)
+? Which character do you want to compile? THOR  (48 clips, 24m 59s)  ✓ Ready
+Make this video? Estimated processing time: ~10m 23s. [y/N]: y
+Selected: THOR = FEEDBACK REMOVE this line coz already says char = thor below
+FEEDBACK: remove this new line also
+==================================================
+Character: THOR
+==================================================
+Found 48 video file(s), protecting 5 most recent.  -> FEEDBACK: THIS IS INCORRECT. CHECK DOCs. 5 MORE RECENT ONLY APPLIES TO ROOT HIGHLIGHTS FOLDER. WITHIN CHARACTER FOLDERS, THERE IS NO PROTECTIon. compilation stage should only be looking inside char folder, not even aware of anything outside fo that!!!!!!!!!
+
+Loaded 43 clip(s).
+Batching: 2 batch(es)  FEEDBACK = never do 2 batches so don't remove all mentions of batches and batch2
+Batch 1: 28 clip(s), 14m 50s     = FEEDBACK: this is just planned vid length, maybe just length or smth 
+Batch 2: 15 clip(s), 7m 27s           = FEEDBACK: just say leftover
+Note: 2 batch(es) worth of clips available. Compiling batch 1 now - re-run for the rest.  = FEEDBACK: remove, implied. 
+
+--- THOR  Batch 1/2  (14m 50s) ---
+
+--- Checking for duplicates ---
+Fingerprinting 28/28...
+No duplicates found.
+
+--- Scanning for KO events ---
+Scanning KO events: 28/28...
+
+--- Encoding ---
+Output: C:\Users\David\Videos\MarvelRivals\Output\THOR_Mar_2026_BATCH1
+[DRY RUN] Would encode 28 clips (14m 50s) -> C:\Users\David\Videos\MarvelRivals\Output\THOR_Mar_2026_BATCH1\THOR_Mar_2026_BATCH1.mp4
+
+--- Metadata ---
+[DRY RUN] Would write C:\Users\David\Videos\MarvelRivals\Output\THOR_Mar_2026_BATCH1\THOR_Mar_2026_BATCH1_description.txt
+
+--- Cleanup ---
+[DRY RUN] Would move 28 clips -> C:\Users\David\Videos\MarvelRivals\Output\THOR_Mar_2026_BATCH1/clips/
+
+==================================================
+Done. Video processed in 170s.
+==================================================
+
+>>> NEXT STEPS <<<
+
+1. Open folder:
+   C:\Users\David\Videos\MarvelRivals\Output\THOR_Mar_2026_BATCH1  = FEEDBACK: can we get folder to open autoatmcially? even in dry run mode? but keep terminal window open
+FEEBACK: SPACE/new line here
+2. Upload video to YouTube using temporary title:
+   THOR_Mar_2026_BATCH1.mp4
+FEEBACK: SPACE/new line here
+3. Paste in description from text file there.
