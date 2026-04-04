@@ -576,7 +576,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                      char_name, batch.number, len(batches), batch.duration_str)
 
         # --- Duplicate detection ---
-        dup_pairs = find_duplicates(batch.clips, str(config.ffmpeg))
+        dup_pairs = find_duplicates(batch.clips, str(config.ffmpeg), tmp_dir=config.cache_dir.parent / "dedup_tmp")
         if dup_pairs:
             print_dup_table(dup_pairs)
             raw = input("Suspected duplicates found. Continue anyway? [y/N]: ").strip().lower()
