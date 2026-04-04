@@ -4,21 +4,7 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. YouTube API - Phase 2 pipeline integration** *(OAuth working - see HISTORY.md for Phase 1)*
-
-See `docs/YOUTUBE_API.md` for API reference. Auth: `config/token.json`, `youtube.upload` scope.
-
-After compile, upload the video as private using title/description/tags from the description.txt. Record upload URL in state.json. Goal: zero manual steps from clips to a private YouTube draft ready to publish.
-
-- Add `src/uploader.py` - reuse auth logic from `scripts/once_off/yt_upload_test.py`
-- Channel ID check: call `channels.list?part=id&mine=true`, compare against `"youtube_channel_id"` in config.json (target: `UC4xPDj5h-MRmTaa8-xIBfaA` / `@dave369_`). Abort if mismatch.
-- Parse title + description from the `_description.txt` file written by `description_writer.py`
-- After successful upload, write video ID + URL to state.json so cleanup can link to it
-- Hook into `pipeline.py` after encode + describe steps
-
----
-
-**2. Duplicate clip detection / dedup before compile** *(important - do before E2E test; clips have doubled up in previous compilations)*
+**1. Duplicate clip detection / dedup before compile** *(important - do before E2E test; clips have doubled up in previous compilations)*
 
 Before encoding a batch, fingerprint every clip and check for near-duplicates. Known issue: clips have doubled up in previous compilations (both early manual and early pipeline runs).
 
@@ -26,7 +12,7 @@ Before encoding a batch, fingerprint every clip and check for near-duplicates. K
 - Extract 5 frames spread evenly across each clip via ffmpeg (fast - no full decode needed)
 - Compute a perceptual hash (pHash) for each frame using `imagehash` library
 - Clip fingerprint = the 5 hashes concatenated
-- Compare all clip pairs: if average pHash distance < threshold → flag as likely duplicate
+- Compare all clip pairs: if average pHash distance < threshold -> flag as likely duplicate
 - Threshold to determine empirically (start with ~10 bits Hamming distance per frame)
 
 **Speed vs accuracy tradeoff:** 5 frames/clip is the sweet spot - fast enough to run on 30+ clips in seconds, accurate enough to catch same-kill captures and re-encoded duplicates. More frames only needed if false negatives appear in testing.
@@ -41,18 +27,58 @@ Before encoding a batch, fingerprint every clip and check for near-duplicates. K
 
 ---
 
+**2. Auto-generate title + description via Claude API** *(local automation - do before E2E test)*
+
+Currently `ai_prompt.py` generates prompts for the user to paste into Claude manually. Goal: call the Claude API automatically after compile and write the title + one-liner directly into the description.txt - zero manual steps.
+
+**What exists:**
+- `ai_prompt.py` builds context (char, date range, kill counts) and prompt templates - keep this, reuse the context
+- `description_writer.py` writes description.txt with timestamps - title/one-liner currently left as placeholders
+
+**Implementation plan:**
+- Add `src/title_writer.py` - calls Claude API with the context block already built by `ai_prompt.py`
+- Returns title (single best option) + one-liner description
+- `description_writer.py` writes these into the description.txt header instead of placeholders
+- API key stored in `config/config.json` as `"claude_api_key"` (gitignored)
+- Fallback: if no API key configured, leave placeholders and print instructions as before
+
+**API approach:** single call, structured output. Prompt: combined title + description (Prompt 3 from `ai_prompt.py` is already the right shape). Parse response for `Title:` and `Description:` lines.
+
+See `docs/YOUTUBE_TITLE_AND_DESC.md` for format constraints and confirmed-good examples.
+
+---
+
 **3. End-to-end test with Thor** *(main near-term goal - requires items 1 and 2)*
 
 31 clips ready, all KO-cached.
 
 **Step 1 - dry run first:** `python src/main.py --dry-run` to preview sort, batch selection, and expected encode without touching files. Verify the right clips are picked and nothing looks wrong before committing.
 
-**Step 2 - live run:** sort -> scan -> clip rename -> compile -> describe -> YouTube upload (private).
+**Step 2 - live run:** sort -> scan -> clip rename -> compile -> describe (with auto-generated title + description). YouTube upload is a separate session (see lower priority section).
 
 ---
 
 ## Lower priority / future
 
+**YouTube API - Phase 2 pipeline integration** *(OAuth confirmed working 2026-04-04 - do in a dedicated session)*
+
+See `docs/YOUTUBE_API.md` for full API reference and auth setup notes.
+
+**What works (confirmed):**
+- OAuth flow via `davo29rhino@gmail.com`, `youtube.upload` scope
+- Working test script: `scripts/once_off/yt_upload_test.py`
+- Credentials: `config/client_secret_*.json` (gitignored), token: `config/token.json` (gitignored)
+- Set `OAUTHLIB_RELAX_TOKEN_SCOPE=1` - required when user grants narrower scope than requested in the consent screen
+- `youtube.upload` scope alone is sufficient for video upload; full `youtube` scope needed for thumbnails/playlists
+
+**Phase 2 implementation plan:**
+- Add `src/uploader.py` - reuse auth logic from `scripts/once_off/yt_upload_test.py`
+- Channel ID check: call `channels.list?part=id&mine=true`, compare against `"youtube_channel_id"` in config.json (target: `UC4xPDj5h-MRmTaa8-xIBfaA` / `@dave369_`). Abort if mismatch.
+- Parse title + description from the `_description.txt` file written by `description_writer.py`
+- After successful upload, write video ID + URL to state.json so cleanup can link to it
+- Hook into `pipeline.py` after encode + describe steps
+
+---
 
 **Test FFmpeg auto-download on a clean machine**
 
@@ -142,15 +168,13 @@ Gameplay stream videos (7, 39min+, up to ~4hr/7GB - full session recordings, not
 
 **Phase 3 - Segment extraction:** FFmpeg-cut each Quad+ segment (with padding) into individual clips, output to `ClipArchive/` pending Best-of compilation.
 
-**Phase 4 - Description fetch via YouTube API (low priority):** Each OldCompilations video has a YouTube description containing manually-entered timestamps and a list of the original clip filenames that contributed. Fetch these descriptions via the YouTube Data API and save as `<video_stem>_description.txt` alongside the video file.
+**Phase 4 - Description fetch via YouTube API (low priority):** Each OldCompilations video has a YouTube description containing manually-entered timestamps and a list of the original clip filenames that contributed. Fetch these descriptions via the YouTube Data API and save as `<video_stem>_description.txt` alongside the video file. Auth reuses `config/token.json` from Phase 2 upload work.
 
 Uses:
 - **Timestamp validation:** Compare KO scanner output against the manually-entered timestamps in the description. Not a strict test (human timestamps may be wrong or missing) - treat as a rough sanity check. Trust the scanner if it disagrees.
 - **Clip reconstruction:** Descriptions list original clip filenames in order. Combined with transition-counting (count the black-screen transitions in the compiled video), you can reconstruct which clip maps to which segment - giving a clip order list that links back to the original filenames. This is difficult because clips vary in length, but transition detection makes it tractable.
 
-Note: YouTube API auth setup (OAuth) overlaps with the higher-priority upload automation (item 2 above). Auth work done for item 2 can be reused here - no point doing it twice.
-
-**Duplicate clip detection:** See item 2 above for implementation design. OldCompilations use case: after Phase 3 segment extraction, check extracted clips against each other and against existing ClipArchive clips before archiving.
+**Duplicate clip detection:** See item 1 (dedup) above for implementation design. OldCompilations use case: after Phase 3 segment extraction, check extracted clips against each other and against existing ClipArchive clips before archiving.
 
 ---
 
