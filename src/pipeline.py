@@ -13,6 +13,7 @@ from pathlib import Path
 import ko_detect
 from ai_prompt import write_ai_prompts
 from batcher import make_batches
+from dedup import find_duplicates, print_dup_table
 from clip_scanner import VIDEO_EXTS, scan_folder, summarize_folder
 from clip_sorter import sort_clips
 from config import Config
@@ -573,6 +574,15 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         logging.info("")
         logging.info("--- %s  Batch %d/%d  (%s) ---",
                      char_name, batch.number, len(batches), batch.duration_str)
+
+        # --- Duplicate detection ---
+        dup_pairs = find_duplicates(batch.clips, str(config.ffmpeg))
+        if dup_pairs:
+            print_dup_table(dup_pairs)
+            raw = input("Suspected duplicates found. Continue anyway? [y/N]: ").strip().lower()
+            if raw not in ("y", "yes"):
+                logging.info("Cancelled -- remove duplicates and re-run.")
+                return
 
         logging.info("Scanning for KO events...")
         t_ko = time.perf_counter()
