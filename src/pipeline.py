@@ -86,7 +86,7 @@ def _collect_highlights(
                 else f"{elapsed:.1f}s"
             )
             tier_found = result["tier"] if result else None
-            print(f"\rScanning KO events: {done}/{total}...", end="", flush=True)
+            print(f"\rScanning {done}/{total}...", end="", flush=True)
             logging.debug(
                 "KO scan: %s %.1fs%s", clip_name, elapsed,
                 f" {tier_found}" if tier_found else "",
@@ -655,9 +655,12 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         total_batches += 1
 
     elapsed = time.perf_counter() - t0
+    elapsed_mins = int(elapsed) // 60
+    elapsed_secs = int(elapsed) % 60
+    elapsed_fmt = f"{elapsed_mins}m {elapsed_secs:02d}s" if elapsed_mins else f"{elapsed_secs}s"
     logging.info("")
     logging.info("=" * 50)
-    logging.info("Done. Video processed in %.0fs.", elapsed)
+    logging.info("Done. Actual: %s  (Estimated: %s)", elapsed_fmt, est_str)
     logging.info("=" * 50)
     print("\a", end="", flush=True)
 
@@ -666,8 +669,9 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     last_slug = _batch_slug(char_name, last_batch, len(batches))
     last_out_dir = config.output_path / last_slug
 
-    import subprocess as _sp
-    _sp.Popen(["explorer", str(last_out_dir)])
+    if not dry_run and last_out_dir.exists():
+        import os as _os
+        _os.startfile(str(last_out_dir))
 
     logging.info("")
     logging.info(">>> NEXT STEPS <<<")
