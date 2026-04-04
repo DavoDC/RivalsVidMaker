@@ -569,37 +569,31 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         logging.info("Cancelled.")
         return
 
-    logging.info("Selected: %s", char_path.name)
-
     # --- Step 6: process selected character ---
     char_name = char_path.name
-    logging.info("")
     logging.info("=" * 50)
     logging.info("Character: %s", char_name)
     logging.info("=" * 50)
 
-    clips = scan_folder(char_path, config.ffprobe, protect_recent=config.protect_recent_clips)
+    clips = scan_folder(char_path, config.ffprobe, protect_recent=0)
     if not clips:
         logging.info("No clips found - nothing to process.")
         return
 
     batches = make_batches(clips, config.target_batch_seconds)
-    logging.info("Batching: %d batch(es)", len(batches))
-    for b in batches:
-        logging.info("Batch %d: %d clip(s), %s", b.number, len(b.clips), b.duration_str)
+    for i, b in enumerate(batches):
+        label = "Video" if i == 0 else "Leftover"
+        logging.info("%s: %d clip(s), %s", label, len(b.clips), b.duration_str)
 
     # Always compile one batch at a time. Re-run the program for subsequent batches.
     # (Remaining clips stay in Highlights until next run.)
     batches_to_run = [batches[0]]
-    if len(batches) > 1:
-        logging.info("Note: %d batch(es) worth of clips available. Compiling batch 1 now - re-run for the rest.", len(batches))
 
     total_batches = 0
 
     for batch in batches_to_run:
         logging.info("")
-        logging.info("--- %s  Batch %d/%d  (%s) ---",
-                     char_name, batch.number, len(batches), batch.duration_str)
+        logging.info("--- %s  (%s) ---", char_name, batch.duration_str)
 
         # --- Duplicate detection ---
         logging.info("")
@@ -672,12 +666,17 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     last_slug = _batch_slug(char_name, last_batch, len(batches))
     last_out_dir = config.output_path / last_slug
 
+    import subprocess as _sp
+    _sp.Popen(["explorer", str(last_out_dir)])
+
     logging.info("")
     logging.info(">>> NEXT STEPS <<<")
     logging.info("")
     logging.info("1. Open folder:")
     logging.info("   %s", last_out_dir)
+    logging.info("")
     logging.info("2. Upload video to YouTube using temporary title:")
     logging.info("   %s.mp4", last_slug)
+    logging.info("")
     logging.info("3. Paste in description from text file there.")
     logging.info("")
