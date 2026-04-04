@@ -87,17 +87,16 @@ def _collect_highlights(
                 else f"{elapsed:.1f}s"
             )
             tier_found = result["tier"] if result else None
-            cache_tag = "[cached] " if was_cached else ""
-            suffix = f" — {tier_found}" if tier_found else ""
-            print(f"KO scan [{done}/{total}]: {cache_tag}{clip_name} -> Done ({elapsed_str}){suffix}")
+            print(f"\r  Scanning KO events: {done}/{total}...", end="", flush=True)
             logging.debug(
-                "KO scan: %s — %.1fs%s", clip_name, elapsed,
+                "KO scan: %s %.1fs%s", clip_name, elapsed,
                 f" {tier_found}" if tier_found else "",
             )
             if tier_found and ko_detect.TIER_RANK.get(tier_found, 0) >= ko_detect.TIER_RANK[ko_detect.REPORT_MIN_TIER]:
                 video_start = offsets[clip_name] + result["start_ts"]
                 video_max = offsets[clip_name] + result["max_ts"]
-                logging.debug("%s @ %s–%s", tier_found, fmt_ts(video_start), fmt_ts(video_max))
+                logging.debug("%s @ %s-%s", tier_found, fmt_ts(video_start), fmt_ts(video_max))
+    print()  # end KO scan progress line
 
     # Rename clips in-place now that tiers are known (e.g. THOR_..._QUAD.mp4).
     # This embeds the tier in the filename before description/archiving use it.
@@ -593,29 +592,29 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         t_ko = time.perf_counter()
         highlights, clip_tiers = _collect_highlights(batch, config)
         logging.debug("KO scan took %.1fs", time.perf_counter() - t_ko)
-        if not highlights:
-            logging.info("(no Quad+ kills detected)")
-        else:
-            logging.info("%d Quad+ kill(s) found.", len(highlights))
 
         slug = _batch_slug(char_name, batch, len(batches))
         out_dir = config.output_path / slug
 
         logging.info("")
         logging.info("--- Encoding ---")
+        logging.info("  Output: %s", out_dir)
         if dry_run:
-            print(f"[DRY RUN] Would encode {len(batch.clips)} clips ({batch.duration_str}) -> {out_dir / slug}.mp4")
-            print(f"[DRY RUN] Would write description -> {out_dir / slug}_description.txt")
-            print(f"[DRY RUN] Would write AI prompts  -> {out_dir / slug}_ai_prompts.txt")
-            print(f"[DRY RUN] Would move {len(batch.clips)} clips -> {out_dir / 'clips'}/")
+            logging.info("  [DRY RUN] Would encode %d clips (%s) -> %s.mp4",
+                         len(batch.clips), batch.duration_str, out_dir / slug)
         else:
             t_enc = time.perf_counter()
             encode(batch, char_name, out_dir, config.ffmpeg, out_stem=slug, force=force_encode)
             logging.debug("Encode took %.1fs", time.perf_counter() - t_enc)
+
+        logging.info("")
+        logging.info("--- Metadata ---")
+        if dry_run:
+            logging.info("  [DRY RUN] Would write description -> %s_description.txt", out_dir / slug)
+            logging.info("  [DRY RUN] Would write AI prompts  -> %s_ai_prompts.txt", out_dir / slug)
+        else:
             desc_path = write_description(batch, char_name, highlights, out_dir, out_stem=slug,
                                           clip_tiers=clip_tiers)
-
-            # Tally detected KO tiers for the AI prompts context block
             ko_tier_counts: dict[str, int] = {}
             for tier in clip_tiers.values():
                 ko_tier_counts[tier] = ko_tier_counts.get(tier, 0) + 1
@@ -628,8 +627,12 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                 description_path=desc_path,
                 out_stem=slug,
             )
-            print(f"AI prompts \u2192 {prompts_path}")
 
+        logging.info("")
+        logging.info("--- Cleanup ---")
+        if dry_run:
+            logging.info("  [DRY RUN] Would move %d clips -> %s/clips/", len(batch.clips), out_dir)
+        else:
             _move_clips(batch, out_dir / "clips")
 
         total_batches += 1
@@ -637,29 +640,23 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     elapsed = time.perf_counter() - t0
     logging.info("")
     logging.info("=" * 50)
-    logging.info("Done.  %d batch(es) encoded in %.1fs", total_batches, elapsed)
+    logging.info("Done. Video processed in %.0fs.", elapsed)
     logging.info("=" * 50)
-
     print("\a", end="", flush=True)
 
-    if not dry_run:
-        # Print next-steps for the last batch processed
-        last_batch = batches_to_run[-1]
-        last_slug = _batch_slug(char_name, last_batch, len(batches))
-        last_out_dir = config.output_path / last_slug
-        video_path = last_out_dir / f"{last_slug}.mp4"
-        prompts_path = last_out_dir / f"{last_slug}_ai_prompts.txt"
+    # Next steps - shown in both real runs and dry runs
+    last_batch = batches_to_run[-1]
+    last_slug = _batch_slug(char_name, last_batch, len(batches))
+    last_out_dir = config.output_path / last_slug
 
-        logging.info("")
-        logging.info(">>> NEXT STEPS <<<")
-        logging.info("")
-        logging.info("  1. Review video:   %s", video_path)
-        logging.info("  2. Upload to YouTube (drag & drop the .mp4 above)")
-        logging.info("  3. Check timestamps in the video description:")
-        logging.info("        %s", last_out_dir / f"{last_slug}_description.txt")
-        logging.info("  4. Get title and description from AI prompts:")
-        logging.info("        %s", prompts_path)
-        logging.info("")
-    else:
-        logging.info("")
-        logging.info("  Output would be: %s", config.output_path)
+    logging.info("")
+    logging.info(">>> NEXT STEPS <<<")
+    logging.info("")
+    logging.info("  1. Review video:")
+    logging.info("        %s", last_out_dir / f"{last_slug}.mp4")
+    logging.info("  2. Upload to YouTube (drag & drop the .mp4 above)")
+    logging.info("  3. Check timestamps in the description:")
+    logging.info("        %s", last_out_dir / f"{last_slug}_description.txt")
+    logging.info("  4. Get title and description from AI prompts:")
+    logging.info("        %s", last_out_dir / f"{last_slug}_ai_prompts.txt")
+    logging.info("")
