@@ -71,10 +71,9 @@ def scan_folder(folder: Path, ffprobe: Path, workers: int = 8, protect_recent: i
         protected = paths[-protect_recent:]
         paths = paths[:-protect_recent]
         logging.info(
-            "Found %d video file(s), protecting %d most recent: %s",
+            "Found %d video file(s), protecting %d most recent.",
             len(paths) + len(protected),
             len(protected),
-            ", ".join(p.name for p in protected),
         )
         if not paths:
             logging.info("All clips are protected - nothing to process.")
