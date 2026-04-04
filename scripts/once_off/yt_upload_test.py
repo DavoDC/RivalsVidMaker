@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # ---- find credentials.json ----
 # Google downloads credentials as client_secret_<id>.apps.googleusercontent.com.json
 # Accept that name too so no manual rename is needed.
-TOKEN_PATH = REPO_ROOT / "token.json"
+TOKEN_PATH = REPO_ROOT / "config" / "token.json"
 
 
 def _credentials_candidates():
