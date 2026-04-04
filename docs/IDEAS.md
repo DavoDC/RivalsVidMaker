@@ -4,28 +4,7 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. Auto-generate title + description via Claude API** *(local automation - do before E2E test)*
-
-Currently `ai_prompt.py` generates prompts for the user to paste into Claude manually. Goal: call the Claude API automatically after compile and write the title + one-liner directly into the description.txt - zero manual steps.
-
-**What exists:**
-- `ai_prompt.py` builds context (char, date range, kill counts) and prompt templates - keep this, reuse the context
-- `description_writer.py` writes description.txt with timestamps - title/one-liner currently left as placeholders
-
-**Implementation plan:**
-- Add `src/title_writer.py` - calls Claude API with the context block already built by `ai_prompt.py`
-- Returns title (single best option) + one-liner description
-- `description_writer.py` writes these into the description.txt header instead of placeholders
-- API key stored in `config/config.json` as `"claude_api_key"` (gitignored)
-- Fallback: if no API key configured, leave placeholders and print instructions as before
-
-**API approach:** single call, structured output. Prompt: combined title + description (Prompt 3 from `ai_prompt.py` is already the right shape). Parse response for `Title:` and `Description:` lines.
-
-See `docs/YOUTUBE_TITLE_AND_DESC.md` for format constraints and confirmed-good examples.
-
----
-
-**2. End-to-end test with Thor** *(main near-term goal - requires item 1)*
+**1. End-to-end test with Thor** *(main near-term goal)*
 
 31 clips ready, all KO-cached.
 

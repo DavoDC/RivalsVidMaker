@@ -71,12 +71,15 @@ def write_ai_prompts(
     desc_filename = description_path.name if description_path else f"{out_stem}_description.txt"
 
     lines: list[str] = []
-    lines.append(f"# AI Prompts — {out_stem}\n\n")
+    lines.append(f"# AI Prompts - {out_stem}\n\n")
     lines.append(
-        "Paste one of these prompts into Claude or ChatGPT to generate "
-        "the YouTube title and description.\n\n"
+        f"> **PASTE INTO FREE AI (ChatGPT / Grok) AND REPLACE TITLE + DESCRIPTION IN "
+        f"`{desc_filename}`**\n\n"
     )
-    lines.append(f"Description file for reference: `{desc_filename}`\n\n")
+    lines.append(
+        "Use Prompt 3 (combined). Copy the block, paste into ChatGPT or Grok, "
+        "then copy the Title and Description lines back into your description file.\n\n"
+    )
     lines.append("---\n\n")
 
     # ── Context block ────────────────────────────────────────────────────────
