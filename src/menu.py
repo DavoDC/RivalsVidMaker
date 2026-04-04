@@ -64,7 +64,7 @@ def pick_action(
         level1_choices = _build_level1_choices(char_folders, summaries, output_rows, state,
                                                target_batch_seconds)
         answer = questionary.select(
-            "Which folder do you want to work on?",
+            "What would you like to do?",
             choices=level1_choices,
         ).ask()
 
@@ -100,25 +100,20 @@ def _build_level1_choices(char_folders, summaries, output_rows, state, target_ba
         elif dur > 0:
             too_short.append(folder.name)
 
-    if ready and too_short:
-        h_summary = f"{', '.join(ready)} ready, {len(too_short)} too short"
-    elif ready:
-        h_summary = f"{', '.join(ready)} ready"
+    if ready:
+        h_detail = f"{', '.join(ready)} ready"
     elif too_short:
-        h_summary = f"{len(too_short)} too short"
+        h_detail = "no characters ready yet"
     else:
-        h_summary = "no clips"
+        h_detail = "no clips"
 
     # Output summary
-    if output_rows:
-        o_summary = f"{len(output_rows)} folder(s)"
-    else:
-        o_summary = "empty"
+    o_detail = f"{len(output_rows)} folder(s) waiting" if output_rows else "nothing to clean up"
 
     return [
-        questionary.Choice(_folder1_label("Highlights", h_summary), value="highlights"),
-        questionary.Choice(_folder1_label("Output", o_summary), value="output"),
-        questionary.Choice("Archive", value="archive"),
+        questionary.Choice(f"Compile a new highlights video  ({h_detail})", value="highlights"),
+        questionary.Choice(f"Clean up a completed output folder  ({o_detail})", value="output"),
+        questionary.Choice("Browse the archive", value="archive"),
         questionary.Choice("Quit", value="quit"),
     ]
 
