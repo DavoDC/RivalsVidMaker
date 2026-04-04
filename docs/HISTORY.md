@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Duplicate clip detection / dedup before compile (2026-04-04)
+
+`src/dedup.py` - perceptual-hash (pHash via `imagehash`) duplicate detection. Extracts 5 evenly-spaced frames per clip via ffmpeg, computes a DCT hash for each, compares all pairs by average Hamming distance. Pairs with distance < 10 bits are flagged as probable duplicates. Runs automatically before every encode in `pipeline.py`. Prints a warning table listing suspected duplicate pairs and prompts the user to cancel or proceed - never silently drops clips. 20 unit tests in `tests/test_dedup.py`.
+
+---
+
 ### YouTube API - Phase 1 feasibility probe (2026-04-04)
 
 `scripts/once_off/yt_upload_test.py` confirmed working end-to-end. OAuth via `davo29rhino@gmail.com`, `youtube.upload` scope, `OAUTHLIB_RELAX_TOKEN_SCOPE=1` needed to handle scope mismatch when user grants narrower scope than requested. Private video uploaded and appeared on channel `@dave369_`. `token.json` gitignored at repo root. Phase 2 (pipeline integration) is next in IDEAS.md.
