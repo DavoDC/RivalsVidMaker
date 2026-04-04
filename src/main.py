@@ -90,7 +90,6 @@ def main() -> None:
             logging.info("Interrupted.")
             sys.exit(0)
 
-    logging.info(f"Log saved to: {log_file}")
 
 
 def _run_cleanup_mode(config, dry_run: bool = False) -> None:
@@ -108,7 +107,7 @@ def _run_cleanup_mode(config, dry_run: bool = False) -> None:
     for i, row in enumerate(output_rows, 1):
         yt = "YT" if is_youtube_confirmed(state, row["name"]) else "--"
         clips = "C" if row["has_clips"] else "-"
-        print(f"  [{i}] {row['name']}  [clips:{clips}  yt:{yt}]")
+        print(f"[{i}] {row['name']}  [clips:{clips}  yt:{yt}]")
     print()
 
     while True:
@@ -121,7 +120,7 @@ def _run_cleanup_mode(config, dry_run: bool = False) -> None:
                 break
         except (ValueError, EOFError):
             pass
-        print(f"  Invalid - enter a number between 1 and {len(output_rows)}, or Q.")
+        print(f"Invalid - enter a number between 1 and {len(output_rows)}, or Q.")
 
     selected = output_rows[choice - 1]
     out_folder = config.output_path / selected["name"]

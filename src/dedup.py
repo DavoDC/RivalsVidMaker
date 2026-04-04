@@ -130,6 +130,7 @@ def find_duplicates(
         result = fingerprint_clip(clip, ffmpeg, n_frames, tmp_dir=base)
         return clip, result
 
+    print(f"\rFingerprinting 0/{total}...", end="", flush=True)
     with ThreadPoolExecutor() as pool:
         futures = {pool.submit(_fingerprint_one, clip): clip for clip in clips}
         for future in as_completed(futures):
@@ -142,7 +143,7 @@ def find_duplicates(
                 logging.warning("Dedup: could not fingerprint %s: %s", clip.name, e)
                 fingerprints[clip.path] = []
             with _print_lock:
-                print(f"\r  Fingerprinting {done_count}/{total}...", end="", flush=True)
+                print(f"\rFingerprinting {done_count}/{total}...", end="", flush=True)
     print()  # end the progress line
 
     # base dir (now empty - per-clip subdirs cleaned up by fingerprint_clip) can go
@@ -187,14 +188,14 @@ def print_dup_table(pairs: list[tuple[Clip, Clip, float]]) -> None:
     dist_w = max(len("Avg dist"), 8)
 
     def row(a: str, b: str, d: str) -> str:
-        return f"  {a:<{name_w}}  {b:<{name_w}}  {d:>{dist_w}}"
+        return f"{a:<{name_w}}  {b:<{name_w}}  {d:>{dist_w}}"
 
     header = row("Clip A", "Clip B", "Avg dist")
-    sep = "  " + "-" * (name_w) + "  " + "-" * (name_w) + "  " + "-" * dist_w
+    sep = "-" * (name_w) + "  " + "-" * (name_w) + "  " + "-" * dist_w
     print(header)
     print(sep)
     for clip_a, clip_b, dist in pairs:
         print(row(clip_a.name, clip_b.name, f"{dist:.1f}"))
     print()
-    print("  Clips above are likely duplicates. Remove the copy before continuing.")
+    print("Clips above are likely duplicates. Remove the copy before continuing.")
     print()
