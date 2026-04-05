@@ -6,39 +6,31 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. Thor Batch1 remaining steps** *(in progress)*
-
-Thor Batch1 compiled and described. Remaining steps: upload to YouTube, confirm live, run cleanup (archive Quad+ to ClipArchive, delete rest).
-
-Note: KO/NONE compile-time filter is now implemented (see HISTORY.md 2026-04-05). End-to-end test item is resolved.
-
----
-
-**2. Fingerprint/duration caching** *(key for performance)*
+**1. Fingerprint/duration caching** *(key for performance)*
 
 Every run re-fingerprints all clips for dedup checking from scratch. Add per-clip caching for fingerprint and duration. Two design options to evaluate: (a) separate folder alongside `.ko.json`, or (b) a single generic cache file per clip containing everything we know about it (fingerprint, duration, KO result, etc.). Option (b) may be better long-term - needs design before implementing. Cache key: path + mtime + size. Skip unchanged clips on re-run. Biggest win for large character folders (56+ clips).
 
 ---
 
-**3. Preprocess: top-level menu, all cacheable work** *(quick win)*
+**2. Preprocess: top-level menu, all cacheable work** *(quick win)*
 
-Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 2). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
+Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 1). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
 
 ---
 
-**4. Estimate accuracy: full pipeline**
+**3. Estimate accuracy: full pipeline**
 
 Thor Batch1 example: estimated 6m10s, actual 2m50s. The current estimate only accounts for encode time (`total_dur * 0.4`, tuned for CPU). NVENC (GPU) encodes at ~0.10-0.15x real-time - but that's only part of the issue. The estimate should cover the entire pipeline: KO scanning, fingerprinting, encoding. Needs investigation to understand what each stage actually costs and how to model it. Fix: once per-stage costs are understood, build a composite estimate.
 
 ---
 
-**5. Timestamps format**
+**4. Timestamps format**
 
 The current format `0:34 - 0:40 = Quad Kill` is fine and not changing. The open question is whether to include an explicit `Format: ...` header line inside the YouTube description .txt file. Not sure if that adds value - needs a decision before touching `description_writer._timestamps`.
 
 ---
 
-**6. Description: Marvel voicelines / character phrases**
+**5. Description: Marvel voicelines / character phrases**
 
 Current description prompt asks for a generic one-liner. Goal: character-specific Marvel comic quotes and in-game voicelines woven in. Approach: update the AI prompt to instruct it to find and use character-appropriate voicelines (AI can web search etc). No manual config JSON needed - that was over-engineering. Once prompt is updated, this item is done.
 
