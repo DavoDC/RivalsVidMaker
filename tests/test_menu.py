@@ -132,11 +132,26 @@ class TestPickAction:
         output_path.mkdir()
 
         with patch("menu.questionary.select") as mock_select:
-            mock_select.return_value.ask.side_effect = ["output", "thor_vid1"]
+            # Level 1: output, Level 2: folder, Level 3: action
+            mock_select.return_value.ask.side_effect = ["output", "thor_vid1", "cleanup"]
             result = pick_action(char_folders, [], output_rows, {}, target_batch_seconds=900,
                                  output_path=output_path)
 
         assert result["type"] == "cleanup"
+        assert result["folder"].name == "thor_vid1"
+
+    def test_output_then_folder_returns_uncompile(self, tmp_path):
+        char_folders = []
+        output_rows = [{"name": "thor_vid1", "age": "1w", "has_clips": True}]
+        output_path = tmp_path / "Output"
+        output_path.mkdir()
+
+        with patch("menu.questionary.select") as mock_select:
+            mock_select.return_value.ask.side_effect = ["output", "thor_vid1", "uncompile"]
+            result = pick_action(char_folders, [], output_rows, {}, target_batch_seconds=900,
+                                 output_path=output_path)
+
+        assert result["type"] == "uncompile"
         assert result["folder"].name == "thor_vid1"
 
     def test_ctrl_c_returns_quit(self, tmp_path):
