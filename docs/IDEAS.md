@@ -12,23 +12,6 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority (quick wins first)
 
-**0. [BUG - PARTIALLY FIXED] Fingerprinting hangs on some clips - root cause unknown** *(needs next reproduction to diagnose)*
-
-**Observed 2026-04-05:** stuck at 26/28 during a 28-clip THOR compile. Required Ctrl+C. The 2 stuck clips were not identified (no logging at the time).
-
-**2026-04-05 follow-up run (28-clip THOR compile):** NO hang. All 28 fingerprinted in 2.1s total. The 2 previously problematic clips (THOR_2026-03-22_23-20-09_TRIPLE, THOR_2026-03-22_23-23-11_TRIPLE) completed fine this time. Root cause still unknown - may have been a one-off OS/ffmpeg issue, or those clips had a transient problem that resolved. Mitigations remain in place.
-
-**Root cause:** unknown. Candidates: clip with unusual encoding that sends ffmpeg into a decode loop; partially corrupted/truncated video file; codec issue on specific clips.
-
-**Mitigations applied (2026-04-05):**
-- Added `timeout=60` to `subprocess.run()` in `_extract_frames` (dedup.py) - hung threads now fail after 60s instead of blocking forever
-- Changed ffmpeg `-loglevel quiet` to `warning` and capture stderr - on timeout or error, ffmpeg's own output is written to the log at WARNING level
-- Added Python debug log lines `"ffmpeg start <clip>"` and `"ffmpeg done <clip>"` - the log will show which clips started but never finished
-
-**To diagnose next occurrence:** check the run log for `ffmpeg start` lines with no matching `ffmpeg done`, then look for the WARNING lines below them showing ffmpeg's stderr output. That should reveal the codec/container issue on the specific clip(s).
-
----
-
 ## Lower priority / future
 
 *(ordered by size - smaller first)*

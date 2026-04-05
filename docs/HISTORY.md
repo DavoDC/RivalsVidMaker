@@ -7,6 +7,19 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Fingerprint hang: mitigated + resolved (2026-04-05)
+
+Fingerprinting hung at 26/28 during a THOR compile (Ctrl+C required). Root cause never identified. Mitigations applied:
+- `timeout=60` in `subprocess.run()` in `_extract_frames` (dedup.py) - hung threads fail after 60s instead of blocking forever
+- ffmpeg `-loglevel warning` + stderr capture - on timeout/error, ffmpeg output written to log at WARNING level
+- `"ffmpeg start <clip>"` / `"ffmpeg done <clip>"` debug log lines - identifies which clip hung
+
+Follow-up run (same 28 clips): NO hang. The 2 previously problematic clips (THOR_2026-03-22_23-20-09_TRIPLE, THOR_2026-03-22_23-23-11_TRIPLE) completed fine. Likely a one-off OS/ffmpeg issue. Mitigations remain in place as a safety net.
+
+**To diagnose if it recurs:** check run log for `ffmpeg start` with no matching `ffmpeg done`, then look at WARNING lines below for ffmpeg's stderr.
+
+---
+
 ### First full e2e run: THOR_Mar_2026_BATCH1 (2026-04-05)
 
 28 clips, 15m 02s. All three pipeline stages verified working:
