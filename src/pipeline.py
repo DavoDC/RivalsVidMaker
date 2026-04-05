@@ -564,7 +564,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
 
         if action["type"] == "preprocess":
             logging.info("Pre-processing all clips...")
-            preprocess_all(config)
+            preprocess_all(config, dry_run=dry_run)
             # Refresh summaries and loop back to menu
             with ThreadPoolExecutor() as pool:
                 summaries = list(pool.map(
