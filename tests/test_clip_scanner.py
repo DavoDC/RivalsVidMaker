@@ -87,14 +87,16 @@ class TestScanFolder:
         assert len(clips) == 1
         assert clips[0].name == "good.mp4"
 
-    def test_supports_multiple_extensions(self, tmp_path):
-        for name in ["a.mp4", "b.mov", "c.mkv", "d.avi", "e.webm"]:
+    def test_only_mp4_supported(self, tmp_path):
+        """Only .mp4 is scanned - Marvel Rivals only saves .mp4."""
+        for name in ["a.mp4", "b.mov", "c.mkv"]:
             (tmp_path / name).touch()
 
         with patch("clip_scanner.probe_duration", return_value=10.0):
             clips = scan_folder(tmp_path, Path("ffprobe"))
 
-        assert len(clips) == 5
+        assert len(clips) == 1
+        assert clips[0].name == "a.mp4"
 
 
 class TestScanFolderProtectRecent:
