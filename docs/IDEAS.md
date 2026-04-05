@@ -6,7 +6,7 @@ Single source of truth for all pending work.
 
 ## Current Directive
 
-**Finish items 1-4 in order, minimising token usage per session.**
+**Finish items 1-4 in order, minimising token usage per session. Then do a full Thor compilation run through the entire pipeline and publish.**
 
 ---
 
