@@ -225,6 +225,19 @@ def _find_ko_none_clips(clips: list) -> list:
     return [c for c in clips if c.path.stem.endswith(("_KO", f"_{ko_detect.NULL_RESULT_SUFFIX}"))]
 
 
+def _archive_clips(clips: list, char_name: str, config) -> None:
+    """Move clips (and their .ko.json cache files) to ClipArchive/<char_name>/."""
+    dest_dir = config.archive_path / char_name
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    for clip in clips:
+        dest = dest_dir / clip.path.name
+        shutil.move(str(clip.path), str(dest))
+        logging.info("  Archived: %s -> %s", clip.path.name, dest_dir)
+        cache_file = Path(ko_detect.cache_path(str(clip.path)))
+        if cache_file.exists():
+            shutil.move(str(cache_file), str(dest_dir / cache_file.name))
+
+
 def _write_manifest(out_dir: Path, slug: str, char_name: str, batch, clip_tiers: dict) -> None:
     """Write clips.json to out_dir - authoritative record of what was compiled.
 
@@ -575,6 +588,13 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                           state_path=config.state_path)
             return
 
+    # --- Step 6: process selected character ---
+    char_name = char_path.name
+    logging.info("=" * 50)
+    logging.info("Character: %s", char_name)
+    logging.info("=" * 50)
+    logging.info("")
+
     # Scan and batch before showing the estimate so it reflects batch 1 only
     clips = scan_folder(char_path, config.ffprobe, protect_recent=0)
     if not clips:
@@ -588,32 +608,45 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     if low_tier:
         logging.info("⚠️  %d low-value clip(s) detected - review each:", len(low_tier))
         to_remove = []
+        to_archive = []
+        to_delete = []
         for clip in low_tier:
             logging.info("")
             logging.info("  📹 %s", clip.name)
             logging.info("  Path: %s", clip.path)
-            raw = input("  Include in batch? [y/N]: ").strip().lower()
-            if raw not in ("y", "yes"):
+            raw = input("  [y] include  [a] archive to ClipArchive  [d] delete: ").strip().lower()
+            if raw in ("y", "yes"):
+                logging.info("  -> Included in compilation.")
+            elif raw in ("a", "archive"):
+                to_archive.append(clip)
                 to_remove.append(clip)
+                logging.info("  -> Will be archived to ClipArchive.")
+            else:
+                to_delete.append(clip)
+                to_remove.append(clip)
+                logging.info("  -> Will be deleted.")
+        logging.info("")
+        if to_archive:
+            _archive_clips(to_archive, char_name, config)
+        if to_delete:
+            for clip in to_delete:
+                clip.path.unlink(missing_ok=True)
+                logging.info("Deleted: %s", clip.name)
         if to_remove:
             keep = [c for c in batches[0].clips if c not in to_remove]
             batches[0].clips = keep
-            logging.info("✅ Removed %d clip(s). Batch now has %d clip(s).", len(to_remove), len(keep))
             if not batches[0].clips:
                 logging.info("No clips remaining after reviewing low-value clips. Nothing to compile.")
                 return
+        logging.info("Batch now has %d clip(s).", len(batches[0].clips))
 
-    # --- Step 6: process selected character ---
-    char_name = char_path.name
-    logging.info("=" * 50)
-    logging.info("Character: %s", char_name)
-    logging.info("=" * 50)
-
-    logging.info("Video: %d clip(s), %s", len(batches[0].clips), batches[0].duration_str)
+    logging.info("")
+    logging.info("Video:    %d clip(s), %s", len(batches[0].clips), batches[0].duration_str)
     if len(batches) > 1:
         leftover_clips = sum(len(b.clips) for b in batches[1:])
         leftover_dur = sum(c.duration for b in batches[1:] for c in b.clips)
         logging.info("Leftover: %d clip(s), %s", leftover_clips, _fmt_duration(leftover_dur))
+    logging.info("")
 
     # Estimate and short-clip warning based on batch 1 only
     try:
