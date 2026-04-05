@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Full e2e pipeline verified end-to-end (2026-04-05)
+
+Complete cycle confirmed working: preprocess - compile - describe - upload - cleanup. THOR_Mar_2026_BATCH1 (28 clips, 15m). Cleanup: 4 Quad+ clips archived to ClipArchive/THOR/, 24 Triples/Doubles sent to Recycle Bin, compiled video (1.87 GB) recycled. Only known issues: `clips.json` + empty folder left after cleanup (quick win fix in IDEAS.md), minor indentation inconsistency in cleanup output.
+
+---
+
 ### Published: THOR RAGNAROK Back-to-Back Multikills (Mar-Apr 2026) (2026-04-05)
 
 https://youtu.be/7mqGkOiSX2E

@@ -35,6 +35,18 @@ Four changes to the prompts written to `_description.txt`:
 
 ---
 
+**Cleanup: delete clips.json and empty output folder** *(tiny - quick win)*
+
+After cleanup completes, `clips.json` and the now-empty output folder are left on disk. Both should be deleted (sent to Recycle Bin) as the final step of cleanup. The folder can only be removed after all files inside are gone, so delete `clips.json` first, then `os.rmdir` the folder.
+
+---
+
+**Cleanup: fix indentation in output** *(tiny - quick win)*
+
+Cleanup output has inconsistent indentation (e.g. the "4 Quad+ clip(s) to archive" list and "24 remaining clip(s) to delete" list). Audit all `print` calls in the cleanup path and align consistently - likely just leading spaces vs no spaces.
+
+---
+
 **Remove all estimation logic and printing** *(small - quick win)*
 
 Stream-copy mux is so fast (19s for 15m) that estimates are pointless. Remove `_estimate_seconds`, all related constants, and the "Estimated processing time: ~Xm Xs" prompt/print. Replace with a plain "Make this video? [y/N]" confirm with no estimate. Also remove the estimated time from the summary line ("Video processed in 19s (estimated: ~1m 33s)" -> "Video processed in 19s").
