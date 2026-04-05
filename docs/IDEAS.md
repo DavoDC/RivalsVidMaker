@@ -4,11 +4,11 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. End-to-end test** *(main near-term goal)*
+**1. End-to-end test** *(in progress - Thor)*
 
-**Dr Strange (first):** Easier/faster test run. Make a backup of Dr Strange vids before starting so the run can be reversed. Run vids through pipeline from root folder to char folder.
+**Dr Strange:** DONE (2026-04-05).
 
-**Thor (final test):** 56 clips ready (48/56 KO-cached). Batch 1 = oldest ~15 min of clips, sorted chronologically. Run once happy with Strange.
+**Thor (in progress):** 56 clips ready (48/56 KO-cached). Batch 1 = oldest ~15 min of clips, sorted chronologically.
 
 **Steps:** sort -> scan -> clip rename -> compile -> describe (with auto-generated title + description). YouTube upload is a separate session (see lower priority section).
 
