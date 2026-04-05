@@ -285,7 +285,7 @@ def run_uncompile(
         char_name = clip_files[0].stem.split("_")[0]
     highlights_char = clips_path / char_name
 
-    print(f"\nUncompile: {output_folder.name}")
+    print(f"\n🔄 Uncompile: {output_folder.name}")
     print("=" * 56)
     print(f"Restoring {len(clip_files)} clip(s) -> Highlights/{char_name}/")
     for p in clip_files:
@@ -294,7 +294,7 @@ def run_uncompile(
     mp4s = list(output_folder.glob("*.mp4"))
     if mp4s:
         sizes = ", ".join(_fmt_size(p) for p in mp4s)
-        print(f"\nCompiled video will be deleted: {', '.join(p.name for p in mp4s)}  ({sizes})")
+        print(f"\n🗑️  Compiled video will be deleted: {', '.join(p.name for p in mp4s)}  ({sizes})")
 
     raw = input("\nRestore clips and delete this output folder? [y/N]: ").strip().lower()
     if raw not in ("y", "yes"):
@@ -319,7 +319,7 @@ def run_uncompile(
             logging.error("Failed to restore %s: %s", p.name, e)
             print(f"  [error] {p.name}: {e}")
 
-    print(f"{restored}/{len(clip_files)} clip(s) restored to Highlights/{char_name}/.")
+    print(f"✅ {restored}/{len(clip_files)} clip(s) restored to Highlights/{char_name}/")
 
     # Delete compiled video(s)
     for mp4 in mp4s:
@@ -357,5 +357,5 @@ def run_uncompile(
             save_state(state, state_path)
             logging.info("Cleared YouTube-confirmed status for '%s'.", folder_name)
 
-    print("\n  Uncompile complete.")
+    print("\n🎬 Uncompile complete. Re-run to compile a clean batch!")
     print()

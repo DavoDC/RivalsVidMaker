@@ -225,6 +225,30 @@ def _find_ko_none_clips(clips: list) -> list:
     return [c for c in clips if c.path.stem.endswith(("_KO", "_NONE"))]
 
 
+def _write_manifest(out_dir: Path, slug: str, char_name: str, batch, clip_tiers: dict) -> None:
+    """Write clips.json to out_dir - authoritative record of what was compiled.
+
+    Used by run_uncompile() to restore clips even if the clips/ dir is incomplete.
+    """
+    import json as _json
+    from datetime import datetime as _dt
+
+    manifest = {
+        "slug": slug,
+        "char": char_name,
+        "compiled_at": _dt.now().isoformat(timespec="seconds"),
+        "clips": [
+            {"name": c.name, "tier": clip_tiers.get(c.name)}
+            for c in batch.clips
+        ],
+    }
+    manifest_path = out_dir / "clips.json"
+    tmp = manifest_path.with_suffix(".tmp")
+    tmp.write_text(_json.dumps(manifest, indent=2))
+    tmp.replace(manifest_path)
+    logging.debug("Manifest written: %s (%d clips)", manifest_path.name, len(batch.clips))
+
+
 def _batch_slug(char_name: str, batch) -> str:
     """Build the output folder/file stem: CHAR_MMM[-MMM]_YYYY_BATCH{n}."""
     pat = re.compile(r'_(\d{4})-(\d{2})-(\d{2})_')
@@ -565,12 +589,12 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         names_str = ", ".join(c.name for c in low_tier)
         logging.info("KO/NONE-tier clips in batch: %s", names_str)
         raw = input(
-            f"{len(low_tier)} clip(s) are KO/NONE-tier (low value). Remove from batch? [y/N]: "
+            f"⚠️  {len(low_tier)} clip(s) are KO/NONE-tier (low value). Remove from batch? [y/N]: "
         ).strip().lower()
         if raw in ("y", "yes"):
             keep = [c for c in batches[0].clips if c not in low_tier]
             batches[0].clips = keep
-            logging.info("Removed %d clip(s). Batch now has %d clip(s).", len(low_tier), len(keep))
+            logging.info("✅ Removed %d clip(s). Batch now has %d clip(s).", len(low_tier), len(keep))
             if not batches[0].clips:
                 logging.info("No clips remaining after removing KO/NONE clips. Nothing to compile.")
                 return
@@ -673,6 +697,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
             logging.info("[DRY RUN] Would move %d clips -> %s/clips/", len(batch.clips), out_dir)
         else:
             _move_clips(batch, out_dir / "clips")
+            _write_manifest(out_dir, slug, char_name, batch, clip_tiers)
 
         total_batches += 1
 
