@@ -226,8 +226,8 @@ def _fmt_estimate(seconds: float) -> str:
     return f"~{m}m {sec:02d}s" if m else f"~{sec}s"
 
 
-def _batch_slug(char_name: str, batch, total_batches: int) -> str:
-    """Build the output folder/file stem: CHAR_MMM[-MMM]_YYYY[_BATCH{n}]."""
+def _batch_slug(char_name: str, batch) -> str:
+    """Build the output folder/file stem: CHAR_MMM[-MMM]_YYYY_BATCH{n}."""
     pat = re.compile(r'_(\d{4})-(\d{2})-(\d{2})_')
     dates = []
     for clip in batch.clips:
@@ -246,9 +246,7 @@ def _batch_slug(char_name: str, batch, total_batches: int) -> str:
             date_part = f"{lo_str}-{_MONTH[hi.month - 1]}_{hi.year}"
     else:
         date_part = "UNKNOWN"
-    slug = f"{char_name}_{date_part}"
-    if total_batches > 1:
-        slug += f"_BATCH{batch.number}"
+    slug = f"{char_name}_{date_part}_BATCH{batch.number}"
     return slug
 
 
@@ -617,7 +615,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         highlights, clip_tiers = _collect_highlights(batch, config)
         logging.debug("KO scan took %.1fs", time.perf_counter() - t_ko)
 
-        slug = _batch_slug(char_name, batch, len(batches))
+        slug = _batch_slug(char_name, batch)
         out_dir = config.output_path / slug
 
         logging.info("")
@@ -669,7 +667,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
 
     # Next steps - shown in both real runs and dry runs
     last_batch = batches_to_run[-1]
-    last_slug = _batch_slug(char_name, last_batch, len(batches))
+    last_slug = _batch_slug(char_name, last_batch)
     last_out_dir = config.output_path / last_slug
 
     if not dry_run and last_out_dir.exists():

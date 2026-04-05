@@ -222,35 +222,35 @@ class TestBatchSlug:
             "THOR_2026-02-06_22-38-56.mp4",
             "THOR_2026-02-20_18-00-00.mp4",
         ])
-        slug = _batch_slug("THOR", batch, total_batches=1)
-        assert slug == "THOR_Feb_2026"
+        slug = _batch_slug("THOR", batch)
+        assert slug == "THOR_Feb_2026_BATCH1"
 
     def test_multi_month(self):
         batch = make_batch_with_names([
             "THOR_2026-02-06_22-38-56.mp4",
             "THOR_2026-03-15_18-00-00.mp4",
         ])
-        slug = _batch_slug("THOR", batch, total_batches=1)
-        assert slug == "THOR_Feb-Mar_2026"
+        slug = _batch_slug("THOR", batch)
+        assert slug == "THOR_Feb-Mar_2026_BATCH1"
 
-    def test_batch_suffix_when_multiple_batches(self):
+    def test_batch_number_in_slug(self):
         batch = make_batch_with_names(["THOR_2026-02-06_22-38-56.mp4"], number=2)
-        slug = _batch_slug("THOR", batch, total_batches=3)
+        slug = _batch_slug("THOR", batch)
         assert slug.endswith("_BATCH2")
 
-    def test_no_batch_suffix_when_single_batch(self):
+    def test_single_batch_always_gets_suffix(self):
         batch = make_batch_with_names(["THOR_2026-02-06_22-38-56.mp4"], number=1)
-        slug = _batch_slug("THOR", batch, total_batches=1)
-        assert "_BATCH" not in slug
+        slug = _batch_slug("THOR", batch)
+        assert slug.endswith("_BATCH1")
 
     def test_unknown_date_when_no_parseable_names(self):
         batch = make_batch_with_names(["random.mp4"])
-        slug = _batch_slug("THOR", batch, total_batches=1)
+        slug = _batch_slug("THOR", batch)
         assert "UNKNOWN" in slug
 
     def test_char_name_in_slug(self):
         batch = make_batch_with_names(["SQUIRREL_GIRL_2026-03-01_10-00-00.mp4"])
-        slug = _batch_slug("SQUIRREL_GIRL", batch, total_batches=1)
+        slug = _batch_slug("SQUIRREL_GIRL", batch)
         assert slug.startswith("SQUIRREL_GIRL_")
 
 
