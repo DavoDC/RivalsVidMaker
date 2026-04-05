@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Compile-time KO/NONE filter guard (2026-04-05)
+
+Before encoding, `pipeline.py` now checks `batches[0].clips` for any clip with a `_KO` or `_NONE` filename suffix. If found, prompts: "X clip(s) are KO/NONE-tier (low value). Remove from batch? [y/N]". If Y, drops them and rechecks batch length (aborts cleanly if nothing remains). Guard covers the case where preprocess was skipped. 8 unit tests in `test_pipeline_helpers.py`.
+
+---
+
 ### Multi-run batch correctness audit + fixes (2026-04-05)
 
 Full audit of correctness across repeated pipeline runs. 4 issues found and fixed:

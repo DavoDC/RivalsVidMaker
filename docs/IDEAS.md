@@ -6,17 +6,11 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. End-to-end test + KO/NONE compile-time filter** *(in progress)*
+**1. Thor Batch1 remaining steps** *(in progress)*
 
-These two items are likely the same problem viewed differently - merged for investigation.
+Thor Batch1 compiled and described. Remaining steps: upload to YouTube, confirm live, run cleanup (archive Quad+ to ClipArchive, delete rest).
 
-Thor (in progress): 56 clips ready (48/56 KO-cached). Batch1 compiled and described. Thor Batch1 included `THOR_2026-03-17_22-20-29_NONE_KO.mp4` and `THOR_2026-03-22_23-19-10_KO.mp4` - they slipped through because preprocess prompts user to delete KO/NONE clips, but if user skips preprocess there is no compile-time guard.
-
-Fix design: before encoding, warn if the batch contains any clip with a `_KO` or `_NONE` suffix and prompt: "X clip(s) are KO/NONE-tier (low value). Remove from batch? [y/N]". If Y, drop them and recheck batch length. If N, proceed.
-
-**Approach:** investigate whether the compile-time filter fully covers the end-to-end test case. If yes, implement and proceed with remaining steps (upload to YouTube, confirm live, run cleanup). If the investigation reveals they are distinct, revert the merge and restore as separate items.
-
-Remaining upload steps: upload to YouTube, confirm live, run cleanup (archive Quad+ to ClipArchive, delete rest).
+Note: KO/NONE compile-time filter is now implemented (see HISTORY.md 2026-04-05). End-to-end test item is resolved.
 
 ---
 
