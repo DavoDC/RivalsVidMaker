@@ -125,7 +125,6 @@ def write_description(
 
     if highlights:
         lines.append("=== TIMESTAMPS ===\n")
-        lines.append("Format: <streak start> - <max kill time> = Kill tier\n")
         for start_ts, max_ts, tier, _ in highlights:
             lines.append(f"{fmt_ts(start_ts)} - {fmt_ts(max_ts)} = {tier.capitalize()} Kill\n")
         lines.append("\n")
