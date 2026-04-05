@@ -100,7 +100,7 @@ def _collect_highlights(
             continue
         tier = result["tier"]
         stem = clip.path.stem
-        if any(stem.endswith(f"_{t}") for t in _tier_set):
+        if any(stem.endswith(f"_{t}") for t in _tier_set) or stem.endswith(f"_{ko_detect.NULL_RESULT_SUFFIX}"):
             continue  # already renamed
         old_path = clip.path
         new_path = old_path.with_stem(f"{stem}_{tier}")
@@ -586,17 +586,21 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     # Compile-time KO/NONE guard: warn before encoding if low-value clips slipped through
     low_tier = _find_ko_none_clips(batches[0].clips)
     if low_tier:
-        names_str = ", ".join(c.name for c in low_tier)
-        logging.info("KO/NONE-tier clips in batch: %s", names_str)
-        raw = input(
-            f"⚠️  {len(low_tier)} clip(s) are KO/NONE-tier (low value). Remove from batch? [y/N]: "
-        ).strip().lower()
-        if raw in ("y", "yes"):
-            keep = [c for c in batches[0].clips if c not in low_tier]
+        logging.info("⚠️  %d low-value clip(s) detected - review each:", len(low_tier))
+        to_remove = []
+        for clip in low_tier:
+            logging.info("")
+            logging.info("  📹 %s", clip.name)
+            logging.info("  Path: %s", clip.path)
+            raw = input("  Include in batch? [y/N]: ").strip().lower()
+            if raw not in ("y", "yes"):
+                to_remove.append(clip)
+        if to_remove:
+            keep = [c for c in batches[0].clips if c not in to_remove]
             batches[0].clips = keep
-            logging.info("✅ Removed %d clip(s). Batch now has %d clip(s).", len(low_tier), len(keep))
+            logging.info("✅ Removed %d clip(s). Batch now has %d clip(s).", len(to_remove), len(keep))
             if not batches[0].clips:
-                logging.info("No clips remaining after removing KO/NONE clips. Nothing to compile.")
+                logging.info("No clips remaining after reviewing low-value clips. Nothing to compile.")
                 return
 
     # --- Step 6: process selected character ---
