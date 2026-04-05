@@ -87,7 +87,7 @@ CROP_Y2 = 0.62
 
 TIERS              = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
 TIER_RANK          = {t: i for i, t in enumerate(TIERS)}
-NULL_RESULT_SUFFIX = "NONE"   # appended to clips that were scanned and had no KO
+NULL_RESULT_SUFFIX = "UNKNOWN"  # appended to clips that were scanned but tier could not be determined
 
 # Only tiers at this rank or above appear in the YouTube description output
 REPORT_MIN_TIER = "QUAD"
