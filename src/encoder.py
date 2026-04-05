@@ -51,6 +51,10 @@ def encode(
         print(f"[WARNING] Output already exists: {out_path}. Use --force to re-encode.")
         return out_path
 
+    # Remove any partial file left by a previously interrupted encode so it
+    # cannot be mistaken for a completed output on the next run.
+    out_path.unlink(missing_ok=True)
+
     # Write the ffmpeg concat list to a temp file
     with tempfile.NamedTemporaryFile(
         mode="w", suffix="_concat.txt", delete=False, encoding="utf-8"
