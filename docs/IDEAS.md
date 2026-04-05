@@ -6,9 +6,7 @@ Single source of truth for all pending work.
 
 ## Current Directive
 
-**THOR RAGNAROK Back-to-Back Multikills (Mar-Apr 2026) published 2026-04-05: https://youtu.be/7mqGkOiSX2E**
-
-Timestamps and AI prompts worked well (Grok > ChatGPT). Next stage: output processing/cleanup (strip angled brackets is the first quick win - see below).
+Full e2e pipeline verified (2026-04-05). Next: work through quick wins below.
 
 ---
 
