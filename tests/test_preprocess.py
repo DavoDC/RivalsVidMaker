@@ -203,3 +203,38 @@ class TestPreprocessAll:
 
         assert result["THOR"] == 2
         assert mock_ko.scan_clip.call_count == 1  # only the uncached clip
+
+
+class TestPreprocessDryRun:
+
+    def test_dry_run_does_not_rename_clip(self, tmp_path):
+        char_dir = tmp_path / "THOR"
+        char_dir.mkdir()
+        clip = _make_clip(char_dir, "THOR_2026-02-06_22-38-56.mp4")
+
+        with patch("preprocess.ko_detect") as mock_ko:
+            mock_ko.TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
+            mock_ko.cache_load.return_value = (False, None)
+            mock_ko.scan_clip.return_value = {"tier": "QUAD"}
+
+            preprocess_all(make_config(tmp_path), dry_run=True)
+
+        assert clip.exists()
+        assert not (char_dir / "THOR_2026-02-06_22-38-56_QUAD.mp4").exists()
+
+    def test_dry_run_does_not_prompt_delete(self, tmp_path):
+        char_dir = tmp_path / "THOR"
+        char_dir.mkdir()
+        _make_clip(char_dir, "THOR_2026-02-06_22-38-56.mp4")
+
+        with patch("preprocess.ko_detect") as mock_ko, \
+             patch("preprocess._prompt_delete") as mock_prompt:
+            mock_ko.TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
+            mock_ko.cache_load.return_value = (False, None)
+            mock_ko.scan_clip.return_value = {"tier": "KO"}
+
+            preprocess_all(make_config(tmp_path), dry_run=True)
+
+        mock_prompt.assert_not_called()
