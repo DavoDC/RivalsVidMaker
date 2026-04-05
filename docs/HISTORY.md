@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Fast concat: stream-copy encode (2026-04-05)
+
+Replaced NVENC/libx264 re-encode with `-c copy` stream mux. All Marvel Rivals clips are uniform H.264 1920x1080 120fps AAC - no re-encode needed. Feasibility tested: 5 clips, 2 min footage, 0.7s mux time (vs ~30-60s re-encode). A/V sync, clip boundaries, playback all clean. DTS non-monotonic warnings from ffmpeg concat are cosmetic - auto-corrected. `encoder.py` simplified: removed `check_nvenc`, NVENC/libx264 codec args, and audio re-encode args.
+
+---
+
 ### Dry run: preprocess renames/deletes gated (2026-05-04)
 
 `preprocess_all` now accepts `dry_run=False`. Renames and delete prompts are skipped (logged as `[DRY RUN] Would rename/delete`) in dry run mode. `pipeline.py` passes `dry_run` through.

@@ -12,25 +12,19 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority (quick wins first)
 
-**1. Fast concat / stream-copy encode**
-
-The pipeline does a straight ffmpeg concat with re-encode (NVENC or libx264) - no transitions, overlays, or filtering. Since all clips are H.264 1920x1080 120fps (confirmed uniform), stream copy (`-c copy`) is viable: skip re-encode entirely and mux clips directly. Potentially 10-50x faster encode. Resolution stored in `.clip.json` (item 4 - unified clip cache) can be used to verify all clips match before attempting stream copy. Audio re-encode (AAC) may still be needed if source audio codec differs.
-
----
-
-**2. Estimate: add per-stage timing logs** *(small)*
+**1. Estimate: add per-stage timing logs** *(small)*
 
 Add timing instrumentation around each pipeline stage: KO scanning, fingerprinting, encoding. Log each stage's actual elapsed time so real data accumulates over runs. Used to validate and refine the composite estimate (item 2).
 
 ---
 
-**3. Estimate: composite estimate (KO + fingerprint + encode)** *(medium)*
+**2. Estimate: composite estimate (KO + fingerprint + encode)** *(medium)*
 
 Replace the single encode-only estimate with a composite: KO scan estimate + fingerprint estimate + encode estimate = overall. Each stage modelled separately. Depends on item 1 being done first to have real per-stage timing data.
 
 ---
 
-**4. Unified clip cache (.clip.json) - fingerprint, duration, resolution** *(medium)*
+**3. Unified clip cache (.clip.json) - fingerprint, duration, resolution** *(medium)*
 
 Currently: every run re-fingerprints all clips from scratch (dedup.py), and re-probes duration via ffprobe on every startup (scan_folder + summarize_folder both call probe_duration independently).
 
