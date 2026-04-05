@@ -220,6 +220,11 @@ def _fmt_estimate(seconds: float) -> str:
     return f"~{m}m {sec:02d}s" if m else f"~{sec}s"
 
 
+def _find_ko_none_clips(clips: list) -> list:
+    """Return clips whose stem ends with _KO or _NONE (low-value tiers)."""
+    return [c for c in clips if c.path.stem.endswith(("_KO", "_NONE"))]
+
+
 def _batch_slug(char_name: str, batch) -> str:
     """Build the output folder/file stem: CHAR_MMM[-MMM]_YYYY_BATCH{n}."""
     pat = re.compile(r'_(\d{4})-(\d{2})-(\d{2})_')
@@ -547,6 +552,22 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         return
 
     batches = make_batches(clips, config.target_batch_seconds)
+
+    # Compile-time KO/NONE guard: warn before encoding if low-value clips slipped through
+    low_tier = _find_ko_none_clips(batches[0].clips)
+    if low_tier:
+        names_str = ", ".join(c.name for c in low_tier)
+        logging.info("KO/NONE-tier clips in batch: %s", names_str)
+        raw = input(
+            f"{len(low_tier)} clip(s) are KO/NONE-tier (low value). Remove from batch? [y/N]: "
+        ).strip().lower()
+        if raw in ("y", "yes"):
+            keep = [c for c in batches[0].clips if c not in low_tier]
+            batches[0].clips = keep
+            logging.info("Removed %d clip(s). Batch now has %d clip(s).", len(low_tier), len(keep))
+            if not batches[0].clips:
+                logging.info("No clips remaining after removing KO/NONE clips. Nothing to compile.")
+                return
 
     # --- Step 6: process selected character ---
     char_name = char_path.name
