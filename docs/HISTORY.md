@@ -7,6 +7,14 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Published: THOR RAGNAROK Back-to-Back Multikills (Mar-Apr 2026) (2026-04-05)
+
+https://youtu.be/7mqGkOiSX2E
+
+28 clips (4x QUAD, 15x TRIPLE, 9x DOUBLE). Title: "THOR RAGNAROK Back-to-Back Multikills (Mar-Apr 2026)". Timestamps perfect. AI prompts worked well overall - Grok produced better output than ChatGPT. Minor friction: had to manually strip `<` `>` from description (quick win fix already in IDEAS.md).
+
+---
+
 ### Fingerprint hang: mitigated + resolved (2026-04-05)
 
 Fingerprinting hung at 26/28 during a THOR compile (Ctrl+C required). Root cause never identified. Mitigations applied:

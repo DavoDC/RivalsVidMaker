@@ -6,7 +6,9 @@ Single source of truth for all pending work.
 
 ## Current Directive
 
-**First full e2e run complete (2026-04-05) - THOR_Mar_2026_BATCH1 compiled and ready to upload. Next: upload to YouTube, then continue with lower-priority items.**
+**THOR RAGNAROK Back-to-Back Multikills (Mar-Apr 2026) published 2026-04-05: https://youtu.be/7mqGkOiSX2E**
+
+Timestamps and AI prompts worked well (Grok > ChatGPT). Next stage: output processing/cleanup (strip angled brackets is the first quick win - see below).
 
 ---
 
@@ -21,6 +23,17 @@ YouTube rejects `<` and `>` characters in video descriptions - user had to manua
 ## Lower priority / future
 
 *(ordered by size - smaller first)*
+
+**AI prompt improvements in description_writer.py** *(small - quick win)*
+
+Four changes to the prompts written to `_description.txt`:
+
+1. Add "do not include em dashes" to both the title prompt and the description prompt.
+2. Remove the "Video details:" block (Character / Date range / Highlights counts) from the description prompt - it sends AI on the wrong track by front-loading stats instead of tone.
+3. At the `--- Replace description prompt above with AI output ---` divider, add a note recommending Grok over ChatGPT.
+4. Remove the `Return: Description: ...` instruction line from the description prompt - it causes AI to echo the format literally.
+
+---
 
 **Remove all estimation logic and printing** *(small - quick win)*
 
