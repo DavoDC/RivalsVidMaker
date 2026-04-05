@@ -444,7 +444,7 @@ class TestFindKoNoneClips:
         assert len(result) == 1
 
     def test_none_suffix_detected(self):
-        clips = [_make_clip("THOR_2026-03-28_23-22-42_NONE.mp4")]
+        clips = [_make_clip("THOR_2026-03-28_23-22-42_UNKNOWN.mp4")]
         result = _find_ko_none_clips(clips)
         assert len(result) == 1
 
@@ -470,11 +470,11 @@ class TestFindKoNoneClips:
         clips = [
             _make_clip("THOR_2026-02-06_22-38-56_QUAD.mp4"),
             _make_clip("THOR_2026-03-22_23-19-10_KO.mp4"),
-            _make_clip("THOR_2026-03-28_23-22-42_NONE.mp4"),
+            _make_clip("THOR_2026-03-28_23-22-42_UNKNOWN.mp4"),
             _make_clip("THOR_2026-03-01_20-00-00_TRIPLE.mp4"),
         ]
         result = _find_ko_none_clips(clips)
         assert len(result) == 2
         names = {c.name for c in result}
         assert "THOR_2026-03-22_23-19-10_KO.mp4" in names
-        assert "THOR_2026-03-28_23-22-42_NONE.mp4" in names
+        assert "THOR_2026-03-28_23-22-42_UNKNOWN.mp4" in names
