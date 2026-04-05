@@ -12,11 +12,18 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority (quick wins first)
 
-**0. [BUG] Fingerprinting hangs indefinitely on some clips** *(small - HIGH PRIORITY - blocks compilation)*
+**0. [BUG - PARTIALLY FIXED] Fingerprinting hangs on some clips - root cause unknown** *(needs next reproduction to diagnose)*
 
-`subprocess.run()` in `_extract_frames` (dedup.py) has no timeout. If ffmpeg hangs on a clip, that worker thread blocks forever. `as_completed` then waits for it indefinitely. Fix: add `timeout=60` (or similar) to `subprocess.run()` and handle `subprocess.TimeoutExpired` in the calling thread so the clip is skipped with a warning. Also log which clip hung so the user can investigate.
+**Observed 2026-04-05:** stuck at 26/28 during a 28-clip THOR compile. Required Ctrl+C. The 2 stuck clips were not identified (no logging at the time).
 
-Observed 2026-04-05: stuck at 26/28 during a 28-clip THOR compile. Required Ctrl+C.
+**Root cause:** unknown. Candidates: clip with unusual encoding that sends ffmpeg into a decode loop; partially corrupted/truncated video file; codec issue on specific clips.
+
+**Mitigations applied (2026-04-05):**
+- Added `timeout=60` to `subprocess.run()` in `_extract_frames` (dedup.py) - hung threads now fail after 60s instead of blocking forever
+- Changed ffmpeg `-loglevel quiet` to `warning` and capture stderr - on timeout or error, ffmpeg's own output is written to the log at WARNING level
+- Added Python debug log lines `"ffmpeg start <clip>"` and `"ffmpeg done <clip>"` - the log will show which clips started but never finished
+
+**To diagnose next occurrence:** check the run log for `ffmpeg start` lines with no matching `ffmpeg done`, then look for the WARNING lines below them showing ffmpeg's stderr output. That should reveal the codec/container issue on the specific clip(s).
 
 ---
 
