@@ -1,0 +1,114 @@
+Every dry/wet run currently re-fingerprints all the clips from scratch.
+Could we add some form of caching (similar to the KO caching) so we don’t have to re-fingerprint clips that haven’t changed?  
+
+Move preprocess menu option to top level menu, and have it do ALL CACHABLE work , like ko scanning, fingerprinting/. intended for when user doenst want to make a vid but make future runs faster and is going afk
+
+--- Encoding ---
+Encoding THOR_Mar_2026_BATCH1 (14m 50s)...
+Encoding done -> FEEDBACK: REDUNDANT LINE
+Encoding done in 2m 06s
+
+--- Cleanup ---
+Moved 28 clip(s) to clips/
+ FEEDBACK: SHOULD BE
+Moved 28 clip(s) to Output\THOR_Mar_2026_BATCH1\clips
+
+==================================================
+Video processed in 2m 50s (estimated: ~6m 10s)
+==================================================
+ FEEDBACK:Estimate was way off!  didn't consider cached work! needs to be smarter
+
+
+
+General idea: Analyze this codebase for:
+- Code duplication (exact or similar logic across files)
+- Files that are excessively long (>300 lines) and could be split
+- Opportunities to improve modularity and reduce maintenance burden
+
+For each issue found:
+1. Specify the file(s) and location
+2. Explain the problem briefly
+3. Suggest a clean refactoring (extract functions, classes, modules, etc.)
+
+Prioritize highest-impact improvements first. Be concise and actionable.
+
+
+
+DESCROPTION TXT FEEDBACK:
+=== TITLE PROMPT ===
+Write a punchy, hype YouTube title for a Marvel Rivals THOR multikill highlights compilation.
+
+Context:
+- Character: THOR
+- Date range: 5 Mar '26 → 3 Apr '26
+- Kill highlights: 4x QUAD, 13x TRIPLE, 9x DOUBLE, 2x KO  FEEDBACK: REMOVE THIS LINE
+- Total clips: 28         FEEDBACK: REMOVE THIS LINE
+
+Format: <CHARACTER> <CAPS TAGLINE> <subtitle> (<date range>)
+Examples:
+  THOR OVERLOAD Back-to-Back Multikills (Feb-Mar 2026)
+  THOR AWAKENS Multikill Highlights (Feb 2026)
+
+Return 3 title options. Keep each under 80 characters.
+
+
+=== DESCRIPTION ===
+I'm uploading a Marvel Rivals THOR multikill highlights compilation to YouTube. Write a punchy one-liner description. FEEDBACK: Also try to include phrase/sayings from marvel comics/marvel rivals voicelines relevant to that character. look at examples in tis repo. maybe need to use youtube api tp pull all descriptions from rivals vids or smth so u can learn better what i want. 
+
+Video details:
+- Character: THOR
+- Date range: 5 Mar '26 → 3 Apr '26
+- Highlights: 4x QUAD, 13x TRIPLE, 9x DOUBLE, 2x KO
+- Clip count: 28 FEEDBACK: REMOVE THIS LINE
+
+Format: one punchy sentence, hype tone, emojis, ends referencing Marvel Rivals.
+
+Return:
+  Description: ...
+
+--- Replace description prompt above with AI output before uploading ---
+
+=== TIMESTAMPS ===
+Format: <streak start> - <max kill time> = Kill tier  FEEDBACK: bit weird for a yt desc
+0:34 - 0:40 = Quad Kill
+1:01 - 1:13 = Quad Kill
+2:05 - 2:22 = Quad Kill
+6:57 - 7:05 = Quad Kill
+
+=== HIGHLIGHTS ===
+1. THOR_2026-03-05_19-26-24_DOUBLE.mp4 [DOUBLE]
+2. THOR_2026-03-05_19-27-05_QUAD.mp4 [QUAD]
+3. THOR_2026-03-05_23-17-32_QUAD.mp4 [QUAD]
+4. THOR_2026-03-07_00-12-14_TRIPLE.mp4 [TRIPLE]
+5. THOR_2026-03-07_00-13-52_QUAD.mp4 [QUAD]
+6. THOR_2026-03-13_21-48-06_TRIPLE.mp4 [TRIPLE]
+7. THOR_2026-03-16_22-16-54_DOUBLE.mp4 [DOUBLE]
+8. THOR_2026-03-16_22-18-00_DOUBLE.mp4 [DOUBLE]
+9. THOR_2026-03-17_19-27-03_TRIPLE.mp4 [TRIPLE]
+10. THOR_2026-03-17_20-17-50_TRIPLE.mp4 [TRIPLE]
+11. THOR_2026-03-17_22-19-05_TRIPLE.mp4 [TRIPLE]
+12. THOR_2026-03-17_22-20-29_NONE_KO.mp4 [KO]
+13. THOR_2026-03-17_22-21-42_DOUBLE.mp4 [DOUBLE]
+14. THOR_2026-03-17_22-23-09_QUAD.mp4 [QUAD]
+15. THOR_2026-03-20_22-46-05_DOUBLE.mp4 [DOUBLE]
+16. THOR_2026-03-20_22-49-33_TRIPLE.mp4 [TRIPLE]
+17. THOR_2026-03-21_18-59-39_DOUBLE.mp4 [DOUBLE]
+18. THOR_2026-03-21_19-01-59_TRIPLE.mp4 [TRIPLE]
+19. THOR_2026-03-22_16-03-18_TRIPLE.mp4 [TRIPLE]
+20. THOR_2026-03-22_16-05-30_DOUBLE.mp4 [DOUBLE]
+21. THOR_2026-03-22_22-15-51_DOUBLE.mp4 [DOUBLE]
+22. THOR_2026-03-22_23-19-10_KO.mp4 [KO]
+23. THOR_2026-03-22_23-20-09_TRIPLE.mp4 [TRIPLE]
+24. THOR_2026-03-22_23-20-47_TRIPLE.mp4 [TRIPLE]
+25. THOR_2026-03-22_23-23-11_TRIPLE.mp4 [TRIPLE]
+26. THOR_2026-03-22_23-24-10_TRIPLE.mp4 [TRIPLE]
+27. THOR_2026-03-23_22-33-19_TRIPLE.mp4 [TRIPLE]
+28. THOR_2026-03-23_22-34-01_DOUBLE.mp4 [DOUBLE]
+
+
+why are 12. THOR_2026-03-17_22-20-29_NONE_KO.mp4 [KO] and 22. THOR_2026-03-22_23-19-10_KO.mp4 [KO] in vid produced, thought we weren't including ,  only pass1 vids which don't catch these usually, only double and above usually. what happened here? review against docs for what i said about this 
+
+1. THOR_2026-03-05_19-26-24_DOUBLE.mp4 [DOUBLE]  -> [DOUBLE] is silly coz duplicating ko tier whats already in filename, don't include here!
+if these clips rly shouldn't be in vid, will have to Undo Thor , move clips back to THor folder in highlights and delete stuff, so can re-run and re-test . ask before doing
+
+Pretty happy overall with program, moved clips well,. folder looks good. output in right format . did very fast and told what was happening. thank you claude!!! just a few refinements here and there!
