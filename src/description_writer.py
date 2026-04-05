@@ -140,5 +140,5 @@ def write_description(
         lines.append(f"{i}. {clip.name}{tier_suffix}\n")
 
     out_path.write_text("".join(lines), encoding="utf-8")
-    logging.info("Description -> %s", out_path)
+    logging.info("Description -> %s", out_path.name)
     return out_path
