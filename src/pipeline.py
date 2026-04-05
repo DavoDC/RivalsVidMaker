@@ -18,7 +18,7 @@ from clip_scanner import VIDEO_EXTS, scan_folder, summarize_folder
 from clip_sorter import sort_clips
 from config import Config
 from description_writer import fmt_ts, write_description
-from encoder import encode
+from encoder import check_nvenc, encode
 from progress import AnimatedTicker
 from menu import pick_action
 from preprocess import preprocess_all
@@ -181,10 +181,11 @@ def _menu_status(dur: float, target: int) -> str:
     return "- No clips"
 
 
-def _estimate_seconds(clips: list, cache_dir: Path) -> float:
-    """Rough pipeline estimate: KO scan (model-based for uncached, ~0.5s cached) + encode (~0.4x duration).
+def _estimate_seconds(clips: list, cache_dir: Path, ffmpeg: Path | None = None) -> float:
+    """Rough pipeline estimate: KO scan (model-based for uncached, ~0.5s cached) + encode.
 
     KO scan model (68 clips, R2=0.90): scan_time = 0.977 * clip_duration - 4.118
+    Encode multiplier: ~0.12x for NVENC (GPU), ~0.4x for libx264 (CPU).
     clips: list[Clip] for the batch being compiled (not all clips for the character).
     """
     if not clips:
@@ -199,7 +200,8 @@ def _estimate_seconds(clips: list, cache_dir: Path) -> float:
             ko_est += 0.5
         else:
             ko_est += max(1.0, 0.977 * avg_dur - 4.118)
-    encode_est = total_dur * 0.4
+    encode_mult = 0.12 if (ffmpeg and check_nvenc(ffmpeg)) else 0.4
+    encode_est = total_dur * encode_mult
     return ko_est + encode_est
 
 
@@ -664,7 +666,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         batches[0].clips.append(clip)
         logging.info("  Added: %s", clip.name)
 
-    est_str = _fmt_estimate(_estimate_seconds(batches[0].clips, config.cache_dir))
+    est_str = _fmt_estimate(_estimate_seconds(batches[0].clips, config.cache_dir, config.ffmpeg))
     raw = input(f"Make this video? Estimated processing time: {est_str}. [y/N]: ").strip().lower()
     if raw not in ("y", "yes"):
         logging.info("Cancelled.")
