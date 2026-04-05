@@ -1,5 +1,5 @@
 """
-Tests for config.py — configuration loading and validation.
+Tests for config.py - configuration loading and validation.
 """
 
 import json

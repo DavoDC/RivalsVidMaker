@@ -1,5 +1,5 @@
 """
-Tests for batcher.py — clip grouping logic.
+Tests for batcher.py - clip grouping logic.
 """
 
 from pathlib import Path

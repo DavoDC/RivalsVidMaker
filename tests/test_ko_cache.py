@@ -1,7 +1,7 @@
 """
-Tests for ko_detect.py — cache functions (mtime keying).
+Tests for ko_detect.py - cache functions (mtime keying).
 
-Does NOT test OCR or FFmpeg — only the JSON cache read/write/invalidation logic.
+Does NOT test OCR or FFmpeg - only the JSON cache read/write/invalidation logic.
 """
 
 import json
@@ -76,7 +76,7 @@ class TestCacheRoundTrip:
         assert loaded is None  # null = "no kill detected"
 
     def test_null_result_stored_as_dict_not_json_null(self, tmp_path):
-        """Null results must NOT be stored as bare JSON null — they need mtime keying."""
+        """Null results must NOT be stored as bare JSON null - they need mtime keying."""
         clip = _make_clip(tmp_path)
         with _override_cache_dir(tmp_path):
             ko_detect.cache_save(str(clip), None)

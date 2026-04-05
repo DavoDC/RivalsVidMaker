@@ -1,5 +1,5 @@
 """
-pipeline.py — Main orchestrator: sort → scan → batch → detect → encode → describe.
+pipeline.py - Main orchestrator: sort → scan → batch → detect → encode → describe.
 """
 
 import logging
@@ -47,8 +47,8 @@ def _collect_highlights(
     Scan each clip for KO events in parallel.
 
     Returns:
-      highlights  — Quad+ kills with compilation timestamps, for the description.
-      clip_tiers  — {clip.name: tier} for every clip where any kill was detected.
+      highlights  - Quad+ kills with compilation timestamps, for the description.
+      clip_tiers  - {clip.name: tier} for every clip where any kill was detected.
     """
     ko_detect.configure(
         ffmpeg=str(config.ffmpeg),
@@ -65,7 +65,7 @@ def _collect_highlights(
         offsets[clip.name] = running
         running += clip.duration
 
-    # Scan all clips in parallel — FFmpeg + Tesseract are external processes,
+    # Scan all clips in parallel - FFmpeg + Tesseract are external processes,
     # so threads give real concurrency. Each clip writes to its own cache file.
     scan_results: dict[str, tuple[dict | None, float, bool]] = {}
 
@@ -164,7 +164,7 @@ def _date_range(folder: Path) -> str:
                 except ValueError:
                     pass
     if not dates:
-        return "—"
+        return "-"
     lo, hi = min(dates), max(dates)
 
     def _d(d: datetime) -> str:
@@ -177,7 +177,7 @@ def _menu_status(dur: float, target: int) -> str:
     if dur >= target:        return "✓ Ready"
     if dur >= target * 0.75: return "~ Almost"   # 11m15s+ at default 15m target
     if dur > 0:              return "✗ Too short"
-    return "— No clips"
+    return "- No clips"
 
 
 def _estimate_seconds(clips: list, cache_dir: Path) -> float:

@@ -1,5 +1,5 @@
 """
-ai_prompt.py — Generate a Markdown file of pre-filled AI prompts for the YouTube
+ai_prompt.py - Generate a Markdown file of pre-filled AI prompts for the YouTube
 title and description, based on the pipeline's detected output for a batch.
 
 The generated file is placed alongside the description.txt so the user can find
@@ -91,7 +91,7 @@ def write_ai_prompts(
     lines.append("---\n\n")
 
     # ── Prompt 1: title ──────────────────────────────────────────────────────
-    lines.append("## Prompt 1 — YouTube title\n\n")
+    lines.append("## Prompt 1 - YouTube title\n\n")
     lines.append("```\n")
     lines.append(
         f"Write a punchy, hype YouTube title for a Marvel Rivals {char_name} "
@@ -113,7 +113,7 @@ def write_ai_prompts(
     lines.append("```\n\n")
 
     # ── Prompt 2: one-liner description ─────────────────────────────────────
-    lines.append("## Prompt 2 — One-liner description\n\n")
+    lines.append("## Prompt 2 - One-liner description\n\n")
     lines.append("```\n")
     lines.append(
         f"Write a punchy one-liner YouTube description for a Marvel Rivals "
@@ -127,7 +127,7 @@ def write_ai_prompts(
         f"\n"
         f"Format: starts with a hype phrase, ends with 'in Marvel Rivals' "
         f"or a reference to the game. Include emojis throughout.\n"
-        f"Example: ⚡ The storm answers only to the worthy — Mjolnir unleashed, "
+        f"Example: ⚡ The storm answers only to the worthy - Mjolnir unleashed, "
         f"lightning combos, and relentless Thor multikills across Feb–Mar 2026 "
         f"in Marvel Rivals 🔥⚡\n"
         f"\n"
@@ -136,7 +136,7 @@ def write_ai_prompts(
     lines.append("```\n\n")
 
     # ── Prompt 3: combined (title + description in one go) ───────────────────
-    lines.append("## Prompt 3 — Combined (title + description together)\n\n")
+    lines.append("## Prompt 3 - Combined (title + description together)\n\n")
     lines.append("```\n")
     lines.append(
         f"I'm uploading a Marvel Rivals {char_name} multikill highlights compilation "

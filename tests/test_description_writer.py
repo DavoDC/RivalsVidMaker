@@ -1,5 +1,5 @@
 """
-Tests for description_writer.py — YouTube description file generation.
+Tests for description_writer.py - YouTube description file generation.
 """
 
 from pathlib import Path
@@ -124,7 +124,7 @@ class TestWriteDescriptionClipTiers:
         batch = self._batch_with_known_names()
         tiers = {"THOR_clip_0.mp4": "QUAD"}  # only clip_0 has a tier
         content = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers).read_text()
-        # clip_1 and clip_2 have no tier — no bracket suffix
+        # clip_1 and clip_2 have no tier - no bracket suffix
         assert "THOR_clip_1.mp4 [" not in content
         assert "THOR_clip_2.mp4 [" not in content
 
