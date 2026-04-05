@@ -15,7 +15,6 @@ import logging
 import os
 import shutil
 import subprocess
-import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -70,7 +69,7 @@ def fingerprint_clip(
     Uses Clip.duration (already probed) so no extra ffprobe call is needed.
     Frames are written to a per-clip subdir inside tmp_dir, then deleted.
     """
-    base = Path(tmp_dir) if tmp_dir else Path(tempfile.gettempdir()) / "rvm_dedup_tmp"
+    base = Path(tmp_dir) if tmp_dir else Path(__file__).parent.parent / "data" / "dedup_tmp"
     work_dir = base / clip.path.stem
     work_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -119,7 +118,7 @@ def find_duplicates(
     if len(clips) < 2:
         return []
 
-    base = Path(tmp_dir) if tmp_dir else Path(tempfile.gettempdir()) / "rvm_dedup_tmp"
+    base = Path(tmp_dir) if tmp_dir else Path(__file__).parent.parent / "data" / "dedup_tmp"
     base.mkdir(parents=True, exist_ok=True)
 
     total = len(clips)
