@@ -4,35 +4,65 @@ Single source of truth for all pending work.
 
 ---
 
-## Pending - ordered by priority
+## Pending - ordered by priority (quick wins first)
 
-**1. Fingerprint/duration caching** *(key for performance)*
+**1. Fix dry run: preprocess renames/deletes not gated** *(bug, 1-2 lines)*
 
-Every run re-fingerprints all clips for dedup checking from scratch. Add per-clip caching for fingerprint and duration. Two design options to evaluate: (a) separate folder alongside `.ko.json`, or (b) a single generic cache file per clip containing everything we know about it (fingerprint, duration, KO result, etc.). Option (b) may be better long-term - needs design before implementing. Cache key: path + mtime + size. Skip unchanged clips on re-run. Biggest win for large character folders (56+ clips).
-
----
-
-**2. Preprocess: top-level menu, all cacheable work** *(quick win)*
-
-Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 1). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
+`pipeline.py:567` calls `preprocess_all(config)` with no `dry_run` arg. Inside `preprocess_all`, `_rename_clip()` and `_prompt_delete()` run fully even in `--dry-run` mode - renaming video files and prompting to delete them. Fix: pass `dry_run` through to `preprocess_all`, gate both operations behind it.
 
 ---
 
-**3. Estimate accuracy: full pipeline**
+**2. Fix dry run: low-value clip prompts not gated** *(bug, 1-2 lines)*
 
-Thor Batch1 example: estimated 6m10s, actual 2m50s. The current estimate only accounts for encode time (`total_dur * 0.4`, tuned for CPU). NVENC (GPU) encodes at ~0.10-0.15x real-time - but that's only part of the issue. The estimate should cover the entire pipeline: KO scanning, fingerprinting, encoding. Needs investigation to understand what each stage actually costs and how to model it. Fix: once per-stage costs are understood, build a composite estimate.
-
----
-
-**4. Timestamps format**
-
-The current format `0:34 - 0:40 = Quad Kill` is fine and not changing. The open question is whether to include an explicit `Format: ...` header line inside the YouTube description .txt file. Not sure if that adds value - needs a decision before touching `description_writer._timestamps`.
+`pipeline.py:607-640` - the compile path low-value clip guard prompts to delete/archive clips and actually does it, even in `--dry-run` mode. Fix: wrap the delete/archive actions in `if not dry_run:`. In dry run, log what would happen but skip the actual file ops.
 
 ---
 
-**5. Description: Marvel voicelines / character phrases**
+**3. Remove timestamps Format: header** *(trivial, 1 line)*
+
+Decision made: remove the `Format: <streak start> - <max kill time> = Kill tier` header line from the description .txt (`description_writer.py:128-129`). The format is intuitive enough for viewers without explaining it.
+
+---
+
+**4. Description: Marvel voicelines / character phrases** *(trivial, update prompt only)*
 
 Current description prompt asks for a generic one-liner. Goal: character-specific Marvel comic quotes and in-game voicelines woven in. Approach: update the AI prompt to instruct it to find and use character-appropriate voicelines (AI can web search etc). No manual config JSON needed - that was over-engineering. Once prompt is updated, this item is done.
+
+---
+
+**5. Estimate: swap NVENC encode multiplier** *(small)*
+
+Current estimate uses `total_dur * 0.4` (CPU encode). NVENC (GPU) is ~0.10-0.15x real-time. Read `encoder.py`, detect whether NVENC is being used, and use the correct multiplier. Prerequisite for item 7 (composite estimate).
+
+---
+
+**6. Estimate: add per-stage timing logs** *(small)*
+
+Add timing instrumentation around each pipeline stage: KO scanning, fingerprinting, encoding. Log each stage's actual elapsed time so real data accumulates over runs. Used to validate and refine the composite estimate (item 7).
+
+---
+
+**7. Estimate: composite estimate (KO + fingerprint + encode)** *(medium)*
+
+Replace the single encode-only estimate with a composite: KO scan estimate + fingerprint estimate + encode estimate = overall. Each stage modelled separately. Depends on items 5 and 6 being done first to have correct per-stage models.
+
+---
+
+**8. Fingerprint/duration caching** *(medium - design decision pending)*
+
+Every run re-fingerprints all clips for dedup checking from scratch. Add per-clip caching. Cache key: path + mtime + size. Skip unchanged clips on re-run. Biggest win for large character folders (56+ clips).
+
+Design options:
+- (a) Separate `.fp.json` per clip alongside `.ko.json`. Simple, isolated, no migration. But two files per clip, and future cache fields need another new file type.
+- (b) Single generic `.clip.json` per clip containing everything: KO result, fingerprint hashes, duration, anything added later. One file per clip, easy to extend. Requires migrating existing `.ko.json` files and updating `ko_detect.py` to read/write the new format.
+
+**Recommendation: (b) long-term.** If we plan to cache 3+ things (KO, fingerprint, duration, maybe more), a single file is cleaner. The migration is a one-off. Worth discussing before implementing.
+
+---
+
+**9. Preprocess: top-level menu + run all cacheable work** *(medium, depends on item 8)*
+
+Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 8). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
 
 ---
 
