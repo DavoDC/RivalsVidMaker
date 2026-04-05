@@ -241,3 +241,121 @@ def run_cleanup(
     print()
     print("  Cleanup complete.")
     print()
+
+
+def run_uncompile(
+    output_folder: Path,
+    clips_path: Path,
+    state_path: Path | None = None,
+) -> None:
+    """
+    Reverse a compile: move all clips from output_folder/clips/ back to
+    Highlights/<char>/, then delete the output folder (compiled video,
+    description file, clips subdir, and the folder itself).
+
+    Use case: a batch was compiled incorrectly (e.g. KO/NONE clips included)
+    and needs to be re-done from scratch.
+
+    Parameters
+    ----------
+    output_folder : path to the compiled output folder (e.g. Output/THOR_Mar_2026_BATCH1)
+    clips_path    : path to the Highlights root (clips go back here under their char subfolder)
+    state_path    : path to state.json; if provided, clears YouTube-confirmed status for this folder
+    """
+    from clip_sorter import extract_character
+
+    if not output_folder.exists():
+        logging.error("Output folder not found: %s", output_folder)
+        return
+
+    clips_dir = output_folder / "clips"
+    clip_files = sorted(
+        p for p in clips_dir.iterdir()
+        if p.is_file() and p.suffix.lower() == ".mp4"
+    ) if clips_dir.exists() else []
+
+    if not clip_files:
+        print(f"\nNo clips found in {output_folder.name}/clips/ - nothing to restore.")
+        return
+
+    # Infer character from clip filenames
+    char_name = extract_character(clip_files[0].stem)
+    if not char_name:
+        # Fallback: everything before the date stamp
+        char_name = clip_files[0].stem.split("_")[0]
+    highlights_char = clips_path / char_name
+
+    print(f"\nUncompile: {output_folder.name}")
+    print("=" * 56)
+    print(f"Restoring {len(clip_files)} clip(s) -> Highlights/{char_name}/")
+    for p in clip_files:
+        print(f"  {p.name}")
+
+    mp4s = list(output_folder.glob("*.mp4"))
+    if mp4s:
+        sizes = ", ".join(_fmt_size(p) for p in mp4s)
+        print(f"\nCompiled video will be deleted: {', '.join(p.name for p in mp4s)}  ({sizes})")
+
+    raw = input("\nRestore clips and delete this output folder? [y/N]: ").strip().lower()
+    if raw not in ("y", "yes"):
+        print("Uncompile cancelled.")
+        return
+
+    # Move clips back to Highlights/<char>/
+    highlights_char.mkdir(parents=True, exist_ok=True)
+    restored = 0
+    for p in clip_files:
+        dest = highlights_char / p.name
+        if dest.exists():
+            logging.warning("Destination already exists, skipping: %s", p.name)
+            print(f"  [skipped] {p.name} - already in Highlights/{char_name}/")
+            continue
+        try:
+            import shutil as _shutil
+            _shutil.move(str(p), str(dest))
+            logging.debug("Restored: %s -> Highlights/%s/", p.name, char_name)
+            restored += 1
+        except OSError as e:
+            logging.error("Failed to restore %s: %s", p.name, e)
+            print(f"  [error] {p.name}: {e}")
+
+    print(f"{restored}/{len(clip_files)} clip(s) restored to Highlights/{char_name}/.")
+
+    # Delete compiled video(s)
+    for mp4 in mp4s:
+        try:
+            mp4.unlink()
+            logging.debug("Deleted compiled video: %s", mp4.name)
+        except OSError as e:
+            logging.error("Failed to delete compiled video %s: %s", mp4.name, e)
+
+    # Delete description file(s)
+    for txt in output_folder.glob("*_description.txt"):
+        try:
+            txt.unlink()
+            logging.debug("Deleted description: %s", txt.name)
+        except OSError as e:
+            logging.error("Failed to delete description %s: %s", txt.name, e)
+
+    # Remove now-empty clips/ dir and output folder
+    try:
+        clips_dir.rmdir()
+    except OSError:
+        pass
+    try:
+        output_folder.rmdir()
+        logging.info("Removed output folder: %s", output_folder.name)
+    except OSError:
+        logging.warning("Output folder not empty after uncompile - manual check needed: %s", output_folder)
+
+    # Clear YouTube-confirmed state if present
+    if state_path:
+        state = load_state(state_path)
+        folder_name = output_folder.name
+        if is_youtube_confirmed(state, folder_name):
+            state.get("youtube_confirmed", {}).pop(folder_name, None)
+            save_state(state, state_path)
+            logging.info("Cleared YouTube-confirmed status for '%s'.", folder_name)
+
+    print("\n  Uncompile complete.")
+    print()

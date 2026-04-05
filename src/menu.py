@@ -184,4 +184,18 @@ def _output_submenu(output_rows, state, output_path):
         return None
 
     folder = (output_path / answer) if output_path else Path(answer)
-    return {"type": "cleanup", "folder": folder}
+
+    # Second submenu: choose action for this output folder
+    action_answer = questionary.select(
+        f"Action for {answer}?",
+        choices=[
+            questionary.Choice("Clean up (archive Quad+, delete rest)", value="cleanup"),
+            questionary.Choice("Uncompile (restore clips to Highlights, discard output)", value="uncompile"),
+            questionary.Choice("Back", value="back"),
+        ],
+    ).ask()
+
+    if action_answer is None or action_answer == "back":
+        return None
+
+    return {"type": action_answer, "folder": folder}
