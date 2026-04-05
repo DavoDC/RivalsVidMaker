@@ -545,6 +545,12 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                         state_path=config.state_path, dry_run=False)
             return
 
+        if action["type"] == "uncompile":
+            from cleanup import run_uncompile
+            run_uncompile(action["folder"], config.clips_path,
+                          state_path=config.state_path)
+            return
+
     # Scan and batch before showing the estimate so it reflects batch 1 only
     clips = scan_folder(char_path, config.ffprobe, protect_recent=0)
     if not clips:
