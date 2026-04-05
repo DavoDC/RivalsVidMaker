@@ -6,49 +6,19 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority (quick wins first)
 
-**1. Fix dry run: preprocess renames/deletes not gated** *(bug, 1-2 lines)*
+**1. Estimate: add per-stage timing logs** *(small)*
 
-`pipeline.py:567` calls `preprocess_all(config)` with no `dry_run` arg. Inside `preprocess_all`, `_rename_clip()` and `_prompt_delete()` run fully even in `--dry-run` mode - renaming video files and prompting to delete them. Fix: pass `dry_run` through to `preprocess_all`, gate both operations behind it.
-
----
-
-**2. Fix dry run: low-value clip prompts not gated** *(bug, 1-2 lines)*
-
-`pipeline.py:607-640` - the compile path low-value clip guard prompts to delete/archive clips and actually does it, even in `--dry-run` mode. Fix: wrap the delete/archive actions in `if not dry_run:`. In dry run, log what would happen but skip the actual file ops.
+Add timing instrumentation around each pipeline stage: KO scanning, fingerprinting, encoding. Log each stage's actual elapsed time so real data accumulates over runs. Used to validate and refine the composite estimate (item 2).
 
 ---
 
-**3. Remove timestamps Format: header** *(trivial, 1 line)*
+**2. Estimate: composite estimate (KO + fingerprint + encode)** *(medium)*
 
-Decision made: remove the `Format: <streak start> - <max kill time> = Kill tier` header line from the description .txt (`description_writer.py:128-129`). The format is intuitive enough for viewers without explaining it.
-
----
-
-**4. Description: Marvel voicelines / character phrases** *(trivial, update prompt only)*
-
-Current description prompt asks for a generic one-liner. Goal: character-specific Marvel comic quotes and in-game voicelines woven in. Approach: update the AI prompt to instruct it to find and use character-appropriate voicelines (AI can web search etc). No manual config JSON needed - that was over-engineering. Once prompt is updated, this item is done.
+Replace the single encode-only estimate with a composite: KO scan estimate + fingerprint estimate + encode estimate = overall. Each stage modelled separately. Depends on item 1 being done first to have real per-stage timing data.
 
 ---
 
-**5. Estimate: swap NVENC encode multiplier** *(small)*
-
-Current estimate uses `total_dur * 0.4` (CPU encode). NVENC (GPU) is ~0.10-0.15x real-time. Read `encoder.py`, detect whether NVENC is being used, and use the correct multiplier. Prerequisite for item 7 (composite estimate).
-
----
-
-**6. Estimate: add per-stage timing logs** *(small)*
-
-Add timing instrumentation around each pipeline stage: KO scanning, fingerprinting, encoding. Log each stage's actual elapsed time so real data accumulates over runs. Used to validate and refine the composite estimate (item 7).
-
----
-
-**7. Estimate: composite estimate (KO + fingerprint + encode)** *(medium)*
-
-Replace the single encode-only estimate with a composite: KO scan estimate + fingerprint estimate + encode estimate = overall. Each stage modelled separately. Depends on items 5 and 6 being done first to have correct per-stage models.
-
----
-
-**8. Unified clip cache (.clip.json) - fingerprint, duration, resolution** *(medium)*
+**3. Unified clip cache (.clip.json) - fingerprint, duration, resolution** *(medium)*
 
 Currently: every run re-fingerprints all clips from scratch (dedup.py), and re-probes duration via ffprobe on every startup (scan_folder + summarize_folder both call probe_duration independently).
 
@@ -67,7 +37,7 @@ Implementation notes:
 
 ---
 
-**9. Preprocess: top-level menu + run all cacheable work** *(medium, depends on item 8)*
+**4. Preprocess: top-level menu + run all cacheable work** *(medium, depends on item 3)*
 
 Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 8). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
 

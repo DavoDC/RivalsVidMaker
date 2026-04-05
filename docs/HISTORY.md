@@ -7,6 +7,42 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Dry run: preprocess renames/deletes gated (2026-05-04)
+
+`preprocess_all` now accepts `dry_run=False`. Renames and delete prompts are skipped (logged as `[DRY RUN] Would rename/delete`) in dry run mode. `pipeline.py` passes `dry_run` through.
+
+---
+
+### Dry run: compile-path low-value clip prompts gated (2026-05-04)
+
+Low-value clip guard in `pipeline.py` no longer prompts or deletes in dry run. Logs `[DRY RUN] Would review: <clip>` instead. Previously caused real file deletion during dry runs.
+
+---
+
+### send2trash: user-facing deletes go to Recycle Bin (2026-05-04)
+
+Replaced `Path.unlink()` with `send2trash()` in `pipeline.py`, `preprocess.py`, `cleanup.py`. Files go to Recycle Bin instead of being permanently deleted. Internal temp files (encoder concat list, partial output, ffmpeg setup) keep `unlink()`.
+
+---
+
+### Remove Format: header from timestamps section (2026-05-04)
+
+Removed `Format: <streak start> - <max kill time> = Kill tier` header from description .txt. Format is intuitive without the explanation.
+
+---
+
+### Description prompt: character-specific voicelines (2026-05-04)
+
+Updated AI prompt to request a real Marvel comic quote or in-game voiceline for the character, woven naturally into the one-liner. Replaces generic hype instruction.
+
+---
+
+### Estimate: NVENC encode multiplier (2026-05-04)
+
+`_estimate_seconds` now detects NVENC via `check_nvenc()` and uses 0.12x multiplier (was fixed 0.4x CPU). Estimate is now accurate on GPU machines.
+
+---
+
 ### NULL_RESULT_SUFFIX renamed NONE -> UNKNOWN (2026-04-05)
 
 `NULL_RESULT_SUFFIX` in `ko_detect.py` renamed from `"NONE"` to `"UNKNOWN"`. Reason: "NONE" implied no kill at all, but it actually means tier could not be determined by OCR. All references updated (`pipeline.py`, `preprocess.py`). `_find_ko_none_clips` now uses the constant rather than hardcoding the string. Also fixed the double-suffix stacking bug: pipeline rename loop now skips clips already ending in `_UNKNOWN` (previously only skipped TIERS, causing `_UNKNOWN_KO` stacking on re-scan).
