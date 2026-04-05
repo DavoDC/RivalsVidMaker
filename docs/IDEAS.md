@@ -43,7 +43,7 @@ After cleanup completes, `clips.json` and the now-empty output folder are left o
 
 **Cleanup: fix indentation in output** *(tiny - quick win)*
 
-Cleanup output has inconsistent indentation (e.g. the "4 Quad+ clip(s) to archive" list and "24 remaining clip(s) to delete" list). Audit all `print` calls in the cleanup path and align consistently - likely just leading spaces vs no spaces.
+Cleanup output has inconsistent indentation (e.g. the "4 Quad+ clip(s) to archive" list and "24 remaining clip(s) to delete" list). The final "Cleanup complete." message also needs review (spacing/alignment). Audit all `print` calls in the cleanup path and align consistently - likely just leading spaces vs no spaces.
 
 ---
 
