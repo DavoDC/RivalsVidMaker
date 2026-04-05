@@ -21,6 +21,7 @@ from pathlib import Path
 import imagehash
 from PIL import Image
 
+import clip_cache
 from clip_scanner import Clip
 from progress import AnimatedTicker
 
@@ -63,12 +64,25 @@ def fingerprint_clip(
     ffmpeg: str,
     n_frames: int = DEFAULT_N_FRAMES,
     tmp_dir: Path | None = None,
+    cache_dir: Path | None = None,
 ) -> list[imagehash.ImageHash]:
     """Extract n_frames pHashes for the clip. Returns list of ImageHash objects.
 
     Uses Clip.duration (already probed) so no extra ffprobe call is needed.
     Frames are written to a per-clip subdir inside tmp_dir, then deleted.
+
+    If cache_dir is provided, checks .clip.json for a cached fingerprint first.
+    On a cache miss, computes hashes and saves them to .clip.json.
     """
+    # Check cache first
+    if cache_dir is not None:
+        hit, entry = clip_cache.cache_load(str(clip.path), str(cache_dir))
+        if hit and entry is not None and "fingerprint" in entry:
+            try:
+                return [imagehash.hex_to_hash(h) for h in entry["fingerprint"]]
+            except Exception:
+                pass  # corrupt cache entry - fall through to recompute
+
     # Default is repo-relative data/dedup_tmp (absolute via __file__) so temp
     # frames always stay within the repo regardless of the process CWD.
     # AppData/Temp is avoided intentionally - Windows can have permission issues there.
@@ -80,9 +94,21 @@ def fingerprint_clip(
             str(clip.path), ffmpeg=ffmpeg, duration=clip.duration,
             n_frames=n_frames, tmpdir=str(work_dir),
         )
-        return [imagehash.phash(img) for img in images]
+        hashes = [imagehash.phash(img) for img in images]
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
+
+    # Save fingerprint to cache
+    if cache_dir is not None:
+        try:
+            clip_cache.cache_save(
+                str(clip.path), str(cache_dir),
+                fingerprint=[str(h) for h in hashes],
+            )
+        except Exception as e:
+            logging.debug("Dedup: could not save fingerprint cache for %s: %s", clip.name, e)
+
+    return hashes
 
 
 def avg_distance(
@@ -107,6 +133,7 @@ def find_duplicates(
     threshold: int = DEFAULT_THRESHOLD,
     n_frames: int = DEFAULT_N_FRAMES,
     tmp_dir: Path | None = None,
+    cache_dir: Path | None = None,
 ) -> list[tuple[Clip, Clip, float]]:
     """Fingerprint all clips and return suspected duplicate pairs.
 
@@ -116,6 +143,9 @@ def find_duplicates(
     Frame images are written under tmp_dir (default: repo data/dedup_tmp,
     absolute via __file__) and cleaned up per-clip. The tmp_dir itself is
     removed on completion.
+
+    If cache_dir is provided, cached fingerprints are read from .clip.json
+    and newly computed fingerprints are saved there.
 
     Returns list of (clip_a, clip_b, avg_distance) sorted by distance ascending.
     """
@@ -130,7 +160,7 @@ def find_duplicates(
     fingerprints: dict[Path, list[imagehash.ImageHash]] = {}
 
     def _fingerprint_one(clip: "Clip") -> tuple["Clip", list]:
-        result = fingerprint_clip(clip, ffmpeg, n_frames, tmp_dir=base)
+        result = fingerprint_clip(clip, ffmpeg, n_frames, tmp_dir=base, cache_dir=cache_dir)
         return clip, result
 
     with AnimatedTicker("Fingerprinting", total=total) as ticker:
