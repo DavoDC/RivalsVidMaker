@@ -188,3 +188,51 @@ class TestSummarizeFolder:
         with patch("clip_scanner.probe_duration", return_value=10.0):
             count, total = summarize_folder(tmp_path, Path("ffprobe"))
         assert count == 1
+
+
+# ── Duration caching ──────────────────────────────────────────────────────────
+
+class TestDurationCaching:
+
+    def test_scan_folder_uses_cached_duration(self, tmp_path):
+        """When cache_dir provided and duration is cached, probe_combined is not called."""
+        import clip_cache
+
+        clip = tmp_path / "THOR_2026-02-06_22-38-56.mp4"
+        clip.write_bytes(b"fake")
+        cache_dir = tmp_path / "cache"
+        clip_cache.cache_save(str(clip), str(cache_dir), duration=42.0)
+
+        with patch("clip_scanner.clip_cache.probe_combined") as mock_probe:
+            clips = scan_folder(tmp_path, Path("ffprobe"), cache_dir=cache_dir)
+
+        mock_probe.assert_not_called()
+        assert len(clips) == 1
+        assert clips[0].duration == pytest.approx(42.0)
+
+    def test_scan_folder_saves_probed_duration(self, tmp_path):
+        """On a cache miss, scan_folder saves duration to .clip.json."""
+        import clip_cache
+
+        clip = tmp_path / "THOR_2026-02-06_22-38-56.mp4"
+        clip.write_bytes(b"fake")
+        cache_dir = tmp_path / "cache"
+
+        with patch("clip_scanner.clip_cache.probe_combined", return_value=(30.0, 1920, 1080)):
+            clips = scan_folder(tmp_path, Path("ffprobe"), cache_dir=cache_dir)
+
+        assert len(clips) == 1
+        hit, entry = clip_cache.cache_load(str(clip), str(cache_dir))
+        assert hit is True
+        assert entry["duration"] == pytest.approx(30.0)
+        assert entry["width"] == 1920
+        assert entry["height"] == 1080
+
+    def test_scan_folder_without_cache_dir_unchanged(self, tmp_path):
+        """scan_folder without cache_dir behaves as before (calls probe_duration)."""
+        (tmp_path / "clip.mp4").touch()
+        with patch("clip_scanner.probe_duration", return_value=25.0) as mock_dur:
+            clips = scan_folder(tmp_path, Path("ffprobe"))
+        mock_dur.assert_called()
+        assert len(clips) == 1
+        assert clips[0].duration == pytest.approx(25.0)

@@ -99,7 +99,7 @@ def cache_load(clip_path: str, cache_dir: str) -> tuple[bool, dict | None]:
     current_size = _file_size(clip_path)
 
     # Missing mtime means the clip file is gone (or permission error)
-    if current_mtime == 0.0 or current_size == 0:
+    if current_mtime == 0.0:
         return False, None
 
     if stored_mtime is not None and stored_mtime != current_mtime:
