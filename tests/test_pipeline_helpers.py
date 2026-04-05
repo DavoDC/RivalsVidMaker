@@ -16,6 +16,7 @@ from pipeline import (
     _batch_slug,
     _date_range,
     _estimate_seconds,
+    _find_ko_none_clips,
     _fmt_duration,
     _fmt_estimate,
     _menu_status,
@@ -424,3 +425,56 @@ class TestMoveClips:
         _move_clips(batch, clips_dir)
         assert (clips_dir / "THOR_2026-02-06_22-38-56_QUAD.mp4").exists()
         assert (clips_dir / "THOR_2026-02-07_18-00-00.mp4").exists()
+
+
+# ── _find_ko_none_clips ───────────────────────────────────────────────────────
+
+def _make_clip(name: str) -> "Clip":
+    return Clip(path=Path(name), duration=30.0)
+
+
+class TestFindKoNoneClips:
+
+    def test_empty_list_returns_empty(self):
+        assert _find_ko_none_clips([]) == []
+
+    def test_ko_suffix_detected(self):
+        clips = [_make_clip("THOR_2026-03-22_23-19-10_KO.mp4")]
+        result = _find_ko_none_clips(clips)
+        assert len(result) == 1
+
+    def test_none_suffix_detected(self):
+        clips = [_make_clip("THOR_2026-03-28_23-22-42_NONE.mp4")]
+        result = _find_ko_none_clips(clips)
+        assert len(result) == 1
+
+    def test_none_ko_compound_suffix_detected(self):
+        # Legacy clips may have _NONE_KO - stem ends with _KO, so caught
+        clips = [_make_clip("THOR_2026-03-17_22-20-29_NONE_KO.mp4")]
+        result = _find_ko_none_clips(clips)
+        assert len(result) == 1
+
+    def test_quad_clip_not_filtered(self):
+        clips = [_make_clip("THOR_2026-02-06_22-38-56_QUAD.mp4")]
+        assert _find_ko_none_clips(clips) == []
+
+    def test_double_clip_not_filtered(self):
+        clips = [_make_clip("THOR_2026-03-01_20-00-00_DOUBLE.mp4")]
+        assert _find_ko_none_clips(clips) == []
+
+    def test_unsuffixed_clip_not_filtered(self):
+        clips = [_make_clip("THOR_2026-02-06_22-38-56.mp4")]
+        assert _find_ko_none_clips(clips) == []
+
+    def test_mixed_batch_returns_only_low_tier(self):
+        clips = [
+            _make_clip("THOR_2026-02-06_22-38-56_QUAD.mp4"),
+            _make_clip("THOR_2026-03-22_23-19-10_KO.mp4"),
+            _make_clip("THOR_2026-03-28_23-22-42_NONE.mp4"),
+            _make_clip("THOR_2026-03-01_20-00-00_TRIPLE.mp4"),
+        ]
+        result = _find_ko_none_clips(clips)
+        assert len(result) == 2
+        names = {c.name for c in result}
+        assert "THOR_2026-03-22_23-19-10_KO.mp4" in names
+        assert "THOR_2026-03-28_23-22-42_NONE.mp4" in names
