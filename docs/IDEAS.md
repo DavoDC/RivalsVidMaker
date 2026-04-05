@@ -134,6 +134,12 @@ Uses:
 
 ---
 
+**Animated ticker spacing (low priority)**
+
+Ticker visually appears to alternate between " .." and "..." - looks uneven. Root cause unknown (may be a rendering/timing issue rather than the string values themselves). Investigate before fixing.
+
+---
+
 **Compilation length tolerance when clips are deleted**
 
 When NONE/KO-tier clips are deleted during preprocessing, the remaining batch may fall below `min_batch_seconds` (currently 15 min). Current behaviour: pipeline aborts if batch is too short. Decided: this is acceptable - publish a shorter video rather than padding with low-quality clips. Consider either lowering `min_batch_seconds` or adding a `--allow-short` override flag so the pipeline can proceed without changing the default guard.
