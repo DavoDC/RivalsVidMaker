@@ -1,0 +1,15 @@
+"Make this video? Estimated processing time: ~6m 10s. [y/N]:" comes before we can see info about video and length its going to be , bit of reordering needed . Think about user experience when desigining such things!
+
+e.g. ROUGH FEEDBACK< make better than this
+==================================================
+Character: THOR
+==================================================
+Found 60 video file(s). Probing durations...
+Loaded 60 clip(s).
+
+This/ideal/youtube Video: 28 clip(s), 14m 50s
+Leftover: 28 clip(s), 14m 24s
+Leftover: 4 clip(s), 2m 29s          FEEDBACK: Leftover should be all remaining clips , never be 2 leftovers
+
+Make this video? Estimated processing time: ~6m 10s. [y/N]: y
+
