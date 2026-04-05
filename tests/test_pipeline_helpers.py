@@ -52,6 +52,25 @@ class TestEstimateSeconds:
         result = _estimate_seconds([], tmp_path / "cache")
         assert result == 0.0
 
+    def test_nvenc_uses_lower_multiplier(self, tmp_path):
+        folder = tmp_path / "THOR"
+        folder.mkdir()
+        clip_path = _make_mp4(folder, "THOR_2026-02-06_22-38-56_QUAD.mp4")
+        cache_root = tmp_path / "cache"
+        char_cache = cache_root / "THOR"
+        _make_cache(char_cache, clip_path)
+        clips = [Clip(path=clip_path, duration=30.0)]
+
+        with patch("pipeline.check_nvenc", return_value=True):
+            result_nvenc = _estimate_seconds(clips, cache_root, ffmpeg=Path("ffmpeg.exe"))
+        with patch("pipeline.check_nvenc", return_value=False):
+            result_cpu = _estimate_seconds(clips, cache_root, ffmpeg=Path("ffmpeg.exe"))
+
+        # NVENC (0.12x) should give a lower estimate than CPU (0.4x)
+        assert result_nvenc < result_cpu
+        assert result_nvenc == pytest.approx(0.5 + 30.0 * 0.12)
+        assert result_cpu == pytest.approx(0.5 + 30.0 * 0.4)
+
     def test_all_cached_clips(self, tmp_path):
         folder = tmp_path / "THOR"
         folder.mkdir()
