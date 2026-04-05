@@ -66,15 +66,18 @@ class TestPreprocessAll:
     def test_skips_cached_clips(self, tmp_path):
         char_dir = tmp_path / "THOR"
         char_dir.mkdir()
-        _make_clip(char_dir, "THOR_2026-02-06_22-38-56.mp4")
+        # Clip has suffix so already_processed=True; a cache hit then skips the scan
+        _make_clip(char_dir, "THOR_2026-02-06_22-38-56_QUAD.mp4")
 
         with patch("preprocess.ko_detect") as mock_ko:
-            mock_ko.cache_load.return_value = (True, {"tier": "QUAD"})  # cache hit
+            mock_ko.TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
+            mock_ko.cache_load.return_value = (True, {"tier": "QUAD"})
 
             result = preprocess_all(make_config(tmp_path))
 
         assert result == {"THOR": 1}
-        mock_ko.scan_clip.assert_not_called()  # hit — no scan needed
+        mock_ko.scan_clip.assert_not_called()
 
     def test_multiple_characters(self, tmp_path):
         for char, clip in [
@@ -86,8 +89,10 @@ class TestPreprocessAll:
             _make_clip(d, clip)
 
         with patch("preprocess.ko_detect") as mock_ko:
+            mock_ko.TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
             mock_ko.cache_load.return_value = (False, None)
-            mock_ko.scan_clip.return_value = None  # no kill
+            mock_ko.scan_clip.return_value = {"tier": "DOUBLE"}
 
             result = preprocess_all(make_config(tmp_path))
 
@@ -120,8 +125,10 @@ class TestPreprocessAll:
         config = make_config(tmp_path)
 
         with patch("preprocess.ko_detect") as mock_ko:
+            mock_ko.TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
             mock_ko.cache_load.return_value = (False, None)
-            mock_ko.scan_clip.return_value = None
+            mock_ko.scan_clip.return_value = {"tier": "DOUBLE"}
 
             preprocess_all(config)
 
@@ -138,8 +145,10 @@ class TestPreprocessAll:
             _make_clip(char_dir, name)
 
         with patch("preprocess.ko_detect") as mock_ko:
+            mock_ko.TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
             mock_ko.cache_load.return_value = (False, None)
-            mock_ko.scan_clip.return_value = None
+            mock_ko.scan_clip.return_value = {"tier": "DOUBLE"}
 
             result = preprocess_all(make_config(tmp_path))
 
@@ -163,8 +172,10 @@ class TestPreprocessAll:
 
         # protect_recent_clips=5 > clip count (3) - previously this zeroed the list
         with patch("preprocess.ko_detect") as mock_ko:
+            mock_ko.TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
             mock_ko.cache_load.return_value = (False, None)
-            mock_ko.scan_clip.return_value = None
+            mock_ko.scan_clip.return_value = {"tier": "DOUBLE"}
 
             result = preprocess_all(make_config(tmp_path, protect_recent_clips=5))
 
@@ -174,24 +185,21 @@ class TestPreprocessAll:
     def test_mix_of_cached_and_uncached(self, tmp_path):
         char_dir = tmp_path / "THOR"
         char_dir.mkdir()
-        clips = [
-            "THOR_2026-02-06_22-38-56.mp4",
-            "THOR_2026-02-07_18-00-00.mp4",
-        ]
-        for name in clips:
-            _make_clip(char_dir, name)
-
-        call_count = 0
+        # First clip has suffix (already processed) so a cache hit skips it.
+        # Second clip has no suffix and no cache entry, so it gets scanned.
+        _make_clip(char_dir, "THOR_2026-02-06_22-38-56_QUAD.mp4")
+        _make_clip(char_dir, "THOR_2026-02-07_18-00-00.mp4")
 
         def fake_cache_load(path):
-            # First clip is cached, second is not
-            return (True, None) if "02-06" in path else (False, None)
+            return (True, {"tier": "QUAD"}) if "02-06" in path else (False, None)
 
         with patch("preprocess.ko_detect") as mock_ko:
+            mock_ko.TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
             mock_ko.cache_load.side_effect = fake_cache_load
-            mock_ko.scan_clip.return_value = None
+            mock_ko.scan_clip.return_value = {"tier": "DOUBLE"}
 
             result = preprocess_all(make_config(tmp_path))
 
         assert result["THOR"] == 2
-        assert mock_ko.scan_clip.call_count == 1  # only the uncached one
+        assert mock_ko.scan_clip.call_count == 1  # only the uncached clip
