@@ -105,7 +105,7 @@ class TestWriteDescription:
 
 
 class TestWriteDescriptionClipTiers:
-    """Tests for the clip_tiers annotation feature in the HIGHLIGHTS list."""
+    """Tests for the clip_tiers parameter - tier is embedded in filename, not shown as [TIER] suffix."""
 
     def _batch_with_known_names(self) -> Batch:
         clips = [
@@ -114,21 +114,22 @@ class TestWriteDescriptionClipTiers:
         ]
         return Batch(number=1, clips=clips)
 
-    def test_clip_tier_annotated_in_highlights(self, tmp_path):
+    def test_no_tier_annotation_in_highlights(self, tmp_path):
+        # Tier is already in the filename after scan-stage rename; no [TIER] suffix needed.
         batch = self._batch_with_known_names()
         tiers = {"THOR_clip_0.mp4": "QUAD"}
         content = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers).read_text()
-        assert "THOR_clip_0.mp4 [QUAD]" in content
+        assert "THOR_clip_0.mp4 [QUAD]" not in content
+        assert "THOR_clip_0.mp4" in content  # clip still listed
 
     def test_clip_without_tier_has_no_annotation(self, tmp_path):
         batch = self._batch_with_known_names()
-        tiers = {"THOR_clip_0.mp4": "QUAD"}  # only clip_0 has a tier
+        tiers = {"THOR_clip_0.mp4": "QUAD"}
         content = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers).read_text()
-        # clip_1 and clip_2 have no tier - no bracket suffix
         assert "THOR_clip_1.mp4 [" not in content
         assert "THOR_clip_2.mp4 [" not in content
 
-    def test_all_clips_annotated(self, tmp_path):
+    def test_highlights_never_contain_bracket_annotations(self, tmp_path):
         batch = self._batch_with_known_names()
         tiers = {
             "THOR_clip_0.mp4": "QUAD",
@@ -136,9 +137,11 @@ class TestWriteDescriptionClipTiers:
             "THOR_clip_2.mp4": "HEXA",
         }
         content = write_description(batch, "THOR", [], tmp_path, clip_tiers=tiers).read_text()
-        assert "THOR_clip_0.mp4 [QUAD]" in content
-        assert "THOR_clip_1.mp4 [TRIPLE]" in content
-        assert "THOR_clip_2.mp4 [HEXA]" in content
+        # Extract just the HIGHLIGHTS section and verify no [TIER] suffixes
+        highlights_section = content.split("=== HIGHLIGHTS ===")[-1]
+        assert "[QUAD]" not in highlights_section
+        assert "[TRIPLE]" not in highlights_section
+        assert "[HEXA]" not in highlights_section
 
     def test_no_clip_tiers_produces_no_annotation(self, tmp_path):
         batch = self._batch_with_known_names()
