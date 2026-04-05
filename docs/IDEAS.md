@@ -12,6 +12,14 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority (quick wins first)
 
+**0. [BUG] Fingerprinting hangs indefinitely on some clips** *(small - HIGH PRIORITY - blocks compilation)*
+
+`subprocess.run()` in `_extract_frames` (dedup.py) has no timeout. If ffmpeg hangs on a clip, that worker thread blocks forever. `as_completed` then waits for it indefinitely. Fix: add `timeout=60` (or similar) to `subprocess.run()` and handle `subprocess.TimeoutExpired` in the calling thread so the clip is skipped with a warning. Also log which clip hung so the user can investigate.
+
+Observed 2026-04-05: stuck at 26/28 during a 28-clip THOR compile. Required Ctrl+C.
+
+---
+
 **1. Analyse first e2e run with new .clip.json cache** *(small - do before any further improvements)*
 
 Run the full pipeline end-to-end with a Thor clip. Check logs to confirm all three stages log correctly: fingerprint timing, KO scan timing, mux timing. Verify .clip.json files are written correctly (duration, ko_result, fingerprint all present after a full run). Update IDEAS.md with findings before doing any further work.
