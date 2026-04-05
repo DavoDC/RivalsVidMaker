@@ -129,28 +129,44 @@ def find_duplicates(
     total = len(clips)
     fingerprints: dict[Path, list[imagehash.ImageHash]] = {}
     done_count = 0
-    _print_lock = threading.Lock()
+    _lock = threading.Lock()
+    _stop_ticker = threading.Event()
 
     def _fingerprint_one(clip: "Clip") -> tuple["Clip", list]:
         result = fingerprint_clip(clip, ffmpeg, n_frames, tmp_dir=base)
         return clip, result
 
-    _dots = (" ", "..", "...")
+    # Ticker thread: redraws progress line at a fixed rate, independent of
+    # how quickly parallel tasks complete (avoids freezing between completions).
+    _DOTS = (" ", "..", "...")
+    def _ticker():
+        frame = 0
+        while not _stop_ticker.wait(0.1):
+            with _lock:
+                n = done_count
+            frame = (frame + 1) % len(_DOTS)
+            print(f"\rFingerprinting {n}/{total}{_DOTS[frame]}", end="", flush=True)
+
     print(f"\rFingerprinting 0/{total} ", end="", flush=True)
-    with ThreadPoolExecutor() as pool:
-        futures = {pool.submit(_fingerprint_one, clip): clip for clip in clips}
-        for future in as_completed(futures):
-            done_count += 1
-            clip = futures[future]
-            try:
-                _, hashes = future.result()
-                fingerprints[clip.path] = hashes
-            except Exception as e:
-                logging.warning("Dedup: could not fingerprint %s: %s", clip.name, e)
-                fingerprints[clip.path] = []
-            with _print_lock:
-                print(f"\rFingerprinting {done_count}/{total}{_dots[done_count % 3]}", end="", flush=True)
-    print()  # end the progress line
+    ticker = threading.Thread(target=_ticker, daemon=True)
+    ticker.start()
+    try:
+        with ThreadPoolExecutor() as pool:
+            futures = {pool.submit(_fingerprint_one, clip): clip for clip in clips}
+            for future in as_completed(futures):
+                clip = futures[future]
+                try:
+                    _, hashes = future.result()
+                    fingerprints[clip.path] = hashes
+                except Exception as e:
+                    logging.warning("Dedup: could not fingerprint %s: %s", clip.name, e)
+                    fingerprints[clip.path] = []
+                with _lock:
+                    done_count += 1
+    finally:
+        _stop_ticker.set()
+        ticker.join()
+    print(f"\rFingerprinting {total}/{total}   ")  # final line, clear trailing dots
 
     # base dir (now empty - per-clip subdirs cleaned up by fingerprint_clip) can go
     shutil.rmtree(base, ignore_errors=True)
