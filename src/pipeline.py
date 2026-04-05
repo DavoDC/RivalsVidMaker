@@ -18,6 +18,7 @@ from clip_sorter import sort_clips
 from config import Config
 from description_writer import fmt_ts, write_description
 from encoder import encode
+from progress import AnimatedTicker
 from menu import pick_action
 from preprocess import preprocess_all
 from state import is_youtube_confirmed, load as load_state
@@ -67,35 +68,28 @@ def _collect_highlights(
     # Scan all clips in parallel — FFmpeg + Tesseract are external processes,
     # so threads give real concurrency. Each clip writes to its own cache file.
     scan_results: dict[str, tuple[dict | None, float, bool]] = {}
-    done = 0
 
-    with ThreadPoolExecutor(max_workers=ko_detect.N_WORKERS) as pool:
-        future_to_clip = {
-            pool.submit(_ko_scan_one, str(clip.path), clip.name): clip
-            for clip in batch.clips
-        }
-        for future in as_completed(future_to_clip):
-            done += 1
-            clip = future_to_clip[future]
-            clip_name, result, elapsed, was_cached = future.result()
-            scan_results[clip_name] = (result, elapsed, was_cached)
+    with AnimatedTicker("Scanning", total=total) as ticker:
+        with ThreadPoolExecutor(max_workers=ko_detect.N_WORKERS) as pool:
+            future_to_clip = {
+                pool.submit(_ko_scan_one, str(clip.path), clip.name): clip
+                for clip in batch.clips
+            }
+            for future in as_completed(future_to_clip):
+                clip = future_to_clip[future]
+                clip_name, result, elapsed, was_cached = future.result()
+                scan_results[clip_name] = (result, elapsed, was_cached)
+                ticker.increment()
 
-            elapsed_str = (
-                f"{int(elapsed) // 60}m{int(elapsed) % 60:02d}s"
-                if elapsed >= 60
-                else f"{elapsed:.1f}s"
-            )
-            tier_found = result["tier"] if result else None
-            print(f"\rScanning {done}/{total}{(' ', '..', '...')[done % 3]}", end="", flush=True)
-            logging.debug(
-                "KO scan: %s %.1fs%s", clip_name, elapsed,
-                f" {tier_found}" if tier_found else "",
-            )
-            if tier_found and ko_detect.TIER_RANK.get(tier_found, 0) >= ko_detect.TIER_RANK[ko_detect.REPORT_MIN_TIER]:
-                video_start = offsets[clip_name] + result["start_ts"]
-                video_max = offsets[clip_name] + result["max_ts"]
-                logging.debug("%s @ %s-%s", tier_found, fmt_ts(video_start), fmt_ts(video_max))
-    print()  # end KO scan progress line
+                tier_found = result["tier"] if result else None
+                logging.debug(
+                    "KO scan: %s %.1fs%s", clip_name, elapsed,
+                    f" {tier_found}" if tier_found else "",
+                )
+                if tier_found and ko_detect.TIER_RANK.get(tier_found, 0) >= ko_detect.TIER_RANK[ko_detect.REPORT_MIN_TIER]:
+                    video_start = offsets[clip_name] + result["start_ts"]
+                    video_max = offsets[clip_name] + result["max_ts"]
+                    logging.debug("%s @ %s-%s", tier_found, fmt_ts(video_start), fmt_ts(video_max))
 
     # Rename clips in-place now that tiers are known (e.g. THOR_..._QUAD.mp4).
     # This embeds the tier in the filename before description/archiving use it.
