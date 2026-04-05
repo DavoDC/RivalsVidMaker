@@ -48,15 +48,23 @@ Replace the single encode-only estimate with a composite: KO scan estimate + fin
 
 ---
 
-**8. Fingerprint/duration caching** *(medium - design decision pending)*
+**8. Unified clip cache (.clip.json) - fingerprint, duration, resolution, codec** *(medium)*
 
-Every run re-fingerprints all clips for dedup checking from scratch. Add per-clip caching. Cache key: path + mtime + size. Skip unchanged clips on re-run. Biggest win for large character folders (56+ clips).
+Currently: every run re-fingerprints all clips from scratch (dedup.py), and re-probes duration via ffprobe on every startup (scan_folder + summarize_folder both call probe_duration independently).
 
-Design options:
-- (a) Separate `.fp.json` per clip alongside `.ko.json`. Simple, isolated, no migration. But two files per clip, and future cache fields need another new file type.
-- (b) Single generic `.clip.json` per clip containing everything: KO result, fingerprint hashes, duration, anything added later. One file per clip, easy to extend. Requires migrating existing `.ko.json` files and updating `ko_detect.py` to read/write the new format.
+Design: single `.clip.json` per clip (replaces `.ko.json`) containing everything we know about it. Cache key: path + mtime + size. Skip unchanged clips on re-run.
 
-**Recommendation: (b) long-term.** If we plan to cache 3+ things (KO, fingerprint, duration, maybe more), a single file is cleaner. The migration is a one-off. Worth discussing before implementing.
+Fields to cache:
+- **KO result** (tier, timestamp) - migrated from existing `.ko.json`
+- **Fingerprint hashes** (N pHash values for dedup)
+- **Duration** (seconds) - probe_duration is called on every startup for every clip; caching eliminates all those ffprobe calls
+- **Resolution** (width x height) - free from the same ffprobe call; useful for filtering wrong-res clips and future features
+- **Codec** (e.g. h264, hevc) - free from ffprobe; future: enables stream-copy instead of re-encode for matching codecs (massive speedup)
+
+Implementation notes:
+- Replace `probe_duration` (minimal ffprobe call) with a single wider ffprobe call that fetches duration + resolution + codec in one shot
+- Migration: one-off script to read existing `.ko.json` files and write `.clip.json` equivalents, then delete old files
+- `ko_detect.py` and `dedup.py` both need updating to read/write the new format
 
 ---
 
