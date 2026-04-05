@@ -1,8 +1,9 @@
 """
-encoder.py - Encode a batch of clips into a single MP4 via FFmpeg concat.
+encoder.py - Concatenate a batch of clips into a single MP4 via FFmpeg stream copy.
 
-Replaces C++: Encoder.cpp
-Uses NVENC (GPU) if available, falls back to libx264 (CPU).
+Uses -c copy (no re-encode) since all Marvel Rivals clips are uniform:
+H.264 1920x1080 120fps AAC audio. Stream copy is ~100x faster than NVENC/libx264.
+DTS non-monotonic warnings from ffmpeg concat are cosmetic - ffmpeg auto-corrects them.
 """
 
 import logging
@@ -15,15 +16,6 @@ from batcher import Batch
 from progress import AnimatedTicker
 
 
-def check_nvenc(ffmpeg: Path) -> bool:
-    """Return True if h264_nvenc is available on this machine."""
-    result = subprocess.run(
-        [str(ffmpeg), "-encoders"],
-        capture_output=True, text=True,
-    )
-    return "h264_nvenc" in (result.stdout + result.stderr)
-
-
 def encode(
     batch: Batch,
     char_name: str,
@@ -33,9 +25,9 @@ def encode(
     force: bool = False,
 ) -> Path:
     """
-    Concatenate all clips in the batch into a single MP4.
+    Concatenate all clips in the batch into a single MP4 via stream copy.
 
-    Returns the path to the encoded file.
+    Returns the path to the output file.
     Uses a temporary concat list file that is cleaned up after encoding.
 
     If the output file already exists and force=False, encoding is skipped and
@@ -65,22 +57,12 @@ def encode(
             f.write(f"file '{fp}'\n")
         concat_list = f.name
 
-    use_nvenc = check_nvenc(ffmpeg)
-    codec_args = (
-        ["-c:v", "h264_nvenc", "-preset", "p4", "-rc", "vbr", "-cq", "19", "-b:v", "0"]
-        if use_nvenc
-        else ["-c:v", "libx264", "-preset", "fast", "-crf", "18"]
-    )
-
-    encoder_label = "NVENC (GPU)" if use_nvenc else "libx264 (CPU)"
-    logging.debug("Encoder: %s", encoder_label)
-    logging.info("Encoding %s (%s)...", out_stem, batch.duration_str)
+    logging.info("Muxing %s (%s) via stream copy...", out_stem, batch.duration_str)
 
     cmd = [
         str(ffmpeg), "-y",
         "-f", "concat", "-safe", "0", "-i", concat_list,
-        *codec_args,
-        "-c:a", "aac", "-b:a", "192k",
+        "-c", "copy",
         "-movflags", "+faststart",
         str(out_path),
     ]
@@ -88,7 +70,7 @@ def encode(
 
     t0 = time.perf_counter()
     try:
-        with AnimatedTicker("Encoding"):
+        with AnimatedTicker("Muxing"):
             result = subprocess.run(cmd, capture_output=True, text=True)
         if result.stderr:
             logging.debug("  FFmpeg stderr:\n%s", result.stderr.strip())
@@ -102,5 +84,5 @@ def encode(
     elapsed_mins = int(elapsed) // 60
     elapsed_secs = int(elapsed) % 60
     elapsed_fmt = f"{elapsed_mins}m {elapsed_secs:02d}s" if elapsed_mins else f"{elapsed_secs}s"
-    logging.info("Encoding done in %s", elapsed_fmt)
+    logging.info("Muxing done in %s", elapsed_fmt)
     return out_path
