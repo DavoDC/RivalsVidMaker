@@ -81,8 +81,6 @@ def write_description(
             f"Context:\n"
             f"- Character: {char_name}\n"
             f"- Date range: {date_range}\n"
-            f"- Kill highlights: {kill_summary}\n"
-            f"- Total clips: {clip_count}\n"
             f"\n"
             f"Format: <CHARACTER> <CAPS TAGLINE> <subtitle> (<date range>)\n"
             f"Examples:\n"
@@ -103,7 +101,6 @@ def write_description(
             f"- Character: {char_name}\n"
             f"- Date range: {date_range}\n"
             f"- Highlights: {kill_summary}\n"
-            f"- Clip count: {clip_count}\n"
             f"\n"
             f"Format: one punchy sentence, hype tone, emojis, ends referencing Marvel Rivals.\n"
             f"\n"
@@ -135,9 +132,7 @@ def write_description(
 
     lines.append("=== HIGHLIGHTS ===\n")
     for i, clip in enumerate(batch.clips, 1):
-        tier = tiers.get(clip.name)
-        tier_suffix = f" [{tier}]" if tier else ""
-        lines.append(f"{i}. {clip.name}{tier_suffix}\n")
+        lines.append(f"{i}. {clip.name}\n")
 
     out_path.write_text("".join(lines), encoding="utf-8")
     logging.info("Description -> %s", out_path.name)

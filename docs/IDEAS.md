@@ -14,6 +14,54 @@ Single source of truth for all pending work.
 
 ---
 
+## From Feedback_1216.txt (2026-04-05)
+
+**Investigate: KO/NONE clips appearing in compilation**
+
+Clips `THOR_2026-03-17_22-20-29_NONE_KO.mp4` and `THOR_2026-03-22_23-19-10_KO.mp4` appeared in the Thor Batch1 video. Root cause: preprocess prompts user to delete KO-tier clips but if user answers N (or preprocess wasn't run first), they stay in Highlights and get included by batcher - there is no compile-time filter for KO/NONE clips.
+
+Fix needed: either (a) filter KO/NONE-suffix clips out during batcher or scan_folder, or (b) show a clear warning + prompt when the batch contains any KO/NONE clips before encoding. Option (b) preferred - gives user control.
+
+User also asked: should the two clips be removed retroactively from Thor Batch1 and the video re-run? **Ask David before doing anything.**
+
+---
+
+**Fingerprint/duration caching**
+
+Every dry/wet run re-fingerprints all clips from scratch for dedup checking. Add caching similar to KO caching - store a per-clip fingerprint alongside the .ko.json. Skip clips that haven't changed (mtime + size check). Biggest win for large character folders.
+
+---
+
+**Preprocess as top-level menu item (all cacheable work)**
+
+Move Preprocess to the top-level menu (currently it is inside a submenu). When selected, run ALL cacheable work: KO scanning + fingerprinting. Intended for "going AFK while building cache" workflows. Should show overall progress across all characters.
+
+---
+
+**Estimate accuracy: encode time model is too conservative for NVENC**
+
+Thor Batch1 example: estimate was 6m10s, actual 2m50s. The encode estimate uses `total_dur * 0.4` but NVENC (GPU) encodes at roughly 0.10-0.15x real-time (not 0.40x). Suggestion: at runtime, detect whether NVENC is available (already done in `encoder.check_nvenc`) and use a lower multiplier (e.g. 0.15x NVENC vs 0.40x CPU). Could also track actual encode time per batch and adapt.
+
+---
+
+**Timestamps format**
+
+Current format (`0:34 - 0:40 = Quad Kill`) is described as "a bit weird for a YT desc". Investigate standard YouTube timestamp formats - just `0:34 Quad Kill` is more common. Needs a decision on whether timestamps are meant for the description body or a separate pinned comment. Redesign once preferred format is clear.
+
+---
+
+**Description: add Marvel voicelines / character phrases**
+
+Current description prompt asks for a generic one-liner. User wants character-specific Marvel comic quotes and in-game voicelines woven in. Options: (a) manually curate a voiceline list per character in a config file, (b) use YouTube API to fetch descriptions from existing uploaded videos so Claude can learn what David likes. Option (b) ties into YouTube API Phase 4 (fetch descriptions from OldCompilations) - may be worth doing that first.
+
+---
+
+**Code duplication analysis**
+
+Scan codebase for: duplicate/similar logic across files, files over 300 lines that could be split, modularity improvements. Prioritize highest-impact. Do in a dedicated session after current batch of features stabilizes.
+
+---
+
 ## Lower priority / future
 
 **YouTube API - Phase 2 pipeline integration** *(OAuth confirmed working 2026-04-04 - do in a dedicated session)*

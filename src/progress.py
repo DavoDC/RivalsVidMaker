@@ -72,4 +72,5 @@ class AnimatedTicker:
             # Print final count and clear any trailing dot characters
             print(f"\r{self._label} {self._total}/{self._total}   ")
         else:
-            print(f"\r{self._label} done   ")
+            # Clear the spinner line - callers log their own completion message
+            print(f"\r{' ' * (len(self._label) + 10)}\r", end="", flush=True)

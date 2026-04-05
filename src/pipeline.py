@@ -261,7 +261,7 @@ def _move_clips(batch, clips_dir: Path) -> None:
             moved += 1
         except OSError as e:
             logging.error("Failed to move %s -> %s: %s", clip.name, dest.name, e)
-    logging.info("Moved %d clip(s) to %s/", moved, clips_dir.name)
+    logging.info("Moved %d clip(s) to %s", moved, clips_dir)
 
 
 # ── Table drawing ─────────────────────────────────────────────────────────────
