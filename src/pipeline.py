@@ -261,7 +261,7 @@ def _move_clips(batch, clips_dir: Path) -> None:
             moved += 1
         except OSError as e:
             logging.error("Failed to move %s -> %s: %s", clip.name, dest.name, e)
-    logging.info("Clips -> %s  (%d moved)", clips_dir, moved)
+    logging.info("Moved %d clip(s) to %s/", moved, clips_dir.name)
 
 
 # ── Table drawing ─────────────────────────────────────────────────────────────
@@ -616,7 +616,6 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
 
         logging.info("")
         logging.info("--- Encoding ---")
-        logging.info("Output: %s", out_dir)
         if dry_run:
             logging.info("[DRY RUN] Would encode %d clips (%s) -> %s.mp4",
                          len(batch.clips), batch.duration_str, out_dir / slug)
@@ -640,7 +639,6 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                 ko_tiers=ko_tier_counts,
                 clip_count=len(batch.clips),
             )
-            logging.info("Produced text file at %s", desc_path)
 
         logging.info("")
         logging.info("--- Cleanup ---")
