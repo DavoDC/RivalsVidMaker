@@ -1,0 +1,49 @@
+CURRENT OUTPUT:
+Found 60 video file(s). Probing durations...
+Loaded 60 clip(s).
+⚠️  2 low-value clip(s) detected - review each:
+
+  📹 THOR_2026-03-17_22-20-29_KO.mp4
+  Path: C:\Users\David\Videos\MarvelRivals\Highlights\THOR\THOR_2026-03-17_22-20-29_KO.mp4
+  Include in batch? [y/N]: y
+
+  📹 THOR_2026-03-22_23-19-10_KO.mp4
+  Path: C:\Users\David\Videos\MarvelRivals\Highlights\THOR\THOR_2026-03-22_23-19-10_KO.mp4
+  Include in batch? [y/N]: n
+✅ Removed 1 clip(s). Batch now has 27 clip(s).
+==================================================
+Character: THOR
+==================================================
+Video: 27 clip(s), 14m 25s
+Leftover: 32 clip(s), 16m 53s
+Make this video? Estimated processing time: ~5m 59s. [y/N]: n
+Cancelled.
+
+DESIRED SOMETHING LIKE THIS below. NOT exactly,  discuss with me , make better than this : header always first!
+==================================================
+Character: THOR
+==================================================   
+Found 60 video file(s). Probing durations...
+Loaded 60 clip(s).
+
+⚠️  2 low-value clip(s) detected - review each:
+
+  📹 THOR_2026-03-17_22-20-29_KO.mp4
+  Path: C:\Users\David\Videos\MarvelRivals\Highlights\THOR\THOR_2026-03-17_22-20-29_KO.mp4
+  Press y to include in batch, something else to del, sometng else to move to cliparchive [y/N]: y
+  Clip will be included in compilation FEEDBACK: say what happened for this clip
+
+  📹 THOR_2026-03-22_23-19-10_KO.mp4
+  Path: C:\Users\David\Videos\MarvelRivals\Highlights\THOR\THOR_2026-03-22_23-19-10_KO.mp4
+  Include in batch? [y/N]: n
+  
+Batch now has 27 clip(s).
+
+Video: 27 clip(s), 14m 25s
+Leftover: 32 clip(s), 16m 53s
+
+Ask are you ahppy with this vide length?  Y  to continue,  No to shift vid over, then you ask again 
+
+Make this video? Estimated processing time: ~5m 59s. [y/N]: n
+
+Cancelled.
