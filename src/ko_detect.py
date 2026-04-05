@@ -30,6 +30,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from PIL import Image, ImageOps, ImageFilter
 import pytesseract
+import clip_cache
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -152,85 +153,35 @@ def get_duration(clip_path: str) -> float:
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 
-def _month_from_stem(stem: str) -> str | None:
-    """Extract YYYY-MM from a clip stem like THOR_2026-02-01_23-06-24.
-    Returns None if the filename doesn't contain a parseable date."""
-    m = re.search(r"(\d{4}-\d{2})-\d{2}", stem)
-    return m.group(1) if m else None
-
-
-def _file_mtime(clip_path: str) -> float:
-    """Return the file's last-modified timestamp, or 0.0 if the file is missing."""
-    try:
-        return os.path.getmtime(clip_path)
-    except OSError:
-        return 0.0
-
-
 def cache_path(clip_path: str) -> str:
-    """Return the cache file path, nested under a YYYY-MM month subfolder.
-
-    Structure: <CACHE_DIR>/<YYYY-MM>/<stem>.ko.json
-    Falls back to <CACHE_DIR>/<stem>.ko.json for filenames without a date.
-    """
-    stem = Path(clip_path).stem
-    month = _month_from_stem(stem)
-    if month:
-        return os.path.join(CACHE_DIR, month, f"{stem}.ko.json")
-    return os.path.join(CACHE_DIR, f"{stem}.ko.json")
+    """Return the .clip.json path for a clip (delegates to clip_cache)."""
+    return clip_cache.cache_path(clip_path, CACHE_DIR)
 
 
 def cache_exists(clip_path: str) -> bool:
-    """Return True only if a valid, up-to-date cache entry exists for this clip.
-
-    Validity check: the file_mtime stored in the cache entry must match the
-    clip file's current mtime.  A stale entry (clip replaced or modified)
-    returns False so the clip is re-scanned.
-    """
-    hit, _ = cache_load(clip_path)
-    return hit
+    """Return True only if a valid, up-to-date KO cache entry exists for this clip."""
+    hit, entry = clip_cache.cache_load(clip_path, CACHE_DIR)
+    if not hit or entry is None:
+        return False
+    return "ko_result" in entry
 
 
 def cache_load(clip_path: str) -> tuple[bool, dict | None]:
     """
     Returns (hit, result).
-      hit=False → not in cache or entry is stale, needs scanning
-      hit=True, result=None  → cached "no kill detected"
-      hit=True, result=dict  → cached kill data (file_mtime key stripped before returning)
+      hit=False -> not in cache, stale, or KO scan not yet run for this clip
+      hit=True, result=None  -> cached "no kill detected"
+      hit=True, result=dict  -> cached kill data
 
-    Stale entries (file_mtime mismatch) are treated as cache misses and logged at DEBUG.
+    Uses clip_cache for storage. Reads ko_result field from .clip.json.
     """
-    p = cache_path(clip_path)
-    if not os.path.exists(p):
+    hit, entry = clip_cache.cache_load(clip_path, CACHE_DIR)
+    if not hit or entry is None:
         return False, None
-    try:
-        with open(p) as f:
-            entry = json.load(f)
-    except (OSError, ValueError):
+    if "ko_result" not in entry:
+        # Clip is cached (duration etc.) but KO scan not yet run
         return False, None
-
-    if not isinstance(entry, dict):
-        # Legacy bare-null entries have no mtime - treat as miss so they're rewritten
-        logging.debug("Cache legacy null entry, re-scanning: %s", os.path.basename(clip_path))
-        return False, None
-
-    stored_mtime = entry.get("file_mtime")
-    if stored_mtime is None:
-        # Legacy entry without mtime - accept as-is (backward compatible)
-        result = {k: v for k, v in entry.items() if k != "file_mtime"}
-        return True, result or None
-
-    current_mtime = _file_mtime(clip_path)
-    if stored_mtime != current_mtime:
-        logging.debug("Cache stale (mtime mismatch), re-scanning: %s", os.path.basename(clip_path))
-        return False, None
-
-    # Strip the internal file_mtime key before returning to callers
-    result = {k: v for k, v in entry.items() if k != "file_mtime"}
-    # A null-result entry has _null_result=True and no other meaningful keys
-    if result.get("_null_result"):
-        return True, None
-    return True, result if result else None
+    return True, entry["ko_result"]  # ko_result may be None (scanned, no kill found)
 
 
 def cache_save(
@@ -241,30 +192,21 @@ def cache_save(
     scan_time: float | None = None,
     scan_pass: int | None = None,
 ):
-    """Write result to the cache.
+    """Write KO result to the .clip.json cache entry.
 
-    All entries (including null = no kill found) store file_mtime so future
-    loads can detect if the clip file has been replaced or modified.
-    Null results are stored as {"_null_result": true, "file_mtime": <mtime>}.
+    Partial update: only updates ko_result (and optional timing fields).
+    Existing fields (duration, fingerprint, etc.) are preserved.
 
-    Optional fields (clip_duration, scan_time, scan_pass) are saved when provided.
     scan_pass (1 or 2) records which pass detected the kill -- useful for tuning.
     """
-    p = cache_path(clip_path)
-    os.makedirs(os.path.dirname(p), exist_ok=True)
-    if result is None:
-        entry: dict = {"_null_result": True, "file_mtime": _file_mtime(clip_path)}
-    else:
-        entry = dict(result)
-        entry["file_mtime"] = _file_mtime(clip_path)
+    fields: dict = {"ko_result": result}
     if clip_duration is not None:
-        entry["clip_duration"] = round(clip_duration, 2)
+        fields["duration"] = round(clip_duration, 2)
     if scan_time is not None:
-        entry["scan_time"] = round(scan_time, 2)
+        fields["scan_time"] = round(scan_time, 2)
     if scan_pass is not None:
-        entry["scan_pass"] = scan_pass
-    with open(p, "w") as f:
-        json.dump(entry, f)
+        fields["scan_pass"] = scan_pass
+    clip_cache.cache_save(clip_path, CACHE_DIR, **fields)
 
 # ── Core scan ─────────────────────────────────────────────────────────────────
 
