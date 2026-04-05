@@ -7,6 +7,16 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Unified clip cache + composite estimate (2026-04-05)
+
+Items 1-3 from the estimate/cache directive:
+
+- **Per-stage timing logs (item 1):** fingerprint, KO scan, and mux each log elapsed time at INFO level (total + per-clip). Real data accumulates in logs for model refinement.
+- **Composite estimate (item 2):** `_estimate_seconds` now models three stages: KO scan (linear model, 0.5s cached) + fingerprint (2.5s/clip) + mux (1% of duration). Named constants exported.
+- **Unified .clip.json cache (item 3):** single `.clip.json` per clip replaces `.ko.json`. Cache key: mtime + size. Fields: `ko_result`, `fingerprint`, `duration`, `width`, `height`. All optional, written independently by `ko_detect`, `dedup`, `clip_scanner`. `probe_combined()` fetches duration + resolution in one ffprobe call. Migration script at `scripts/once_off/migrate_ko_json.py`.
+
+---
+
 ### Fast concat: stream-copy encode (2026-04-05)
 
 Replaced NVENC/libx264 re-encode with `-c copy` stream mux. All Marvel Rivals clips are uniform H.264 1920x1080 120fps AAC - no re-encode needed. Feasibility tested: 5 clips, 2 min footage, 0.7s mux time (vs ~30-60s re-encode). A/V sync, clip boundaries, playback all clean. DTS non-monotonic warnings from ffmpeg concat are cosmetic - auto-corrected. `encoder.py` simplified: removed `check_nvenc`, NVENC/libx264 codec args, and audio re-encode args.

@@ -6,40 +6,15 @@ Single source of truth for all pending work.
 
 ## Current Directive
 
-**Finish items 1-4 in order, minimising token usage per session. Then do a full Thor compilation run through the entire pipeline and publish.**
+**Run e2e analysis first (item 1 below). Then continue with lower-priority items. Goal: full Thor compilation run through the pipeline and publish.**
 
 ---
 
 ## Pending - ordered by priority (quick wins first)
 
-**1. Estimate: add per-stage timing logs** *(small)*
+**1. Analyse first e2e run with new .clip.json cache** *(small - do before any further improvements)*
 
-Add timing instrumentation around each pipeline stage: KO scanning, fingerprinting, encoding. Log each stage's actual elapsed time so real data accumulates over runs. Used to validate and refine the composite estimate (item 2).
-
----
-
-**2. Estimate: composite estimate (KO + fingerprint + encode)** *(medium)*
-
-Replace the single encode-only estimate with a composite: KO scan estimate + fingerprint estimate + encode estimate = overall. Each stage modelled separately. Depends on item 1 being done first to have real per-stage timing data.
-
----
-
-**3. Unified clip cache (.clip.json) - fingerprint, duration, resolution** *(medium)*
-
-Currently: every run re-fingerprints all clips from scratch (dedup.py), and re-probes duration via ffprobe on every startup (scan_folder + summarize_folder both call probe_duration independently).
-
-Design: single `.clip.json` per clip (replaces `.ko.json`) containing everything we know about it. Cache key: path + mtime + size. Skip unchanged clips on re-run.
-
-Fields to cache:
-- **KO result** (tier, timestamp) - migrated from existing `.ko.json`
-- **Fingerprint hashes** (N pHash values for dedup)
-- **Duration** (seconds) - probe_duration is called on every startup for every clip; caching eliminates all those ffprobe calls
-- **Resolution** (width x height) - free from same ffprobe call; useful for filtering wrong-res clips and future features. Confirmed: all clips are 1920x1080 H.264 120fps (Marvel Rivals always saves same format), so resolution unlikely to vary but cheap to store.
-
-Implementation notes:
-- Replace `probe_duration` (minimal ffprobe call) with a single wider ffprobe call that fetches duration + resolution in one shot
-- Migration: one-off script to read existing `.ko.json` files and write `.clip.json` equivalents, then delete old files
-- `ko_detect.py` and `dedup.py` both need updating to read/write the new format
+Run the full pipeline end-to-end with a Thor clip. Check logs to confirm all three stages log correctly: fingerprint timing, KO scan timing, mux timing. Verify .clip.json files are written correctly (duration, ko_result, fingerprint all present after a full run). Update IDEAS.md with findings before doing any further work.
 
 ---
 
