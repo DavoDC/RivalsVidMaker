@@ -607,38 +607,42 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     low_tier = _find_ko_none_clips(batches[0].clips)
     if low_tier:
         logging.info("⚠️  %d low-value clip(s) detected - review each:", len(low_tier))
-        to_remove = []
-        to_archive = []
-        to_delete = []
-        for clip in low_tier:
+        if dry_run:
+            for clip in low_tier:
+                logging.info("  [DRY RUN] Would review: %s", clip.name)
+        else:
+            to_remove = []
+            to_archive = []
+            to_delete = []
+            for clip in low_tier:
+                logging.info("")
+                logging.info("  📹 %s", clip.name)
+                logging.info("  Path: %s", clip.path)
+                raw = input("  [y] include  [a] archive to ClipArchive  [d] delete: ").strip().lower()
+                if raw in ("y", "yes"):
+                    logging.info("  -> Included in compilation.")
+                elif raw in ("a", "archive"):
+                    to_archive.append(clip)
+                    to_remove.append(clip)
+                    logging.info("  -> Will be archived to ClipArchive.")
+                else:
+                    to_delete.append(clip)
+                    to_remove.append(clip)
+                    logging.info("  -> Will be deleted.")
             logging.info("")
-            logging.info("  📹 %s", clip.name)
-            logging.info("  Path: %s", clip.path)
-            raw = input("  [y] include  [a] archive to ClipArchive  [d] delete: ").strip().lower()
-            if raw in ("y", "yes"):
-                logging.info("  -> Included in compilation.")
-            elif raw in ("a", "archive"):
-                to_archive.append(clip)
-                to_remove.append(clip)
-                logging.info("  -> Will be archived to ClipArchive.")
-            else:
-                to_delete.append(clip)
-                to_remove.append(clip)
-                logging.info("  -> Will be deleted.")
-        logging.info("")
-        if to_archive:
-            _archive_clips(to_archive, char_name, config)
-        if to_delete:
-            for clip in to_delete:
-                clip.path.unlink(missing_ok=True)
-                logging.info("Deleted: %s", clip.name)
-        if to_remove:
-            keep = [c for c in batches[0].clips if c not in to_remove]
-            batches[0].clips = keep
-            if not batches[0].clips:
-                logging.info("No clips remaining after reviewing low-value clips. Nothing to compile.")
-                return
-        logging.info("Batch now has %d clip(s).", len(batches[0].clips))
+            if to_archive:
+                _archive_clips(to_archive, char_name, config)
+            if to_delete:
+                for clip in to_delete:
+                    clip.path.unlink(missing_ok=True)
+                    logging.info("Deleted: %s", clip.name)
+            if to_remove:
+                keep = [c for c in batches[0].clips if c not in to_remove]
+                batches[0].clips = keep
+                if not batches[0].clips:
+                    logging.info("No clips remaining after reviewing low-value clips. Nothing to compile.")
+                    return
+            logging.info("Batch now has %d clip(s).", len(batches[0].clips))
 
     # Batch length adjustment loop - user can keep adding leftover clips one at a time
     leftover = [c for b in batches[1:] for c in b.clips]
