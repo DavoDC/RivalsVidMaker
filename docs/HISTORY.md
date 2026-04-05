@@ -13,6 +13,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ---
 
+### Batch length adjustment loop (2026-04-05)
+
+After the low-value clip review, pipeline now shows `Video: N clips, Xm Ys` / `Leftover: M clips` and asks "Happy with this video length?". If no, pops one clip from leftover into the batch and asks again. Loops until user is happy or leftover is empty. Replaces the old "Warning: only Xm of clips (target Ym). Compile anyway?" hard prompt which was the pipeline "abort" described in IDEAS. User now always has control over the final batch size.
+
+---
+
 ### Compile-time KO/NONE filter guard (2026-04-05)
 
 Before encoding, `pipeline.py` now checks `batches[0].clips` for any clip with a `_KO` or `_NONE` filename suffix. If found, prompts: "X clip(s) are KO/NONE-tier (low value). Remove from batch? [y/N]". If Y, drops them and rechecks batch length (aborts cleanly if nothing remains). Guard covers the case where preprocess was skipped. 8 unit tests in `test_pipeline_helpers.py`.

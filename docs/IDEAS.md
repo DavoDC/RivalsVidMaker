@@ -60,12 +60,6 @@ Ticker visually appears to alternate between " .." and "..." - looks uneven. Roo
 
 ---
 
-**Compilation length tolerance when clips are deleted**
-
-When KO/NONE clips are deleted during preprocessing, the remaining batch may fall below `min_batch_seconds`. Current behaviour: pipeline aborts. Decided: acceptable to publish a shorter video. Consider lowering `min_batch_seconds` or adding a `--allow-short` flag.
-
----
-
 **Code duplication analysis**
 
 Scan codebase for: duplicate/similar logic, files over 300 lines, modularity improvements. Do in a dedicated session after the main items above are done and the codebase has stabilised. Highest-impact files are likely `pipeline.py` (540 lines) and `description_writer.py`.
