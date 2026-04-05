@@ -98,7 +98,7 @@ class TestFindDuplicates:
         clip_a = _make_clip(tmp_path, "THOR_clip_a.mp4")
         clip_b = _make_clip(tmp_path, "THOR_clip_b.mp4")
 
-        def fp_side_effect(clip, ffmpeg, n_frames=5):
+        def fp_side_effect(clip, ffmpeg, n_frames=5, **kwargs):
             if clip is clip_a:
                 return _make_fingerprint(_zero_hash())
             return _make_fingerprint(_ones_hash())
@@ -113,14 +113,13 @@ class TestFindDuplicates:
         clip_a = _make_clip(tmp_path, "a.mp4")
         clip_b = _make_clip(tmp_path, "b.mp4")
 
-        # avg_distance will be exactly 10 (10 bits different per frame)
         bits_a = np.zeros(64, dtype=bool)
         bits_b = bits_a.copy()
         bits_b[:10] = True  # 10 bits different
         fp_a = [imagehash.ImageHash(bits_a)] * 5
         fp_b = [imagehash.ImageHash(bits_b)] * 5
 
-        def fp_side_effect(clip, ffmpeg, n_frames=5):
+        def fp_side_effect(clip, ffmpeg, n_frames=5, **kwargs):
             return fp_a if clip is clip_a else fp_b
 
         with patch("dedup.fingerprint_clip", side_effect=fp_side_effect):
@@ -133,14 +132,13 @@ class TestFindDuplicates:
         clip_a = _make_clip(tmp_path, "a.mp4")
         clip_b = _make_clip(tmp_path, "b.mp4")
 
-        # 9 bits different -> avg_distance = 9.0 < threshold=10
         bits_a = np.zeros(64, dtype=bool)
         bits_b = bits_a.copy()
         bits_b[:9] = True
         fp_a = [imagehash.ImageHash(bits_a)] * 5
         fp_b = [imagehash.ImageHash(bits_b)] * 5
 
-        def fp_side_effect(clip, ffmpeg, n_frames=5, tmp_dir=None):
+        def fp_side_effect(clip, ffmpeg, n_frames=5, **kwargs):
             return fp_a if clip is clip_a else fp_b
 
         with patch("dedup.fingerprint_clip", side_effect=fp_side_effect):
@@ -157,7 +155,7 @@ class TestFindDuplicates:
         fp_same = _make_fingerprint(_zero_hash())
         fp_diff = _make_fingerprint(_ones_hash())
 
-        def fp_side_effect(clip, ffmpeg, n_frames=5, tmp_dir=None):
+        def fp_side_effect(clip, ffmpeg, n_frames=5, **kwargs):
             if clip is clip_c:
                 return fp_diff
             return fp_same
@@ -308,3 +306,73 @@ class TestPrintDupTable:
         dedup.print_dup_table(pairs)
         out = capsys.readouterr().out
         assert "5.0" in out or "5" in out
+
+
+# ── fingerprint_clip cache ────────────────────────────────────────────────────
+
+class TestFingerprintClipCache:
+
+    def test_cache_hit_skips_ffmpeg(self, tmp_path):
+        """When fingerprint is cached, _extract_frames must not be called."""
+        import clip_cache
+
+        clip = _make_clip(tmp_path, "THOR_2026-02-06_22-38-56.mp4")
+        cache_dir = tmp_path / "cache"
+
+        # pHash is 64 bits = 16 hex chars
+        fake_hex = "aabbccdd11223344"
+        clip_cache.cache_save(str(clip.path), str(cache_dir), fingerprint=[fake_hex] * 5)
+
+        with patch("dedup._extract_frames") as mock_ex:
+            result = dedup.fingerprint_clip(clip, ffmpeg="ffmpeg", cache_dir=cache_dir)
+
+        mock_ex.assert_not_called()
+        assert len(result) == 5
+
+    def test_cache_miss_calls_ffmpeg_and_saves(self, tmp_path):
+        """On a cache miss, fingerprint is computed and written to .clip.json."""
+        from PIL import Image
+        import clip_cache
+
+        clip = _make_clip(tmp_path, "THOR_2026-02-06_22-38-56.mp4")
+        cache_dir = tmp_path / "cache"
+        fake_images = [Image.new("RGB", (64, 64), color=(i * 30, 0, 0)) for i in range(5)]
+
+        with patch("dedup._extract_frames", return_value=fake_images):
+            result = dedup.fingerprint_clip(clip, ffmpeg="ffmpeg", n_frames=5, cache_dir=cache_dir)
+
+        assert len(result) == 5
+        hit, entry = clip_cache.cache_load(str(clip.path), str(cache_dir))
+        assert hit is True
+        assert "fingerprint" in entry
+        assert len(entry["fingerprint"]) == 5
+
+    def test_cache_partial_update_preserves_ko_result(self, tmp_path):
+        """Saving fingerprint must not overwrite an existing ko_result in cache."""
+        from PIL import Image
+        import clip_cache
+
+        clip = _make_clip(tmp_path, "THOR_2026-02-06_22-38-56.mp4")
+        cache_dir = tmp_path / "cache"
+        ko = {"tier": "QUAD", "start_ts": 6.0, "max_ts": 20.0, "end_ts": 22.0, "events": []}
+        clip_cache.cache_save(str(clip.path), str(cache_dir), ko_result=ko)
+
+        fake_images = [Image.new("RGB", (64, 64)) for _ in range(5)]
+        with patch("dedup._extract_frames", return_value=fake_images):
+            dedup.fingerprint_clip(clip, ffmpeg="ffmpeg", n_frames=5, cache_dir=cache_dir)
+
+        hit, entry = clip_cache.cache_load(str(clip.path), str(cache_dir))
+        assert hit is True
+        assert entry["ko_result"]["tier"] == "QUAD"
+        assert "fingerprint" in entry
+
+    def test_no_cache_dir_behaves_as_before(self, tmp_path):
+        """fingerprint_clip without cache_dir still works (no cache used)."""
+        from PIL import Image
+        clip = _make_clip(tmp_path, "THOR_2026-02-06_22-38-56.mp4")
+        fake_images = [Image.new("RGB", (64, 64)) for _ in range(5)]
+
+        with patch("dedup._extract_frames", return_value=fake_images):
+            result = dedup.fingerprint_clip(clip, ffmpeg="ffmpeg", n_frames=5)
+
+        assert len(result) == 5
