@@ -700,7 +700,11 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         logging.info("")
         logging.info("--- Checking for duplicates ---")
         t_fp = time.perf_counter()
-        dup_pairs = find_duplicates(batch.clips, str(config.ffmpeg), tmp_dir=config.cache_dir.parent / "dedup_tmp")
+        dup_pairs = find_duplicates(
+            batch.clips, str(config.ffmpeg),
+            tmp_dir=config.cache_dir.parent / "dedup_tmp",
+            cache_dir=config.cache_dir / char_name,
+        )
         logging.info("Fingerprint took %.1fs total (%.1fs/clip)",
                      time.perf_counter() - t_fp, (time.perf_counter() - t_fp) / max(len(batch.clips), 1))
         if dup_pairs:
