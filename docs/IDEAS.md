@@ -12,6 +12,12 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority (quick wins first)
 
+**[HIGH - QUICK WIN] Strip angled brackets from description files**
+
+YouTube rejects `<` and `>` characters in video descriptions - user had to manually replace them before pasting. Replace all `<` with `|` and `>` with `|` in the output written by `description_writer.py`. Check what context they appear in (likely `<streak start>` style placeholders in the format header or timestamp lines) and substitute consistently.
+
+---
+
 ## Lower priority / future
 
 *(ordered by size - smaller first)*
