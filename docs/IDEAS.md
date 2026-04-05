@@ -2,80 +2,80 @@
 
 Single source of truth for all pending work.
 
+---
+
 ## Pending - ordered by priority
 
-**1. End-to-end test** *(in progress - Thor)*
+**1. End-to-end test - Thor Batch1** *(in progress)*
 
-**Dr Strange:** DONE (2026-04-05).
+Dr Strange: DONE (2026-04-05).
 
-**Thor (in progress):** 56 clips ready (48/56 KO-cached). Batch 1 = oldest ~15 min of clips, sorted chronologically.
+Thor (in progress): 56 clips ready (48/56 KO-cached). Batch1 compiled and described. Remaining steps: upload to YouTube, confirm live, run cleanup (archive Quad+ to ClipArchive, delete rest).
 
-**Steps:** sort -> scan -> clip rename -> compile -> describe (with auto-generated title + description). YouTube upload is a separate session (see lower priority section).
-
----
-
-## From Feedback_1216.txt (2026-04-05)
-
-**Investigate: KO/NONE clips appearing in compilation**
-
-Clips `THOR_2026-03-17_22-20-29_NONE_KO.mp4` and `THOR_2026-03-22_23-19-10_KO.mp4` appeared in the Thor Batch1 video. Root cause: preprocess prompts user to delete KO-tier clips but if user answers N (or preprocess wasn't run first), they stay in Highlights and get included by batcher - there is no compile-time filter for KO/NONE clips.
-
-Fix needed: either (a) filter KO/NONE-suffix clips out during batcher or scan_folder, or (b) show a clear warning + prompt when the batch contains any KO/NONE clips before encoding. Option (b) preferred - gives user control.
-
-User also asked: should the two clips be removed retroactively from Thor Batch1 and the video re-run? **Ask David before doing anything.**
+Note: Batch1 included two KO-tier clips that probably shouldn't have been there (see item 2). Decision on whether to redo is part of item 2 - complete upload as-is for now unless item 2 decision says otherwise.
 
 ---
 
-**Fingerprint/duration caching**
+**2. KO/NONE clips: compile-time filter**
 
-Every dry/wet run re-fingerprints all clips from scratch for dedup checking. Add caching similar to KO caching - store a per-clip fingerprint alongside the .ko.json. Skip clips that haven't changed (mtime + size check). Biggest win for large character folders.
+Thor Batch1 included `THOR_2026-03-17_22-20-29_NONE_KO.mp4` and `THOR_2026-03-22_23-19-10_KO.mp4`. Root cause: preprocess prompts user to delete KO/NONE clips, but if user says N (or skips preprocess), they stay in Highlights and get included - there is no compile-time guard.
 
----
+Fix design: before encoding, warn if the batch contains any clip with a `_KO` or `_NONE` suffix and prompt: "X clip(s) are KO/NONE-tier (low value). Remove from batch? [y/N]". If Y, drop them and recheck batch length. If N, proceed. Silently filtering is wrong - user keeps control.
 
-**Preprocess as top-level menu item (all cacheable work)**
-
-Move Preprocess to the top-level menu (currently it is inside a submenu). When selected, run ALL cacheable work: KO scanning + fingerprinting. Intended for "going AFK while building cache" workflows. Should show overall progress across all characters.
+**Retroactive undo question:** should Thor Batch1 be re-run without those two clips? This is the user's call. Ask before doing anything.
 
 ---
 
-**Estimate accuracy: encode time model is too conservative for NVENC**
+**3. Estimate accuracy: NVENC encode multiplier**
 
-Thor Batch1 example: estimate was 6m10s, actual 2m50s. The encode estimate uses `total_dur * 0.4` but NVENC (GPU) encodes at roughly 0.10-0.15x real-time (not 0.40x). Suggestion: at runtime, detect whether NVENC is available (already done in `encoder.check_nvenc`) and use a lower multiplier (e.g. 0.15x NVENC vs 0.40x CPU). Could also track actual encode time per batch and adapt.
-
----
-
-**Timestamps format**
-
-Current format (`0:34 - 0:40 = Quad Kill`) is described as "a bit weird for a YT desc". Investigate standard YouTube timestamp formats - just `0:34 Quad Kill` is more common. Needs a decision on whether timestamps are meant for the description body or a separate pinned comment. Redesign once preferred format is clear.
+Thor Batch1 example: estimated 6m10s, actual 2m50s. The encode estimate uses `total_dur * 0.4` (tuned for CPU). NVENC (GPU) encodes at ~0.10-0.15x real-time. Fix: call `encoder.check_nvenc()` at estimate time - if True use 0.15x, else 0.40x. Quick change in `pipeline._estimate_seconds`.
 
 ---
 
-**Description: add Marvel voicelines / character phrases**
+**4. Fingerprint/duration caching**
 
-Current description prompt asks for a generic one-liner. User wants character-specific Marvel comic quotes and in-game voicelines woven in. Options: (a) manually curate a voiceline list per character in a config file, (b) use YouTube API to fetch descriptions from existing uploaded videos so Claude can learn what David likes. Option (b) ties into YouTube API Phase 4 (fetch descriptions from OldCompilations) - may be worth doing that first.
+Every run re-fingerprints all clips for dedup checking from scratch. Add per-clip fingerprint cache alongside `.ko.json` (keyed on path + mtime + size). Skip unchanged clips on re-run. Biggest win for large character folders (56+ clips). Prerequisite: design cache key format and invalidation rule.
 
 ---
 
-**Code duplication analysis**
+**5. Preprocess: top-level menu, all cacheable work**
 
-Scan codebase for: duplicate/similar logic across files, files over 300 lines that could be split, modularity improvements. Prioritize highest-impact. Do in a dedicated session after current batch of features stabilizes.
+Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 4). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
+
+---
+
+**6. Timestamps format**
+
+Current format `0:34 - 0:40 = Quad Kill` is described as "a bit weird for a YT desc". Standard YouTube chapter format is `0:34 Quad Kill`. Needs a decision: are timestamps for the description body or a pinned comment? Once decided, update `description_writer._timestamps` to match. Also check whether the `Format: ...` header line is needed in the .txt file or can be dropped.
+
+---
+
+**7. Description: Marvel voicelines / character phrases**
+
+Current description prompt asks for a generic one-liner. Goal: character-specific Marvel comic quotes and in-game voicelines woven in. Two paths: (a) manually curate a voiceline list per character in a config JSON (low-tech, good enough for now), or (b) use YouTube API Phase 4 to fetch descriptions from OldCompilations so the prompt can learn from past examples. Path (a) can be done immediately; path (b) ties into OldCompilations work below. Implement (a) first.
+
+---
+
+**8. Code duplication analysis**
+
+Scan codebase for: duplicate/similar logic, files over 300 lines, modularity improvements. Do in a dedicated session after items 2-5 are done and the codebase has stabilised. Highest-impact files are likely `pipeline.py` (540 lines) and `description_writer.py`.
 
 ---
 
 ## Lower priority / future
 
-**YouTube API - Phase 2 pipeline integration** *(OAuth confirmed working 2026-04-04 - do in a dedicated session)*
+**L1. YouTube API - Phase 2 pipeline integration** *(OAuth confirmed working 2026-04-04)*
 
 See `docs/YOUTUBE_API.md` for full API reference and auth setup notes.
 
-**What works (confirmed):**
+What works (confirmed):
 - OAuth flow via `davo29rhino@gmail.com`, `youtube.upload` scope
 - Working test script: `scripts/once_off/yt_upload_test.py`
 - Credentials: `config/client_secret_*.json` (gitignored), token: `config/token.json` (gitignored)
 - Set `OAUTHLIB_RELAX_TOKEN_SCOPE=1` - required when user grants narrower scope than requested in the consent screen
 - `youtube.upload` scope alone is sufficient for video upload; full `youtube` scope needed for thumbnails/playlists
 
-**Phase 2 implementation plan:**
+Phase 2 implementation plan:
 - Add `src/uploader.py` - reuse auth logic from `scripts/once_off/yt_upload_test.py`
 - Channel ID check: call `channels.list?part=id&mine=true`, compare against `"youtube_channel_id"` in config.json (target: `UC4xPDj5h-MRmTaa8-xIBfaA` / `@dave369_`). Abort if mismatch.
 - Parse title + description from the `_description.txt` file written by `description_writer.py`
@@ -84,47 +84,32 @@ See `docs/YOUTUBE_API.md` for full API reference and auth setup notes.
 
 ---
 
-**Test FFmpeg auto-download on a clean machine**
+**L2. Automated tests for KO detection**
 
-Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts the binaries correctly. ~70MB download. Only needed before shipping to a new machine.
-
----
-
-**Automated tests for KO detection**
-
-pytest tests for `scan_clip` and OCR logic. Want KO detection solid and well-tested before running big scans (OldCompilations, Best-of). Test clip strategy to resolve: commit a very short clip (~5s) as a fixture (CI-friendly but binary in git), or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
+pytest tests for `scan_clip` and OCR logic. Want KO detection solid before running big scans (OldCompilations, Best-of). Test clip strategy to resolve: commit a very short clip (~5s) as a fixture, or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
 
 ---
 
-**Best-of compilation from Archive**
+**L3. KO scanner large-file efficiency** *(prerequisite for OldCompilations Phase 2)*
 
-Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
-
-> **Related:** OldCompilations (below) feeds directly into this - decompiling old uploaded videos is the main way to fill ClipArchive with pre-2026 kills.
-
-**Archive clip lifecycle (decided):**
-- Archive clips are NEVER deleted - permanent record of best kills.
-- After a Best-of compilation, compiled clips move from `ClipArchive/THOR/` to `ClipArchive/THOR/compiled/` so they are not re-compiled into future Best-of videos.
-- `ClipArchive/THOR/` (root) = pending clips, not yet in any Best-of video.
-- `ClipArchive/THOR/compiled/` = clips already used in a Best-of, kept forever but excluded from future compiles.
-- The compiled Best-of video itself goes through the normal Output + cleanup flow (published to YT, then video deleted, clips stay in compiled/).
-- Archive display table should show pending vs compiled counts separately.
+Gameplay streams can be 4hr / 7GB+. Current 2fps sampling is fine for 15-min clips but becomes expensive at that scale.
+- Current approach: extract every frame at 2fps via ffmpeg pipe, run OCR on each
+- Improvement: after detecting a kill event, skip ahead confidently (banner is ~2s, mandatory 2s cooldown). Also investigate ffmpeg seek-based extraction vs piping all frames for sparse scanning of long videos.
+- Must solve before running OldCompilations Phase 2 on stream VODs.
 
 ---
 
-**OldCompilations - retrospective Best-of**
+**L4. OldCompilations - retrospective Best-of**
 
 Previously uploaded videos re-downloaded for KO scanning + segment extraction into ClipArchive.
 Location: `C:\Users\David\Videos\MarvelRivals\OldCompilations\`
 Playlist: `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
 
-> **Related:** This feeds the Best-of compilation above - extracted Quad+ segments land in ClipArchive and become source material for Best-of videos.
-
 Phase 1 (download) complete - see `docs/HISTORY.md`. 27 videos downloaded (20 compilations, 7 gameplay streams).
 
-**Next: Phase 2 - KO scan** (prerequisite: solve large-file efficiency below first, and have solid automated KO detection tests passing).
+**Phase 2 - KO scan** (prerequisite: L3 large-file efficiency solved first, and L2 KO tests passing).
 
-**Scan order: compilation videos first, stream VODs last.** Compilation videos are clean (always the player's own clips, no kill-cam false positives, shorter files). Run Phase 2 on all 20 compilation videos first to refine detection and build data. Stream VODs (7 videos, up to 4hr/7GB, kill-cam false positive risk) are harder - tackle only after the scanner is proven on the easier set.
+Scan order: compilation videos first (clean, no kill-cam false positives), stream VODs last (up to 4hr/7GB, kill-cam risk - treat results as needing manual verification).
 
 **Content inventory (27 videos):**
 
@@ -150,7 +135,7 @@ Compilation videos (20):
 - `2026-03-17` THOR AWAKENS - Multikill Highlights (Feb 2026) **[already processed - clips saved]**
 - `2026-03-17` THOR OVERLOAD - Back-to-Back Multikills (Feb-Mar 2026) **[already processed - clips saved]**
 
-Gameplay stream videos (7, 39min+, up to ~4hr/7GB - full session recordings, not clip compilations):
+Gameplay stream videos (7, 39min+, up to ~4hr/7GB):
 - `2025-08-12` THOR RIVALS GAMEPLAY (13th Aug 2025)
 - `2025-09-09` THOR RIVALS GAMEPLAY (9th Sep 2025)
 - `2025-09-11` THOR RIVALS GAMEPLAY (11th Sep 2025)
@@ -159,38 +144,42 @@ Gameplay stream videos (7, 39min+, up to ~4hr/7GB - full session recordings, not
 - `2025-09-27` THOR RIVALS GAMEPLAY (27th Sep 2025)
 - `2025-11-09` MARVEL RIVALS Gameplay (1st Nov 2025)
 
-**Already-processed:** The two 2026-03-17 videos are done (clips saved). Keep in place as regression tests (known KO timestamps to verify scanner against).
+Already-processed: the two 2026-03-17 videos are done (clips saved). Keep as regression tests.
 
-**Phase 2 - KO scan:** Run `ko_detect.py` against all OldCompilations videos. Both compilations and gameplay streams should be scanned - gameplay streams will also contain Quad+ kills.
+**Phase 3 - Segment extraction:** FFmpeg-cut each Quad+ segment (with padding) into individual clips, output to `ClipArchive/`.
 
-**Kill-cam false positives (stream VODs only):** During Phase 2, stream VODs require extra care. When the player dies, the game shows the killer's POV during respawn - their KO banners appear in the same screen region and will be detected as the player's kills. Compilation videos are not affected (always the player's own clips). For stream VODs, treat scan results as needing manual verification. Potential automated fix: detect "Spectating [name]" UI element in frame and suppress KO detection during that window.
-
-**KO scanner large-file efficiency (must solve before Phase 2):** Gameplay streams can be 4hr / 7GB+. Current 2fps sampling is fine for 15-min clips but becomes expensive at that scale. The scanner must be efficient enough to handle these without taking hours.
-- Current approach: extract every frame at 2fps via ffmpeg pipe, run OCR on each
-- Improvement needed: the banner only appears for ~2s and has a mandatory 2s cooldown - so after detecting a kill event, skip ahead confidently. Also consider: only sample the banner crop region (already done), but investigate whether ffmpeg seek-based extraction (not piping all frames) would be faster for sparse scanning of long videos.
-- This is a prerequisite for Phase 2 - don't scan large files until this is solved.
-
-**Phase 3 - Segment extraction:** FFmpeg-cut each Quad+ segment (with padding) into individual clips, output to `ClipArchive/` pending Best-of compilation.
-
-**Phase 4 - Description fetch via YouTube API (low priority):** Each OldCompilations video has a YouTube description containing manually-entered timestamps and a list of the original clip filenames that contributed. Fetch these descriptions via the YouTube Data API and save as `<video_stem>_description.txt` alongside the video file. Auth reuses `config/token.json` from Phase 2 upload work.
-
-Uses:
-- **Timestamp validation:** Compare KO scanner output against the manually-entered timestamps in the description. Not a strict test (human timestamps may be wrong or missing) - treat as a rough sanity check. Trust the scanner if it disagrees.
-- **Clip reconstruction:** Descriptions list original clip filenames in order. Combined with transition-counting (count the black-screen transitions in the compiled video), you can reconstruct which clip maps to which segment - giving a clip order list that links back to the original filenames. This is difficult because clips vary in length, but transition detection makes it tractable.
-
-**Duplicate clip detection:** See item 1 (dedup) above for implementation design. OldCompilations use case: after Phase 3 segment extraction, check extracted clips against each other and against existing ClipArchive clips before archiving.
+**Phase 4 - Description fetch via YouTube API (low priority):** Fetch each OldCompilations video's YouTube description (manually-entered timestamps + original clip filenames). Save as `<video_stem>_description.txt`. Uses: timestamp validation against KO scanner output, clip reconstruction via transition-counting. Auth reuses `config/token.json`.
 
 ---
 
-**Animated ticker spacing (low priority)**
+**L5. Best-of compilation from Archive**
 
-Ticker visually appears to alternate between " .." and "..." - looks uneven. Root cause unknown (may be a rendering/timing issue rather than the string values themselves). Investigate before fixing.
+Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
+
+Archive clip lifecycle (decided):
+- Archive clips are NEVER deleted - permanent record of best kills.
+- After a Best-of compilation, compiled clips move from `ClipArchive/THOR/` to `ClipArchive/THOR/compiled/`.
+- `ClipArchive/THOR/` (root) = pending, not yet in any Best-of.
+- `ClipArchive/THOR/compiled/` = already used, excluded from future compiles.
+- Archive display table should show pending vs compiled counts separately.
 
 ---
 
-**Compilation length tolerance when clips are deleted**
+**L6. Test FFmpeg auto-download on a clean machine**
 
-When NONE/KO-tier clips are deleted during preprocessing, the remaining batch may fall below `min_batch_seconds` (currently 15 min). Current behaviour: pipeline aborts if batch is too short. Decided: this is acceptable - publish a shorter video rather than padding with low-quality clips. Consider either lowering `min_batch_seconds` or adding a `--allow-short` override flag so the pipeline can proceed without changing the default guard.
+Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts correctly. ~70MB download. Only needed before shipping to a new machine.
+
+---
+
+**L7. Animated ticker spacing**
+
+Ticker visually appears to alternate between " .." and "..." - looks uneven. Root cause unknown (may be rendering/timing, not the string values). Investigate before fixing.
+
+---
+
+**L8. Compilation length tolerance when clips are deleted**
+
+When KO/NONE clips are deleted during preprocessing, the remaining batch may fall below `min_batch_seconds`. Current behaviour: pipeline aborts. Decided: acceptable to publish a shorter video. Consider lowering `min_batch_seconds` or adding a `--allow-short` flag.
 
 ---
 
