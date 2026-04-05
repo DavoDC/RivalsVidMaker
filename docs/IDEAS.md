@@ -14,15 +14,15 @@ Note: KO/NONE compile-time filter is now implemented (see HISTORY.md 2026-04-05)
 
 ---
 
-**2. Preprocess: top-level menu, all cacheable work** *(quick win)*
+**2. Fingerprint/duration caching** *(key for performance)*
 
-Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 3). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
+Every run re-fingerprints all clips for dedup checking from scratch. Add per-clip caching for fingerprint and duration. Two design options to evaluate: (a) separate folder alongside `.ko.json`, or (b) a single generic cache file per clip containing everything we know about it (fingerprint, duration, KO result, etc.). Option (b) may be better long-term - needs design before implementing. Cache key: path + mtime + size. Skip unchanged clips on re-run. Biggest win for large character folders (56+ clips).
 
 ---
 
-**3. Fingerprint/duration caching** *(prioritised)*
+**3. Preprocess: top-level menu, all cacheable work** *(quick win)*
 
-Every run re-fingerprints all clips for dedup checking from scratch. Add per-clip caching for fingerprint and duration. Two design options to evaluate: (a) separate folder alongside `.ko.json`, or (b) a single generic cache file per clip containing everything we know about it (fingerprint, duration, KO result, etc.). Option (b) may be better long-term - needs design before implementing. Cache key: path + mtime + size. Skip unchanged clips on re-run. Biggest win for large character folders (56+ clips).
+Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 2). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
 
 ---
 
