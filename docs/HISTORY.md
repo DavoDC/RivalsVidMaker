@@ -7,6 +7,19 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Multi-run batch correctness audit + fixes (2026-04-05)
+
+Full audit of correctness across repeated pipeline runs. 4 issues found and fixed:
+
+1. **encoder.py** - deleted `out_path` before encoding so a previously interrupted run can never leave a partial file that gets silently returned as complete.
+2. **pipeline.py / _batch_slug** - `_BATCH{n}` suffix now always appended (even for single-batch runs), so run 2 never produces a slug with no number. `total_batches` parameter removed.
+3. **state.py** - `save()` now writes atomically via `.tmp` + rename so a crash mid-write cannot corrupt `state.json`.
+4. **dedup.py** - default temp path changed from CWD-relative `data/dedup_tmp` to `tempfile.gettempdir() / rvm_dedup_tmp`.
+
+Audit doc: `docs/MultiRunAudit_20260405.md`.
+
+---
+
 ### AI title/description prompts - static paste approach (2026-04-04)
 
 Design decision: no Claude API integration. `ai_prompt.py` already generates a static prompt file per run - the header now reads "PASTE INTO FREE AI (ChatGPT / Grok) AND REPLACE TITLE + DESCRIPTION". No paid API dependency, no API key config, no HTTP calls. User pastes Prompt 3 (combined title + description) into any free AI and copies the result back. See `docs/YOUTUBE_TITLE_AND_DESC.md` for format constraints and examples that inform the prompt quality.
