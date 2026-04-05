@@ -48,8 +48,8 @@ def _extract_frames(
     clip_name = os.path.basename(clip_path)
     logging.debug("Dedup: ffmpeg start  %s (duration=%.2fs, fps=%.4f)", clip_name, duration, fps)
     try:
-        subprocess.run(
-            [ffmpeg, "-y", "-loglevel", "quiet",
+        result = subprocess.run(
+            [ffmpeg, "-y", "-loglevel", "warning",
              "-i", clip_path,
              "-vf", f"fps={fps:.6f}",
              "-vframes", str(n_frames),
@@ -57,12 +57,21 @@ def _extract_frames(
              pat],
             check=True,
             timeout=_FFMPEG_TIMEOUT,
+            capture_output=True,
+            text=True,
         )
-    except subprocess.TimeoutExpired:
+        if result.stderr:
+            logging.debug("Dedup: ffmpeg stderr for %s:\n%s", clip_name, result.stderr.strip())
+    except subprocess.TimeoutExpired as e:
+        stderr = (e.stderr or b"").decode(errors="replace").strip()
         logging.warning("Dedup: ffmpeg timed out after %ds on %s", _FFMPEG_TIMEOUT, clip_name)
+        if stderr:
+            logging.warning("Dedup: ffmpeg stderr before timeout:\n%s", stderr)
         raise
     except subprocess.CalledProcessError as e:
         logging.warning("Dedup: ffmpeg failed (rc=%d) on %s", e.returncode, clip_name)
+        if e.stderr:
+            logging.warning("Dedup: ffmpeg stderr:\n%s", e.stderr.strip())
         raise
     logging.debug("Dedup: ffmpeg done   %s", clip_name)
     frame_files = sorted(glob.glob(os.path.join(tmpdir, "f*.png")))
