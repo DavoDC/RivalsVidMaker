@@ -1,5 +1,5 @@
 """
-Tests for cleanup.py — interactive post-YouTube output folder cleanup.
+Tests for cleanup.py - interactive post-YouTube output folder cleanup.
 
 All tests use tmp_path; no real filesystem paths are required.
 User prompts are patched out so tests are fully non-interactive.

@@ -1,10 +1,10 @@
 """
-preprocess.py — Pre-process mode: warm the KO detection cache for all clips.
+preprocess.py - Pre-process mode: warm the KO detection cache for all clips.
 
 Scans every clip across all character folders in config.clips_path and writes
 cache entries so that future pipeline runs skip the slow detection step.
 
-Does NOT batch, encode, or move any files — purely a cache-warming pass.
+Does NOT batch, encode, or move any files - purely a cache-warming pass.
 
 Usage:
     python src/preprocess.py              # uses config/config.json
@@ -209,7 +209,7 @@ def preprocess_all(config: Config) -> dict[str, int]:
         if total_elapsed >= 60
         else f"{total_elapsed:.1f}s"
     )
-    logging.info("Pre-processing complete — %d clip(s) in %s", total, elapsed_str)
+    logging.info("Pre-processing complete - %d clip(s) in %s", total, elapsed_str)
     return results
 
 

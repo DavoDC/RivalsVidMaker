@@ -1,5 +1,5 @@
 """
-clip_sorter.py — Move unsorted clip files from clips_path root into per-character subfolders.
+clip_sorter.py - Move unsorted clip files from clips_path root into per-character subfolders.
 
 Filename convention: {CHARACTER NAME}_{YYYY}-{MM}-{DD}_{HH}-{MM}-{SS}.mp4
 Character names may contain letters, digits, spaces, or underscores.
@@ -14,7 +14,7 @@ Only files sitting directly in clips_path are touched.
 Subfolders (e.g. THOR/vid1_uploaded/) are never read or modified here.
 
 Safety rules:
-- Uses shutil.move() — atomic rename on same filesystem, no copy+delete.
+- Uses shutil.move() - atomic rename on same filesystem, no copy+delete.
 - Skips any file whose character name cannot be parsed.
 - Skips if the destination already exists (never overwrites).
 - Returns the number of files successfully moved.

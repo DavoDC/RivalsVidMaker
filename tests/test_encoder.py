@@ -1,5 +1,5 @@
 """
-Tests for encoder.py — FFmpeg batch encoding.
+Tests for encoder.py - FFmpeg batch encoding.
 """
 
 from pathlib import Path

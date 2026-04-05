@@ -1,5 +1,5 @@
 """
-Tests for preprocess.py — KO cache-warming mode.
+Tests for preprocess.py - KO cache-warming mode.
 
 Uses tmp_path for filesystem; mocks ko_detect so no FFmpeg/Tesseract needed.
 """
@@ -112,7 +112,7 @@ class TestPreprocessAll:
 
             result = preprocess_all(make_config(tmp_path))
 
-        # No video files found — character still visited but nothing scanned
+        # No video files found - character still visited but nothing scanned
         assert result == {}
         mock_ko.scan_clip.assert_not_called()
 

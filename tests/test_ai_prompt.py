@@ -1,5 +1,5 @@
 """
-Tests for ai_prompt.py — AI prompt Markdown generator.
+Tests for ai_prompt.py - AI prompt Markdown generator.
 """
 
 from pathlib import Path

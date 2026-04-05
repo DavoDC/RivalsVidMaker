@@ -1,5 +1,5 @@
 """
-clip_scanner.py — Scan a folder for video clips and probe their durations in parallel.
+clip_scanner.py - Scan a folder for video clips and probe their durations in parallel.
 
 Replaces C++: ClipList.cpp
 """
@@ -81,7 +81,7 @@ def scan_folder(folder: Path, ffprobe: Path, workers: int = 8, protect_recent: i
     else:
         logging.info("Found %d video file(s). Probing durations...", len(paths))
 
-    # Probe all durations in parallel — ffprobe is an external process so
+    # Probe all durations in parallel - ffprobe is an external process so
     # threads give real concurrency here.
     ordered: list[Clip | None] = [None] * len(paths)
 
@@ -95,9 +95,9 @@ def scan_folder(folder: Path, ffprobe: Path, workers: int = 8, protect_recent: i
             dur = future.result()
             if dur > 0:
                 ordered[i] = Clip(path=paths[i], duration=dur)
-                logging.debug("  Probed %s — %.1fs", paths[i].name, dur)
+                logging.debug("  Probed %s - %.1fs", paths[i].name, dur)
             else:
-                logging.warning("Could not probe duration for %s — skipping.", paths[i].name)
+                logging.warning("Could not probe duration for %s - skipping.", paths[i].name)
 
     clips = [c for c in ordered if c is not None]
     logging.info("Loaded %d clip(s).", len(clips))

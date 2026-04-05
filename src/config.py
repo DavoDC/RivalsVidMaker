@@ -1,5 +1,5 @@
 """
-config.py — Load configuration from config.json.
+config.py - Load configuration from config.json.
 """
 
 import json

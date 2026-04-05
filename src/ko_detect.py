@@ -210,13 +210,13 @@ def cache_load(clip_path: str) -> tuple[bool, dict | None]:
         return False, None
 
     if not isinstance(entry, dict):
-        # Legacy bare-null entries have no mtime — treat as miss so they're rewritten
+        # Legacy bare-null entries have no mtime - treat as miss so they're rewritten
         logging.debug("Cache legacy null entry, re-scanning: %s", os.path.basename(clip_path))
         return False, None
 
     stored_mtime = entry.get("file_mtime")
     if stored_mtime is None:
-        # Legacy entry without mtime — accept as-is (backward compatible)
+        # Legacy entry without mtime - accept as-is (backward compatible)
         result = {k: v for k, v in entry.items() if k != "file_mtime"}
         return True, result or None
 
@@ -458,7 +458,7 @@ def run_batch(batch_name: str, clips: list[str], clips_dir: str):
 
         result, elapsed, was_cached = scan_results[name]
         dur      = durations.get(name, 0.0)
-        tier_str = result["tier"] if result else "—"
+        tier_str = result["tier"] if result else "-"
         tag      = "[cached] " if was_cached else f"[{elapsed:.1f}s]  "
 
         if result:
@@ -475,7 +475,7 @@ def run_batch(batch_name: str, clips: list[str], clips_dir: str):
     # ── Write output file ──────────────────────────────────────────────────────
     out_dir  = os.path.join(OUTPUT_DIR, "output", batch_name)
     out_path = os.path.join(out_dir, f"{batch_name}_timestamps.txt")
-    lines = [f"Multi-kill timestamps — {batch_name}\n"]
+    lines = [f"Multi-kill timestamps - {batch_name}\n"]
     lines.append("Format: <streak start> - <max kill time> = Kill tier\n\n")
     if highlights:
         for start_ts, max_ts, tier, clip in highlights:
@@ -512,7 +512,7 @@ def run_ground_truth():
         print(f"\n  Tier:   {'PASS' if ok_tier  else 'FAIL'}  (got {result['tier']}, want QUAD)")
         print(f"  Start:  {'PASS' if ok_start else 'FAIL'}  (got {fmt(result['start_ts'])}, want ~0:06)")
     else:
-        print("FAIL — no multi-kill detected")
+        print("FAIL - no multi-kill detected")
 
 
 def run_single(clip_path: str):

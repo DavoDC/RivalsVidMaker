@@ -1,5 +1,5 @@
 """
-batcher.py — Group clips into ~N-minute batches.
+batcher.py - Group clips into ~N-minute batches.
 
 Replaces C++: Batcher.cpp
 """
@@ -30,7 +30,7 @@ def make_batches(clips: list[Clip], target: int = TARGET_SECONDS) -> list[Batch]
     """
     Greedily pack clips into batches up to `target` seconds each.
 
-    A clip is always added to the current batch before checking overflow —
+    A clip is always added to the current batch before checking overflow -
     this matches the C++ behaviour where a clip is only sealed off when the
     *next* clip would exceed the limit, not the current one.
     """
