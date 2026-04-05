@@ -10,6 +10,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
+import clip_cache
+
 VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
 
 
@@ -38,25 +40,71 @@ def probe_duration(path: Path, ffprobe: Path) -> float:
         return 0.0
 
 
-def summarize_folder(folder: Path, ffprobe: Path, workers: int = 8) -> tuple[int, float]:
-    """Return (clip_count, total_duration_seconds) without printing. Fast parallel probe."""
+def _probe_with_cache(path: Path, ffprobe: Path, cache_dir: Path | None) -> float:
+    """Probe duration, reading from and writing to .clip.json cache if cache_dir provided.
+
+    On a cache hit, returns the stored duration without calling ffprobe.
+    On a cache miss, calls probe_combined (fetches duration + resolution in one
+    ffprobe call) and saves both to the cache entry.
+    Falls back to probe_duration (no cache) when cache_dir is None.
+    """
+    if cache_dir is not None:
+        hit, entry = clip_cache.cache_load(str(path), str(cache_dir))
+        if hit and entry is not None and "duration" in entry:
+            return entry["duration"]
+        # Cache miss: probe duration + resolution together
+        dur, w, h = clip_cache.probe_combined(str(path), str(ffprobe))
+        if dur > 0:
+            fields: dict = {"duration": round(dur, 2)}
+            if w:
+                fields["width"] = w
+            if h:
+                fields["height"] = h
+            try:
+                clip_cache.cache_save(str(path), str(cache_dir), **fields)
+            except Exception as e:
+                logging.debug("clip_scanner: could not save duration cache for %s: %s", path.name, e)
+        return dur
+    return probe_duration(path, ffprobe)
+
+
+def summarize_folder(
+    folder: Path,
+    ffprobe: Path,
+    workers: int = 8,
+    cache_dir: Path | None = None,
+) -> tuple[int, float]:
+    """Return (clip_count, total_duration_seconds) without printing. Fast parallel probe.
+
+    If cache_dir is provided, durations are read from .clip.json and newly
+    probed durations are written there.
+    """
     paths = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTS]
     if not paths:
         return 0, 0.0
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        durations = list(pool.map(lambda p: probe_duration(p, ffprobe), paths))
+        durations = list(pool.map(lambda p: _probe_with_cache(p, ffprobe, cache_dir), paths))
     count = sum(1 for d in durations if d > 0)
     total = sum(d for d in durations if d > 0)
     return count, total
 
 
-def scan_folder(folder: Path, ffprobe: Path, workers: int = 8, protect_recent: int = 0) -> list[Clip]:
+def scan_folder(
+    folder: Path,
+    ffprobe: Path,
+    workers: int = 8,
+    protect_recent: int = 0,
+    cache_dir: Path | None = None,
+) -> list[Clip]:
     """
     Return all video clips in a folder, sorted alphabetically (= chronological
     for timestamp-named files), with durations probed in parallel.
 
     protect_recent: skip the N most recently saved clips (last N alphabetically).
     These stay untouched so their saved status remains visible in the game UI.
+
+    If cache_dir is provided, durations are read from .clip.json and newly
+    probed durations are written there (along with resolution).
 
     Clips that fail duration probing are skipped with a warning.
     """
@@ -87,7 +135,7 @@ def scan_folder(folder: Path, ffprobe: Path, workers: int = 8, protect_recent: i
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {
-            pool.submit(probe_duration, p, ffprobe): i
+            pool.submit(_probe_with_cache, p, ffprobe, cache_dir): i
             for i, p in enumerate(paths)
         }
         for future in as_completed(futures):

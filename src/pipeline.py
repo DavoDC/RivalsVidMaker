@@ -220,15 +220,18 @@ def _estimate_seconds(clips: list, cache_dir: Path) -> float:
 
 
 def _cache_exists(clip: Path, char_cache: Path) -> bool:
-    """Check whether a .ko.json cache entry exists for a clip.
+    """Check whether a .clip.json with ko_result exists for a clip.
 
-    Mirrors ko_detect.cache_path(): clips with a parseable date use a
-    YYYY-MM month subfolder; others fall back to the char_cache root.
+    Uses ko_detect.cache_exists() which checks for the ko_result field,
+    so duration-only entries (no KO scan yet) correctly return False.
     """
-    m = re.search(r"(\d{4}-\d{2})-\d{2}", clip.stem)
-    if m:
-        return (char_cache / m.group(1) / (clip.stem + ".ko.json")).exists()
-    return (char_cache / (clip.stem + ".ko.json")).exists()
+    import ko_detect as _ko
+    old_dir = _ko.CACHE_DIR
+    _ko.CACHE_DIR = str(char_cache)
+    try:
+        return _ko.cache_exists(str(clip))
+    finally:
+        _ko.CACHE_DIR = old_dir
 
 
 def _fmt_estimate(seconds: float) -> str:
@@ -442,7 +445,8 @@ def _print_multizone_status(config: Config) -> None:
     if char_folders:
         with ThreadPoolExecutor() as pool:
             summaries = list(pool.map(
-                lambda f: summarize_folder(f, config.ffprobe), char_folders
+                lambda f: summarize_folder(f, config.ffprobe, cache_dir=config.cache_dir / f.name),
+                char_folders,
             ))
         h_rows = []
         for folder, (count, dur) in zip(char_folders, summaries):
@@ -544,7 +548,8 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     # --- Step 4: scan Highlights folders for the menu ---
     with ThreadPoolExecutor() as pool:
         summaries = list(pool.map(
-            lambda f: summarize_folder(f, config.ffprobe), char_folders
+            lambda f: summarize_folder(f, config.ffprobe, cache_dir=config.cache_dir / f.name),
+            char_folders,
         ))
     for folder, (count, dur) in zip(char_folders, summaries):
         logging.debug("  %s: %d clips, %s", folder.name, count, _fmt_duration(dur))
@@ -585,7 +590,8 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
             # Refresh summaries and loop back to menu
             with ThreadPoolExecutor() as pool:
                 summaries = list(pool.map(
-                    lambda f: summarize_folder(f, config.ffprobe), char_folders
+                    lambda f: summarize_folder(f, config.ffprobe, cache_dir=config.cache_dir / f.name),
+                    char_folders,
                 ))
             continue
 
@@ -613,7 +619,8 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     logging.info("")
 
     # Scan and batch before showing the estimate so it reflects batch 1 only
-    clips = scan_folder(char_path, config.ffprobe, protect_recent=0)
+    clips = scan_folder(char_path, config.ffprobe, protect_recent=0,
+                        cache_dir=config.cache_dir / char_name)
     if not clips:
         logging.info("No clips found - nothing to process.")
         return

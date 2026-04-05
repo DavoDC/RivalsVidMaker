@@ -40,15 +40,9 @@ def _make_mp4(directory: Path, name: str) -> Path:
 
 
 def _make_cache(cache_dir: Path, clip: Path) -> None:
-    """Create a .ko.json cache entry for a clip (mirrors _cache_exists logic)."""
-    import re
-    m = re.search(r"(\d{4}-\d{2})-\d{2}", clip.stem)
-    if m:
-        entry = cache_dir / m.group(1) / (clip.stem + ".ko.json")
-    else:
-        entry = cache_dir / (clip.stem + ".ko.json")
-    entry.parent.mkdir(parents=True, exist_ok=True)
-    entry.write_text("{}")
+    """Create a .clip.json cache entry with ko_result for a clip."""
+    import clip_cache
+    clip_cache.cache_save(str(clip), str(cache_dir), ko_result=None)
 
 
 class TestEstimateSeconds:
