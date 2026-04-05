@@ -91,7 +91,7 @@ def _prompt_delete(clip_path: Path, tier: str | None) -> bool:
     return deleted_clip
 
 
-def preprocess_all(config: Config) -> dict[str, int]:
+def preprocess_all(config: Config, dry_run: bool = False) -> dict[str, int]:
     """
     Scan all clips in all character subfolders of config.clips_path.
 
@@ -161,7 +161,8 @@ def preprocess_all(config: Config) -> dict[str, int]:
             if hit and already_processed and not force_rescan:
                 # Properly processed before - respect cache, just ensure rename is done
                 tier = cached_result["tier"] if cached_result else None
-                clip_path = _rename_clip(clip_path, tier)
+                if not dry_run:
+                    clip_path = _rename_clip(clip_path, tier)
                 logging.info("[%d/%d] [cached] %s", done, total, clip_path.name)
                 char_done += 1
                 continue
@@ -194,12 +195,24 @@ def preprocess_all(config: Config) -> dict[str, int]:
                 else f"{elapsed:.1f}s"
             )
             logging.info("[%d/%d] Done (%s) - %s", done, total, elapsed_str, tier_label)
-            clip_path = _rename_clip(clip_path, tier)
+            if not dry_run:
+                clip_path = _rename_clip(clip_path, tier)
+            else:
+                label = tier if tier else ko_detect.NULL_RESULT_SUFFIX
+                if not _has_processed_suffix(clip_path):
+                    logging.info(
+                        "[DRY RUN] Would rename: %s -> %s_%s%s",
+                        clip_path.name, clip_path.stem, label, clip_path.suffix,
+                    )
             char_done += 1
 
-            # Prompt to delete low-value clips (skip during force_rescan data runs)
+            # Prompt to delete low-value clips (skip during force_rescan data runs or dry run)
             if not force_rescan and tier in _LOW_VALUE_TIERS:
-                _prompt_delete(clip_path, tier)
+                if dry_run:
+                    reason = "single kill only (KO tier)" if tier == "KO" else "no kill detected"
+                    logging.info("[DRY RUN] Would prompt to delete: %s (%s)", clip_path.name, reason)
+                else:
+                    _prompt_delete(clip_path, tier)
 
         results[char_name] = char_done
 
