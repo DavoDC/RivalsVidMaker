@@ -26,6 +26,7 @@ from clip_scanner import Clip
 from progress import AnimatedTicker
 
 DEFAULT_N_FRAMES = 5
+_FFMPEG_TIMEOUT = 60  # seconds per clip; ffmpeg extracting 5 frames should never need more
 DEFAULT_THRESHOLD = 10  # avg Hamming distance per frame (bits); empirically determined
 
 
@@ -44,15 +45,26 @@ def _extract_frames(
     """
     fps = n_frames / max(duration, 0.1)  # guard against zero-duration clips
     pat = os.path.join(tmpdir, "f%05d.png")
-    subprocess.run(
-        [ffmpeg, "-y", "-loglevel", "quiet",
-         "-i", clip_path,
-         "-vf", f"fps={fps:.6f}",
-         "-vframes", str(n_frames),
-         "-q:v", "2",
-         pat],
-        check=True,
-    )
+    clip_name = os.path.basename(clip_path)
+    logging.debug("Dedup: ffmpeg start  %s (duration=%.2fs, fps=%.4f)", clip_name, duration, fps)
+    try:
+        subprocess.run(
+            [ffmpeg, "-y", "-loglevel", "quiet",
+             "-i", clip_path,
+             "-vf", f"fps={fps:.6f}",
+             "-vframes", str(n_frames),
+             "-q:v", "2",
+             pat],
+            check=True,
+            timeout=_FFMPEG_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        logging.warning("Dedup: ffmpeg timed out after %ds on %s", _FFMPEG_TIMEOUT, clip_name)
+        raise
+    except subprocess.CalledProcessError as e:
+        logging.warning("Dedup: ffmpeg failed (rc=%d) on %s", e.returncode, clip_name)
+        raise
+    logging.debug("Dedup: ffmpeg done   %s", clip_name)
     frame_files = sorted(glob.glob(os.path.join(tmpdir, "f*.png")))
     return [Image.open(f) for f in frame_files]
 
@@ -172,7 +184,8 @@ def find_duplicates(
                     _, hashes = future.result()
                     fingerprints[clip.path] = hashes
                 except Exception as e:
-                    logging.warning("Dedup: could not fingerprint %s: %s", clip.name, e)
+                    # Timeout/ffmpeg errors already logged in _extract_frames
+                    logging.warning("Dedup: skipping duplicate check for %s: %s", clip.name, e)
                     fingerprints[clip.path] = []
                 ticker.increment()
 
