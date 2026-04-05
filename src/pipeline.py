@@ -554,6 +554,18 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
 
     batches = make_batches(clips, config.target_batch_seconds)
 
+    # --- Step 6: process selected character ---
+    char_name = char_path.name
+    logging.info("=" * 50)
+    logging.info("Character: %s", char_name)
+    logging.info("=" * 50)
+
+    logging.info("Video: %d clip(s), %s", len(batches[0].clips), batches[0].duration_str)
+    if len(batches) > 1:
+        leftover_clips = sum(len(b.clips) for b in batches[1:])
+        leftover_dur = sum(c.duration for b in batches[1:] for c in b.clips)
+        logging.info("Leftover: %d clip(s), %s", leftover_clips, _fmt_duration(leftover_dur))
+
     # Estimate and short-clip warning based on batch 1 only
     try:
         char_idx = char_folders.index(char_path)
@@ -575,16 +587,6 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     if raw not in ("y", "yes"):
         logging.info("Cancelled.")
         return
-
-    # --- Step 6: process selected character ---
-    char_name = char_path.name
-    logging.info("=" * 50)
-    logging.info("Character: %s", char_name)
-    logging.info("=" * 50)
-
-    for i, b in enumerate(batches):
-        label = "Video" if i == 0 else "Leftover"
-        logging.info("%s: %d clip(s), %s", label, len(b.clips), b.duration_str)
 
     # Always compile one batch at a time. Re-run the program for subsequent batches.
     # (Remaining clips stay in Highlights until next run.)
