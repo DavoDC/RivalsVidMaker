@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 import ko_detect
+from send2trash import send2trash
 from batcher import make_batches
 from dedup import find_duplicates, print_dup_table
 from clip_scanner import VIDEO_EXTS, scan_folder, summarize_folder
@@ -634,8 +635,8 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                 _archive_clips(to_archive, char_name, config)
             if to_delete:
                 for clip in to_delete:
-                    clip.path.unlink(missing_ok=True)
-                    logging.info("Deleted: %s", clip.name)
+                    send2trash(str(clip.path))
+                    logging.info("Sent to Recycle Bin: %s", clip.name)
             if to_remove:
                 keep = [c for c in batches[0].clips if c not in to_remove]
                 batches[0].clips = keep
