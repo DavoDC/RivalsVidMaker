@@ -18,7 +18,7 @@ from clip_scanner import VIDEO_EXTS, scan_folder, summarize_folder
 from clip_sorter import sort_clips
 from config import Config
 from description_writer import fmt_ts, write_description
-from encoder import check_nvenc, encode
+from encoder import encode
 from progress import AnimatedTicker
 from menu import pick_action
 from preprocess import preprocess_all
@@ -181,12 +181,26 @@ def _menu_status(dur: float, target: int) -> str:
     return "- No clips"
 
 
-def _estimate_seconds(clips: list, cache_dir: Path, ffmpeg: Path | None = None) -> float:
-    """Rough pipeline estimate: KO scan (model-based for uncached, ~0.5s cached) + encode.
+# ── Estimate model constants ──────────────────────────────────────────────────
 
-    KO scan model (68 clips, R2=0.90): scan_time = 0.977 * clip_duration - 4.118
-    Encode multiplier: ~0.12x for NVENC (GPU), ~0.4x for libx264 (CPU).
-    clips: list[Clip] for the batch being compiled (not all clips for the character).
+# KO scan: linear model from 68 clips (R2=0.90)
+_KO_SCAN_SLOPE = 0.977
+_KO_SCAN_INTERCEPT = -4.118
+_KO_SCAN_CACHED_SECS = 0.5     # per clip if cache hit
+
+# Fingerprint: 5 frames extracted + pHash per clip (all clips; no cache until item 3)
+FINGERPRINT_SECS_PER_CLIP = 2.5
+
+# Mux: stream-copy; measured ~0.7s for 120s footage (0.6%), use 1% for safety margin
+_MUX_MULT = 0.01
+
+
+def _estimate_seconds(clips: list, cache_dir: Path) -> float:
+    """Composite pipeline estimate: KO scan + fingerprint + mux.
+
+    KO scan model (68 clips, R2=0.90): 0.977 * avg_duration - 4.118 per uncached clip.
+    Fingerprint model: FINGERPRINT_SECS_PER_CLIP per clip.
+    Mux model: total_duration * _MUX_MULT (stream copy, nearly instant).
     """
     if not clips:
         return 0.0
@@ -197,12 +211,12 @@ def _estimate_seconds(clips: list, cache_dir: Path, ffmpeg: Path | None = None) 
     ko_est = 0.0
     for c in clips:
         if _cache_exists(c.path, char_cache):
-            ko_est += 0.5
+            ko_est += _KO_SCAN_CACHED_SECS
         else:
-            ko_est += max(1.0, 0.977 * avg_dur - 4.118)
-    encode_mult = 0.12 if (ffmpeg and check_nvenc(ffmpeg)) else 0.4
-    encode_est = total_dur * encode_mult
-    return ko_est + encode_est
+            ko_est += max(1.0, _KO_SCAN_SLOPE * avg_dur + _KO_SCAN_INTERCEPT)
+    fp_est = len(clips) * FINGERPRINT_SECS_PER_CLIP
+    mux_est = total_dur * _MUX_MULT
+    return ko_est + fp_est + mux_est
 
 
 def _cache_exists(clip: Path, char_cache: Path) -> bool:
@@ -666,7 +680,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         batches[0].clips.append(clip)
         logging.info("  Added: %s", clip.name)
 
-    est_str = _fmt_estimate(_estimate_seconds(batches[0].clips, config.cache_dir, config.ffmpeg))
+    est_str = _fmt_estimate(_estimate_seconds(batches[0].clips, config.cache_dir))
     raw = input(f"Make this video? Estimated processing time: {est_str}. [y/N]: ").strip().lower()
     if raw not in ("y", "yes"):
         logging.info("Cancelled.")
@@ -685,7 +699,10 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         # --- Duplicate detection ---
         logging.info("")
         logging.info("--- Checking for duplicates ---")
+        t_fp = time.perf_counter()
         dup_pairs = find_duplicates(batch.clips, str(config.ffmpeg), tmp_dir=config.cache_dir.parent / "dedup_tmp")
+        logging.info("Fingerprint took %.1fs total (%.1fs/clip)",
+                     time.perf_counter() - t_fp, (time.perf_counter() - t_fp) / max(len(batch.clips), 1))
         if dup_pairs:
             print_dup_table(dup_pairs)
             raw = input("Suspected duplicates found. Continue anyway? [y/N]: ").strip().lower()
@@ -699,7 +716,8 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         logging.info("--- Scanning for KO events ---")
         t_ko = time.perf_counter()
         highlights, clip_tiers = _collect_highlights(batch, config)
-        logging.debug("KO scan took %.1fs", time.perf_counter() - t_ko)
+        logging.info("KO scan took %.1fs total (%.1fs/clip)",
+                     time.perf_counter() - t_ko, (time.perf_counter() - t_ko) / max(len(batch.clips), 1))
 
         slug = _batch_slug(char_name, batch)
         out_dir = config.output_path / slug
@@ -712,7 +730,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         else:
             t_enc = time.perf_counter()
             encode(batch, char_name, out_dir, config.ffmpeg, out_stem=slug, force=force_encode)
-            logging.debug("Encode took %.1fs", time.perf_counter() - t_enc)
+            logging.info("Mux took %.1fs", time.perf_counter() - t_enc)
 
         logging.info("")
         logging.info("--- Metadata ---")
