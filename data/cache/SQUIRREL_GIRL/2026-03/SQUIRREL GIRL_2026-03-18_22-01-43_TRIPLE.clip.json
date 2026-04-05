@@ -1,0 +1,1 @@
+{"file_mtime": 1773842535.4204233, "ko_result": {"tier": "TRIPLE", "start_ts": 13.0, "max_ts": 16.0, "end_ts": 17.5, "events": [{"tier": "DOUBLE", "ts": 13.0}, {"tier": "TRIPLE", "ts": 16.0}]}, "duration": 23.28, "scan_time": 18.24, "scan_pass": 1}
