@@ -4,11 +4,38 @@ Single source of truth for all pending work.
 
 ## Pending - ordered by priority
 
-**1. End-to-end test with Thor** *(main near-term goal)*
+**1. Multi-run batch correctness audit** *(do before e2e test)*
 
-56 clips ready (48/56 KO-cached). Batch 1 = oldest ~15 min of clips, sorted chronologically.
+Review the Python codebase and unit tests focusing on correctness across repeated batch runs.
 
-**Next step - live run:** sort -> scan -> clip rename -> compile -> describe (with auto-generated title + description). YouTube upload is a separate session (see lower priority section).
+**Scenario to validate:** Run for batch 1 -> completes -> process exits. Run again for batch 2.
+
+**Key questions:**
+- Are output dirs/files created correctly on the second run?
+- Risks of: overwriting previous batch outputs, reusing stale state (module-level globals, cached values, singletons), incorrect path construction or batch naming, missing `os.makedirs(..., exist_ok=True)`, reliance on CWD instead of absolute paths, leftover temp files, unclosed file handles.
+
+**Edge cases (prioritise most likely):**
+- Output directory already exists
+- Partial/failed previous run (incomplete files, half-written data)
+- Batch number collisions or invalid input
+- Concurrent or rapid sequential runs
+- Cross-platform path issues (os.path vs pathlib)
+
+**Unit test review:** Do tests cover multiple sequential runs, pre-existing output folders, interrupted/recovery runs? Identify gaps. Suggest specific new pytest-style tests.
+
+**Implementation review:** Flag fragile patterns in file I/O, directory creation, state management. Recommend concrete fixes with code snippets.
+
+**Output format:** Highest-risk issues first, then edge cases, then test gaps + suggested tests. Keep concise and actionable. Assume runs in production repeatedly and must be idempotent.
+
+---
+
+**2. End-to-end test** *(main near-term goal - after audit above)*
+
+**Dr Strange (first):** Easier/faster test run. Make a backup of Dr Strange vids before starting so the run can be reversed. Run vids through pipeline from root folder to char folder.
+
+**Thor (final test):** 56 clips ready (48/56 KO-cached). Batch 1 = oldest ~15 min of clips, sorted chronologically. Run once happy with Strange.
+
+**Steps:** sort -> scan -> clip rename -> compile -> describe (with auto-generated title + description). YouTube upload is a separate session (see lower priority section).
 
 ---
 
