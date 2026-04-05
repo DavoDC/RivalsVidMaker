@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### NULL_RESULT_SUFFIX renamed NONE -> UNKNOWN (2026-04-05)
+
+`NULL_RESULT_SUFFIX` in `ko_detect.py` renamed from `"NONE"` to `"UNKNOWN"`. Reason: "NONE" implied no kill at all, but it actually means tier could not be determined by OCR. All references updated (`pipeline.py`, `preprocess.py`). `_find_ko_none_clips` now uses the constant rather than hardcoding the string. Also fixed the double-suffix stacking bug: pipeline rename loop now skips clips already ending in `_UNKNOWN` (previously only skipped TIERS, causing `_UNKNOWN_KO` stacking on re-scan).
+
+---
+
 ### Compile-time KO/NONE filter guard (2026-04-05)
 
 Before encoding, `pipeline.py` now checks `batches[0].clips` for any clip with a `_KO` or `_NONE` filename suffix. If found, prompts: "X clip(s) are KO/NONE-tier (low value). Remove from batch? [y/N]". If Y, drops them and rechecks batch length (aborts cleanly if nothing remains). Guard covers the case where preprocess was skipped. 8 unit tests in `test_pipeline_helpers.py`.

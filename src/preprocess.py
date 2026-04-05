@@ -21,11 +21,11 @@ from clip_scanner import VIDEO_EXTS
 from config import Config
 
 # Tiers considered too low-value for compilations; user is prompted to delete these
-_LOW_VALUE_TIERS = {"KO", None}  # None = NONE suffix (no kill detected)
+_LOW_VALUE_TIERS = {"KO", None}  # None = UNKNOWN suffix (tier could not be determined)
 
 
 def _has_processed_suffix(clip_path: Path) -> bool:
-    """Return True if the clip has already been through preprocess (has a tier or NONE suffix)."""
+    """Return True if the clip has already been through preprocess (has a tier or UNKNOWN suffix)."""
     stem = clip_path.stem
     return (
         any(stem.endswith(f"_{t}") for t in ko_detect.TIERS)
@@ -34,7 +34,7 @@ def _has_processed_suffix(clip_path: Path) -> bool:
 
 
 def _rename_clip(clip_path: Path, tier: str | None) -> Path:
-    """Rename a clip in-place to embed _TIER (or _NONE for null results) in the stem.
+    """Rename a clip in-place to embed _TIER (or _UNKNOWN for null results) in the stem.
     Also renames the cache file.
 
     Returns the new path (or original path if no rename needed).
