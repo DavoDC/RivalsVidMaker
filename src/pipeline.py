@@ -221,8 +221,8 @@ def _fmt_estimate(seconds: float) -> str:
 
 
 def _find_ko_none_clips(clips: list) -> list:
-    """Return clips whose stem ends with _KO or _NONE (low-value tiers)."""
-    return [c for c in clips if c.path.stem.endswith(("_KO", "_NONE"))]
+    """Return clips whose stem ends with _KO or _UNKNOWN (low-value tiers)."""
+    return [c for c in clips if c.path.stem.endswith(("_KO", f"_{ko_detect.NULL_RESULT_SUFFIX}"))]
 
 
 def _write_manifest(out_dir: Path, slug: str, char_name: str, batch, clip_tiers: dict) -> None:
@@ -583,7 +583,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
 
     batches = make_batches(clips, config.target_batch_seconds)
 
-    # Compile-time KO/NONE guard: warn before encoding if low-value clips slipped through
+    # Compile-time low-value guard: warn before encoding if KO/UNKNOWN clips slipped through
     low_tier = _find_ko_none_clips(batches[0].clips)
     if low_tier:
         logging.info("⚠️  %d low-value clip(s) detected - review each:", len(low_tier))

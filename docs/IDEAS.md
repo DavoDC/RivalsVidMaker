@@ -66,12 +66,6 @@ When KO/NONE clips are deleted during preprocessing, the remaining batch may fal
 
 ---
 
-**NONE_KO naming confusion**
-
-`THOR_2026-03-17_22-20-29_NONE_KO.mp4` has two suffixes appended by our scanner. Game filenames always end in a date, so both `_NONE` and `_KO` were added by preprocess (likely a double-scan). `NONE` means "OCR found no multikill tier" - but the word is ambiguous (implies no kill at all). Consider renaming `NULL_RESULT_SUFFIX` from `"NONE"` to `"UNKNOWN"` so it reads as "tier could not be determined".
-
----
-
 **Code duplication analysis**
 
 Scan codebase for: duplicate/similar logic, files over 300 lines, modularity improvements. Do in a dedicated session after the main items above are done and the codebase has stabilised. Highest-impact files are likely `pipeline.py` (540 lines) and `description_writer.py`.
