@@ -79,7 +79,7 @@ Preprocess is buried in a submenu. Move it to the top-level menu. When selected,
 
 **Fast concat / stream-copy encode**
 
-All Marvel Rivals clips are H.264 1920x1080 120fps (confirmed). If we drop transitions/overlays (or make them optional), clips that need no filtering could be concatenated via ffmpeg stream copy (`-c copy`) instead of re-encoding - potentially 10-50x faster. Prerequisite: decide whether transitions are mandatory. If optional, add a "fast mode" compile that skips them and uses stream copy. Resolution stored in `.clip.json` (item 8) can be used to verify all clips match before attempting stream copy.
+The pipeline does a straight ffmpeg concat with re-encode (NVENC or libx264) - no transitions, overlays, or filtering. Since all clips are H.264 1920x1080 120fps (confirmed uniform), stream copy (`-c copy`) is viable: skip re-encode entirely and mux clips directly. Potentially 10-50x faster encode. Resolution stored in `.clip.json` (item 8) can be used to verify all clips match before attempting stream copy. Audio re-encode (AAC) may still be needed if source audio codec differs.
 
 ---
 
