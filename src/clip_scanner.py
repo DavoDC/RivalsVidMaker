@@ -12,7 +12,7 @@ from pathlib import Path
 
 import clip_cache
 
-VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
+VIDEO_EXTS = {".mp4"}  # Marvel Rivals only saves .mp4
 
 
 @dataclass
