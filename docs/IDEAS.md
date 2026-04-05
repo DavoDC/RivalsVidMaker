@@ -6,7 +6,7 @@ Single source of truth for all pending work.
 
 ## Current Directive
 
-**Run e2e analysis first (item 1 below). Then continue with lower-priority items. Goal: full Thor compilation run through the pipeline and publish.**
+**First full e2e run complete (2026-04-05) - THOR_Mar_2026_BATCH1 compiled and ready to upload. Next: upload to YouTube, then continue with lower-priority items.**
 
 ---
 
@@ -15,6 +15,8 @@ Single source of truth for all pending work.
 **0. [BUG - PARTIALLY FIXED] Fingerprinting hangs on some clips - root cause unknown** *(needs next reproduction to diagnose)*
 
 **Observed 2026-04-05:** stuck at 26/28 during a 28-clip THOR compile. Required Ctrl+C. The 2 stuck clips were not identified (no logging at the time).
+
+**2026-04-05 follow-up run (28-clip THOR compile):** NO hang. All 28 fingerprinted in 2.1s total. The 2 previously problematic clips (THOR_2026-03-22_23-20-09_TRIPLE, THOR_2026-03-22_23-23-11_TRIPLE) completed fine this time. Root cause still unknown - may have been a one-off OS/ffmpeg issue, or those clips had a transient problem that resolved. Mitigations remain in place.
 
 **Root cause:** unknown. Candidates: clip with unusual encoding that sends ffmpeg into a decode loop; partially corrupted/truncated video file; codec issue on specific clips.
 
@@ -27,15 +29,15 @@ Single source of truth for all pending work.
 
 ---
 
-**1. Analyse first e2e run with new .clip.json cache** *(small - do before any further improvements)*
-
-Run the full pipeline end-to-end with a Thor clip. Check logs to confirm all three stages log correctly: fingerprint timing, KO scan timing, mux timing. Verify .clip.json files are written correctly (duration, ko_result, fingerprint all present after a full run). Update IDEAS.md with findings before doing any further work.
-
----
-
 ## Lower priority / future
 
 *(ordered by size - smaller first)*
+
+**Fix compile time estimate** *(small - quick win)*
+
+Current estimate is way off after stream-copy was introduced. Actual: 19s for 28 clips (15m). Estimate showed ~1m 33s. The model still uses old re-encode multipliers. Fix must account for cache state: a fully pre-processed video (all KO cached + fingerprinted) is near-instant; a fresh unpreprocessed compile incurs full scan + fingerprint costs per clip. Estimate should branch on how many clips need fingerprinting (0s/clip if cached, ~2.5s/clip if not) and KO scan (0s/clip if cached, per-clip model if not), then add mux time (1% of duration as stream copy).
+
+---
 
 **Preprocess: top-level menu + run all cacheable work** *(medium, depends on item 3)*
 

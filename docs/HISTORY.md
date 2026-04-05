@@ -7,6 +7,21 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### First full e2e run: THOR_Mar_2026_BATCH1 (2026-04-05)
+
+28 clips, 15m 02s. All three pipeline stages verified working:
+
+- **Fingerprint:** 2.1s total (0.1s/clip) - all cache hits except 2 newly fingerprinted clips. No hang.
+- **KO scan:** 0.0s total - all 28 clips cache hits from prior preprocessing.
+- **Mux:** 4.0s for 15m video via stream copy.
+- **Total:** 19s actual vs ~1m 33s estimated (estimate badly stale post stream-copy switch - flagged as quick-win fix in IDEAS.md).
+
+Cache structure confirmed: `data/cache/<character>/<YYYY-MM>/<stem>.clip.json`. Fields: `ko_result`, `fingerprint`, `duration`, `file_mtime`, `file_size`, `scan_time`, `scan_pass` - all present. Cache persists independently of clip location (clips can move to Output without invalidating cache).
+
+Output: video + description .txt + clips manifest + per-clip subfolder all written correctly.
+
+---
+
 ### Unified clip cache + composite estimate (2026-04-05)
 
 Items 1-3 from the estimate/cache directive:
