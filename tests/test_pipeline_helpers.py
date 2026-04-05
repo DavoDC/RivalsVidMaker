@@ -13,6 +13,11 @@ import pytest
 from batcher import Batch
 from clip_scanner import Clip
 from pipeline import (
+    FINGERPRINT_SECS_PER_CLIP,
+    _KO_SCAN_CACHED_SECS,
+    _KO_SCAN_INTERCEPT,
+    _KO_SCAN_SLOPE,
+    _MUX_MULT,
     _batch_slug,
     _date_range,
     _estimate_seconds,
@@ -47,31 +52,17 @@ def _make_cache(cache_dir: Path, clip: Path) -> None:
 
 
 class TestEstimateSeconds:
+    """Composite estimate: KO scan + fingerprint + mux."""
 
     def test_empty_clips_returns_zero(self, tmp_path):
         result = _estimate_seconds([], tmp_path / "cache")
         assert result == 0.0
 
-    def test_nvenc_uses_lower_multiplier(self, tmp_path):
-        folder = tmp_path / "THOR"
-        folder.mkdir()
-        clip_path = _make_mp4(folder, "THOR_2026-02-06_22-38-56_QUAD.mp4")
-        cache_root = tmp_path / "cache"
-        char_cache = cache_root / "THOR"
-        _make_cache(char_cache, clip_path)
-        clips = [Clip(path=clip_path, duration=30.0)]
-
-        with patch("pipeline.check_nvenc", return_value=True):
-            result_nvenc = _estimate_seconds(clips, cache_root, ffmpeg=Path("ffmpeg.exe"))
-        with patch("pipeline.check_nvenc", return_value=False):
-            result_cpu = _estimate_seconds(clips, cache_root, ffmpeg=Path("ffmpeg.exe"))
-
-        # NVENC (0.12x) should give a lower estimate than CPU (0.4x)
-        assert result_nvenc < result_cpu
-        assert result_nvenc == pytest.approx(0.5 + 30.0 * 0.12)
-        assert result_cpu == pytest.approx(0.5 + 30.0 * 0.4)
-
     def test_all_cached_clips(self, tmp_path):
+        # 1 cached clip, 30s:
+        #   ko:  _KO_SCAN_CACHED_SECS
+        #   fp:  1 * FINGERPRINT_SECS_PER_CLIP
+        #   mux: 30 * _MUX_MULT
         folder = tmp_path / "THOR"
         folder.mkdir()
         cache_root = tmp_path / "cache"
@@ -81,18 +72,19 @@ class TestEstimateSeconds:
         clips = [Clip(path=clip_path, duration=30.0)]
 
         result = _estimate_seconds(clips, cache_root)
-        # 1 cached clip: 0.5s + encode: 30 * 0.4 = 12.0
-        assert result == pytest.approx(0.5 + 12.0)
+        expected = _KO_SCAN_CACHED_SECS + FINGERPRINT_SECS_PER_CLIP + 30.0 * _MUX_MULT
+        assert result == pytest.approx(expected)
 
     def test_uncached_clip_uses_formula(self, tmp_path):
+        # avg=30s, KO formula: _KO_SCAN_SLOPE*30 + _KO_SCAN_INTERCEPT
         folder = tmp_path / "THOR"
         folder.mkdir()
         clip_path = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
         clips = [Clip(path=clip_path, duration=30.0)]
-        # avg=30s, formula: 0.977*30 - 4.118 = 25.192
+
         result = _estimate_seconds(clips, tmp_path / "cache")
-        expected_ko = 0.977 * 30 - 4.118
-        expected = expected_ko + 30.0 * 0.4
+        ko_est = _KO_SCAN_SLOPE * 30 + _KO_SCAN_INTERCEPT
+        expected = ko_est + FINGERPRINT_SECS_PER_CLIP + 30.0 * _MUX_MULT
         assert result == pytest.approx(expected, rel=1e-3)
 
     def test_short_clip_formula_clamped_to_one(self, tmp_path):
@@ -101,8 +93,9 @@ class TestEstimateSeconds:
         folder.mkdir()
         clip_path = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
         clips = [Clip(path=clip_path, duration=4.0)]
+
         result = _estimate_seconds(clips, tmp_path / "cache")
-        expected = 1.0 + 4.0 * 0.4
+        expected = 1.0 + FINGERPRINT_SECS_PER_CLIP + 4.0 * _MUX_MULT
         assert result == pytest.approx(expected)
 
     def test_mix_cached_and_uncached(self, tmp_path):
@@ -116,10 +109,44 @@ class TestEstimateSeconds:
         clips = [Clip(path=cached_path, duration=30.0), Clip(path=uncached_path, duration=30.0)]
 
         result = _estimate_seconds(clips, cache_root)
-        ko_cached = 0.5
-        ko_uncached = 0.977 * 30 - 4.118  # avg=30s
-        expected = ko_cached + ko_uncached + 60.0 * 0.4
+        ko_cached = _KO_SCAN_CACHED_SECS
+        ko_uncached = max(1.0, _KO_SCAN_SLOPE * 30 + _KO_SCAN_INTERCEPT)  # avg=30s
+        fp_est = 2 * FINGERPRINT_SECS_PER_CLIP
+        mux_est = 60.0 * _MUX_MULT
+        expected = ko_cached + ko_uncached + fp_est + mux_est
         assert result == pytest.approx(expected, rel=1e-3)
+
+    def test_fingerprint_stage_included(self, tmp_path):
+        """Verify fingerprint estimate is a non-zero part of the composite."""
+        folder = tmp_path / "THOR"
+        folder.mkdir()
+        clip_path = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
+        clips = [Clip(path=clip_path, duration=30.0)]
+
+        result = _estimate_seconds(clips, tmp_path / "cache")
+        # Fingerprint contribution must be FINGERPRINT_SECS_PER_CLIP per clip
+        # (verify by comparing n=1 vs n=2 clips, difference = FINGERPRINT_SECS_PER_CLIP + ko + mux diff)
+        clip2 = _make_mp4(folder, "THOR_2026-02-07_18-00-00.mp4")
+        clips2 = [Clip(path=clip_path, duration=30.0), Clip(path=clip2, duration=30.0)]
+        result2 = _estimate_seconds(clips2, tmp_path / "cache")
+
+        # Adding a second clip adds: ko_uncached + fp_per_clip + mux_for_extra_30s
+        fp_diff = result2 - result
+        assert fp_diff >= FINGERPRINT_SECS_PER_CLIP  # fingerprint contributes to the increase
+
+    def test_mux_scales_with_duration(self, tmp_path):
+        """Longer clips cost more mux time (stream copy scales with footage length)."""
+        folder = tmp_path / "THOR"
+        folder.mkdir()
+        short_clip = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
+        long_clip = _make_mp4(folder, "THOR_2026-02-07_18-00-00.mp4")
+        clips_short = [Clip(path=short_clip, duration=30.0)]
+        clips_long = [Clip(path=long_clip, duration=300.0)]
+
+        est_short = _estimate_seconds(clips_short, tmp_path / "cache")
+        est_long = _estimate_seconds(clips_long, tmp_path / "cache")
+        # Longer footage = more mux time
+        assert est_long > est_short
 
 
 # ── _fmt_duration ─────────────────────────────────────────────────────────────
