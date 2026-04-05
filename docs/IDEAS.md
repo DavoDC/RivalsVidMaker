@@ -22,9 +22,9 @@ YouTube rejects `<` and `>` characters in video descriptions - user had to manua
 
 *(ordered by size - smaller first)*
 
-**Fix compile time estimate** *(small - quick win)*
+**Remove all estimation logic and printing** *(small - quick win)*
 
-Current estimate is way off after stream-copy was introduced. Actual: 19s for 28 clips (15m). Estimate showed ~1m 33s. The model still uses old re-encode multipliers. Fix must account for cache state: a fully pre-processed video (all KO cached + fingerprinted) is near-instant; a fresh unpreprocessed compile incurs full scan + fingerprint costs per clip. Estimate should branch on how many clips need fingerprinting (0s/clip if cached, ~2.5s/clip if not) and KO scan (0s/clip if cached, per-clip model if not), then add mux time (1% of duration as stream copy).
+Stream-copy mux is so fast (19s for 15m) that estimates are pointless. Remove `_estimate_seconds`, all related constants, and the "Estimated processing time: ~Xm Xs" prompt/print. Replace with a plain "Make this video? [y/N]" confirm with no estimate. Also remove the estimated time from the summary line ("Video processed in 19s (estimated: ~1m 33s)" -> "Video processed in 19s").
 
 ---
 
