@@ -69,6 +69,9 @@ def fingerprint_clip(
     Uses Clip.duration (already probed) so no extra ffprobe call is needed.
     Frames are written to a per-clip subdir inside tmp_dir, then deleted.
     """
+    # Default is repo-relative data/dedup_tmp (absolute via __file__) so temp
+    # frames always stay within the repo regardless of the process CWD.
+    # AppData/Temp is avoided intentionally - Windows can have permission issues there.
     base = Path(tmp_dir) if tmp_dir else Path(__file__).parent.parent / "data" / "dedup_tmp"
     work_dir = base / clip.path.stem
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -110,14 +113,16 @@ def find_duplicates(
     A pair (A, B) is flagged when avg_distance(A, B) < threshold.
     The threshold is strict: distance == threshold is NOT flagged.
 
-    Frame images are written under tmp_dir (default: data/dedup_tmp) and
-    cleaned up per-clip. The tmp_dir itself is removed on completion.
+    Frame images are written under tmp_dir (default: repo data/dedup_tmp,
+    absolute via __file__) and cleaned up per-clip. The tmp_dir itself is
+    removed on completion.
 
     Returns list of (clip_a, clip_b, avg_distance) sorted by distance ascending.
     """
     if len(clips) < 2:
         return []
 
+    # Same default as fingerprint_clip: repo-relative data/dedup_tmp via __file__.
     base = Path(tmp_dir) if tmp_dir else Path(__file__).parent.parent / "data" / "dedup_tmp"
     base.mkdir(parents=True, exist_ok=True)
 
