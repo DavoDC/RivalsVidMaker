@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 from batcher import Batch
+from progress import AnimatedTicker
 
 
 def check_nvenc(ffmpeg: Path) -> bool:
@@ -88,7 +89,8 @@ def encode(
 
     t0 = time.perf_counter()
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        with AnimatedTicker("Encoding"):
+            result = subprocess.run(cmd, capture_output=True, text=True)
         if result.stderr:
             logging.debug("  FFmpeg stderr:\n%s", result.stderr.strip())
         if result.returncode != 0:
