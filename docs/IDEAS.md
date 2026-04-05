@@ -48,7 +48,7 @@ Replace the single encode-only estimate with a composite: KO scan estimate + fin
 
 ---
 
-**8. Unified clip cache (.clip.json) - fingerprint, duration, resolution, codec** *(medium)*
+**8. Unified clip cache (.clip.json) - fingerprint, duration, resolution** *(medium)*
 
 Currently: every run re-fingerprints all clips from scratch (dedup.py), and re-probes duration via ffprobe on every startup (scan_folder + summarize_folder both call probe_duration independently).
 
@@ -58,11 +58,10 @@ Fields to cache:
 - **KO result** (tier, timestamp) - migrated from existing `.ko.json`
 - **Fingerprint hashes** (N pHash values for dedup)
 - **Duration** (seconds) - probe_duration is called on every startup for every clip; caching eliminates all those ffprobe calls
-- **Resolution** (width x height) - free from the same ffprobe call; useful for filtering wrong-res clips and future features
-- **Codec** (e.g. h264, hevc) - free from ffprobe; future: enables stream-copy instead of re-encode for matching codecs (massive speedup)
+- **Resolution** (width x height) - free from same ffprobe call; useful for filtering wrong-res clips and future features. Confirmed: all clips are 1920x1080 H.264 120fps (Marvel Rivals always saves same format), so resolution unlikely to vary but cheap to store.
 
 Implementation notes:
-- Replace `probe_duration` (minimal ffprobe call) with a single wider ffprobe call that fetches duration + resolution + codec in one shot
+- Replace `probe_duration` (minimal ffprobe call) with a single wider ffprobe call that fetches duration + resolution in one shot
 - Migration: one-off script to read existing `.ko.json` files and write `.clip.json` equivalents, then delete old files
 - `ko_detect.py` and `dedup.py` both need updating to read/write the new format
 
@@ -77,6 +76,12 @@ Preprocess is buried in a submenu. Move it to the top-level menu. When selected,
 ## Lower priority / future
 
 *(ordered by size - smaller first)*
+
+**Fast concat / stream-copy encode**
+
+All Marvel Rivals clips are H.264 1920x1080 120fps (confirmed). If we drop transitions/overlays (or make them optional), clips that need no filtering could be concatenated via ffmpeg stream copy (`-c copy`) instead of re-encoding - potentially 10-50x faster. Prerequisite: decide whether transitions are mandatory. If optional, add a "fast mode" compile that skips them and uses stream copy. Resolution stored in `.clip.json` (item 8) can be used to verify all clips match before attempting stream copy.
+
+---
 
 **Test FFmpeg auto-download on a clean machine**
 
