@@ -21,6 +21,8 @@ import re
 import shutil
 from pathlib import Path
 
+from send2trash import send2trash
+
 from state import is_youtube_confirmed, load as load_state, mark_youtube_confirmed, save as save_state
 
 # Tiers considered worth archiving (Quad and above)
@@ -187,13 +189,13 @@ def run_cleanup(
             deleted = 0
             for p in remaining:
                 try:
-                    p.unlink()
-                    logging.debug("Deleted clip: %s", p.name)
+                    send2trash(str(p))
+                    logging.debug("Sent to Recycle Bin: %s", p.name)
                     deleted += 1
-                except OSError as e:
-                    logging.error("Failed to delete %s: %s", p.name, e)
-                    print(f"  [error] deleting {p.name}: {e}")
-            print(f"{deleted}/{len(remaining)} clip(s) deleted.")
+                except Exception as e:
+                    logging.error("Failed to send to Recycle Bin %s: %s", p.name, e)
+                    print(f"  [error] sending to Recycle Bin {p.name}: {e}")
+            print(f"{deleted}/{len(remaining)} clip(s) sent to Recycle Bin.")
             try:
                 clips_dir.rmdir()
                 logging.debug("Removed empty clips/ directory")
@@ -210,14 +212,14 @@ def run_cleanup(
         for mp4 in mp4s:
             size_str = _fmt_size(mp4)
             print(f"\nCompiled video: {mp4.name}  ({size_str})")
-            if _confirm("Delete this file to free disk space?", dry_run=dry_run):
+            if _confirm("Send this file to Recycle Bin to free disk space?", dry_run=dry_run):
                 try:
-                    mp4.unlink()
-                    logging.debug("Deleted compiled video: %s", mp4.name)
-                    print(f"Deleted: {mp4.name}")
-                except OSError as e:
-                    logging.error("Failed to delete %s: %s", mp4.name, e)
-                    print(f"[error] deleting {mp4.name}: {e}")
+                    send2trash(str(mp4))
+                    logging.debug("Sent to Recycle Bin: %s", mp4.name)
+                    print(f"Sent to Recycle Bin: {mp4.name}")
+                except Exception as e:
+                    logging.error("Failed to send to Recycle Bin %s: %s", mp4.name, e)
+                    print(f"[error] sending to Recycle Bin {mp4.name}: {e}")
             else:
                 print("Kept compiled video.")
     else:
@@ -226,9 +228,9 @@ def run_cleanup(
     # Remove description .txt files (no longer needed once video is gone)
     for txt in output_folder.glob("*_description.txt"):
         try:
-            txt.unlink()
-            logging.info("Deleted description file: %s", txt.name)
-        except OSError:
+            send2trash(str(txt))
+            logging.info("Sent description file to Recycle Bin: %s", txt.name)
+        except Exception:
             pass
 
     # Remove the output folder itself if now empty
@@ -324,18 +326,18 @@ def run_uncompile(
     # Delete compiled video(s)
     for mp4 in mp4s:
         try:
-            mp4.unlink()
-            logging.debug("Deleted compiled video: %s", mp4.name)
-        except OSError as e:
-            logging.error("Failed to delete compiled video %s: %s", mp4.name, e)
+            send2trash(str(mp4))
+            logging.debug("Sent compiled video to Recycle Bin: %s", mp4.name)
+        except Exception as e:
+            logging.error("Failed to send compiled video to Recycle Bin %s: %s", mp4.name, e)
 
     # Delete description file(s)
     for txt in output_folder.glob("*_description.txt"):
         try:
-            txt.unlink()
-            logging.debug("Deleted description: %s", txt.name)
-        except OSError as e:
-            logging.error("Failed to delete description %s: %s", txt.name, e)
+            send2trash(str(txt))
+            logging.debug("Sent description to Recycle Bin: %s", txt.name)
+        except Exception as e:
+            logging.error("Failed to send description to Recycle Bin %s: %s", txt.name, e)
 
     # Remove now-empty clips/ dir and output folder
     try:

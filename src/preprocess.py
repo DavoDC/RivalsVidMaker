@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 
 import ko_detect
+from send2trash import send2trash
 from clip_scanner import VIDEO_EXTS
 from config import Config
 
@@ -74,10 +75,10 @@ def _prompt_delete(clip_path: Path, tier: str | None) -> bool:
 
     deleted_clip = False
     try:
-        clip_path.unlink()
+        send2trash(str(clip_path))
         deleted_clip = True
-    except OSError as e:
-        print(f"  Could not delete clip: {e}")
+    except Exception as e:
+        print(f"  Could not send to Recycle Bin: {e}")
 
     cache = Path(ko_detect.cache_path(str(clip_path)))
     if cache.exists():
@@ -87,7 +88,7 @@ def _prompt_delete(clip_path: Path, tier: str | None) -> bool:
             pass
 
     if deleted_clip:
-        print(f"  Deleted.")
+        print(f"  Sent to Recycle Bin.")
     return deleted_clip
 
 
