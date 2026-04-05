@@ -28,6 +28,9 @@ data/cache_bak/
 # Dedup frame temp files (created and deleted during each run)
 data/dedup_tmp/
 
+# Once-off test outputs
+data/test_*.mp4
+
 # Terminal export logs (one-off, not committed)
 data/logs/*.txt
 
