@@ -1,7 +1,7 @@
 """
 Tests for clip_sorter.py
 
-All tests use tmp_path — no real clips are touched.
+All tests use tmp_path - no real clips are touched.
 """
 
 from pathlib import Path
@@ -54,7 +54,7 @@ class TestExtractCharacter:
 
 
 # ---------------------------------------------------------------------------
-# sort_clips — file operations (uses tmp_path, never touches real clips)
+# sort_clips - file operations (uses tmp_path, never touches real clips)
 # ---------------------------------------------------------------------------
 
 def _make_clip(directory: Path, name: str) -> Path:

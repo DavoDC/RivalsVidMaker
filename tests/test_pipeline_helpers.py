@@ -122,7 +122,7 @@ class TestFmtDuration:
         assert _fmt_duration(45.0) == "0m 45s"
 
     def test_fractional_seconds_truncated(self):
-        # Fractional part is discarded — only whole seconds counted
+        # Fractional part is discarded - only whole seconds counted
         assert _fmt_duration(90.9) == "1m 30s"
 
 
@@ -164,7 +164,7 @@ class TestMenuStatus:
         assert _menu_status(500.0, 900) == "✗ Too short"
 
     def test_no_clips_when_zero(self):
-        assert _menu_status(0.0, 900) == "— No clips"
+        assert _menu_status(0.0, 900) == "- No clips"
 
 
 # ── _date_range ───────────────────────────────────────────────────────────────
@@ -198,15 +198,15 @@ class TestDateRange:
         assert "Mar" in result
 
     def test_empty_folder_returns_dash(self, tmp_path):
-        assert _date_range(tmp_path) == "—"
+        assert _date_range(tmp_path) == "-"
 
     def test_non_video_files_ignored(self, tmp_path):
         _make_clip_file(tmp_path, "notes.txt")
-        assert _date_range(tmp_path) == "—"
+        assert _date_range(tmp_path) == "-"
 
     def test_unparseable_filenames_ignored(self, tmp_path):
         _make_clip_file(tmp_path, "random_clip.mp4")
-        assert _date_range(tmp_path) == "—"
+        assert _date_range(tmp_path) == "-"
 
 
 # ── _batch_slug ───────────────────────────────────────────────────────────────

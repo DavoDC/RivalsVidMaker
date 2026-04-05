@@ -1,5 +1,5 @@
 """
-cleanup.py — Interactive post-YouTube cleanup for a compiled output folder.
+cleanup.py - Interactive post-YouTube cleanup for a compiled output folder.
 
 Workflow (called after user confirms a video is live on YouTube):
 1. List every clip in Output/<slug>/clips/ with its detected KO tier.
@@ -12,8 +12,8 @@ Usage (from main menu or pipeline):
     from cleanup import run_cleanup
     run_cleanup(output_folder, archive_path)
 
-    output_folder — e.g. Path("C:/Videos/MarvelRivals/Output/THOR_Feb-Mar_2026")
-    archive_path  — e.g. Path("C:/Videos/MarvelRivals/ClipArchive")
+    output_folder - e.g. Path("C:/Videos/MarvelRivals/Output/THOR_Feb-Mar_2026")
+    archive_path  - e.g. Path("C:/Videos/MarvelRivals/ClipArchive")
 """
 
 import logging

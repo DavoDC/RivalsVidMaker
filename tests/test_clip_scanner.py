@@ -1,5 +1,5 @@
 """
-Tests for clip_scanner.py — folder scanning and duration probing.
+Tests for clip_scanner.py - folder scanning and duration probing.
 """
 
 from pathlib import Path

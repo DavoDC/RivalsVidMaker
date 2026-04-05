@@ -1,5 +1,5 @@
 """
-encoder.py — Encode a batch of clips into a single MP4 via FFmpeg concat.
+encoder.py - Encode a batch of clips into a single MP4 via FFmpeg concat.
 
 Replaces C++: Encoder.cpp
 Uses NVENC (GPU) if available, falls back to libx264 (CPU).

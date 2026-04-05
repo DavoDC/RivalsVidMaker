@@ -1,5 +1,5 @@
 """
-main.py — Entry point for RivalsVidMaker.
+main.py - Entry point for RivalsVidMaker.
 
 Usage:
     python src/main.py              # uses config/config.json
