@@ -1,0 +1,52 @@
+? Which character do you want to compile? DOCTOR_STRANGE
+Found 3 video file(s). Probing durations...
+Loaded 3 clip(s).
+==================================================
+Character: DOCTOR_STRANGE
+==================================================
+Video: 3 clip(s), 1m 16s
+Warning: only 1m 16s of clips (target is 15m 0s). Compile anyway? [y/N]: y
+Make this video? Estimated processing time: ~32s. [y/N]: y
+
+--- DOCTOR_STRANGE  (1m 16s) ---
+
+--- Checking for duplicates ---
+Fingerprinting 3/3
+No duplicates found.
+
+--- Scanning for KO events ---
+Scanning 3/3
+
+--- Encoding ---
+Output: C:\Users\David\Videos\MarvelRivals\Output\DOCTOR_STRANGE_Dec_2025_BATCH1  = FEEDBACK: remove this, its stated later on (encoded ->), also dont mention full path just fielname here. 
+Encoding DOCTOR_STRANGE_Dec_2025_BATCH1 (1m 16s)...
+Encoding done
+encode_timing: {"encoder": "nvenc", "clip_count": 3, "input_dur_s": 76.7, "elapsed_s": 11.3}  FEEDBACK: what is this, weird format. could replace this line and one above with Encoding done in XmXs or smth. 
+Encoded → C:\Users\David\Videos\MarvelRivals\Output\DOCTOR_STRANGE_Dec_2025_BATCH1\DOCTOR_STRANGE_Dec_2025_BATCH1.mp4
+
+--- Metadata ---
+Description -> C:\Users\David\Videos\MarvelRivals\Output\DOCTOR_STRANGE_Dec_2025_BATCH1\DOCTOR_STRANGE_Dec_2025_BATCH1_description.txt
+Produced text file at C:\Users\David\Videos\MarvelRivals\Output\DOCTOR_STRANGE_Dec_2025_BATCH1\DOCTOR_STRANGE_Dec_2025_BATCH1_description.txt
+FEEDBACK: dont say same info twice , this can be one line , also dont mention full path just fielname here. 
+
+--- Cleanup ---
+Clips -> C:\Users\David\Videos\MarvelRivals\Output\DOCTOR_STRANGE_Dec_2025_BATCH1\clips  (3 moved)
+FEEEDBACKL also dont mention full path just fielname here. 
+
+==================================================
+Video processed in 1m 22s (estimated: ~32s)
+==================================================
+
+>>> NEXT STEPS <<<
+
+1. Open folder:
+   C:\Users\David\Videos\MarvelRivals\Output\DOCTOR_STRANGE_Dec_2025_BATCH1
+
+2. Upload video to YouTube using temporary title:
+   DOCTOR_STRANGE_Dec_2025_BATCH1.mp4
+
+3. Paste in description from text file there.
+
+
+David@RAPHAEL MINGW64 ~/GitHubRepos/RivalsVidMaker (master)
+$
