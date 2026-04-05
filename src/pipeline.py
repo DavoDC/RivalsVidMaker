@@ -640,31 +640,26 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                 return
         logging.info("Batch now has %d clip(s).", len(batches[0].clips))
 
-    logging.info("")
-    logging.info("Video:    %d clip(s), %s", len(batches[0].clips), batches[0].duration_str)
-    if len(batches) > 1:
-        leftover_clips = sum(len(b.clips) for b in batches[1:])
-        leftover_dur = sum(c.duration for b in batches[1:] for c in b.clips)
-        logging.info("Leftover: %d clip(s), %s", leftover_clips, _fmt_duration(leftover_dur))
-    logging.info("")
-
-    # Estimate and short-clip warning based on batch 1 only
-    try:
-        char_idx = char_folders.index(char_path)
-        _, char_dur = summaries[char_idx]
-    except (ValueError, IndexError):
-        char_dur = 0.0
+    # Batch length adjustment loop - user can keep adding leftover clips one at a time
+    leftover = [c for b in batches[1:] for c in b.clips]
+    while True:
+        logging.info("")
+        logging.info("Video:    %d clip(s), %s", len(batches[0].clips), batches[0].duration_str)
+        if leftover:
+            leftover_dur = sum(c.duration for c in leftover)
+            logging.info("Leftover: %d clip(s), %s", len(leftover), _fmt_duration(leftover_dur))
+        logging.info("")
+        raw = input("Happy with this video length? [Y/n]: ").strip().lower()
+        if raw not in ("n", "no"):
+            break
+        if not leftover:
+            logging.info("No more clips to add.")
+            break
+        clip = leftover.pop(0)
+        batches[0].clips.append(clip)
+        logging.info("  Added: %s", clip.name)
 
     est_str = _fmt_estimate(_estimate_seconds(batches[0].clips, config.cache_dir))
-
-    if char_dur < config.target_batch_seconds and char_dur > 0:
-        dur_str = _fmt_duration(char_dur)
-        target_str = _fmt_duration(config.target_batch_seconds)
-        raw = input(f"Warning: only {dur_str} of clips (target is {target_str}). Compile anyway? [y/N]: ").strip().lower()
-        if raw not in ("y", "yes"):
-            logging.info("Cancelled.")
-            return
-
     raw = input(f"Make this video? Estimated processing time: {est_str}. [y/N]: ").strip().lower()
     if raw not in ("y", "yes"):
         logging.info("Cancelled.")
