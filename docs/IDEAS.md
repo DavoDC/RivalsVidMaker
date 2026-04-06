@@ -16,12 +16,6 @@ Full e2e pipeline verified (2026-04-05). Quick wins in progress - see Lower prio
 
 *(ordered by size - smaller first)*
 
-**Cleanup: fix indentation in output** *(tiny - quick win)*
-
-Cleanup output has inconsistent indentation (e.g. the "4 Quad+ clip(s) to archive" list and "24 remaining clip(s) to delete" list). The final "Cleanup complete." message also needs review (spacing/alignment). Audit all `print` calls in the cleanup path and align consistently - likely just leading spaces vs no spaces.
-
----
-
 **Remove all estimation logic and printing** *(small - quick win)*
 
 Stream-copy mux is so fast (19s for 15m) that estimates are pointless. Remove `_estimate_seconds`, all related constants, and the "Estimated processing time: ~Xm Xs" prompt/print. Replace with a plain "Make this video? [y/N]" confirm with no estimate. Also remove the estimated time from the summary line ("Video processed in 19s (estimated: ~1m 33s)" -> "Video processed in 19s").

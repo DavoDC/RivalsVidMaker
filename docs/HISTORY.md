@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Cleanup: fix indentation in output (2026-04-06)
+
+Removed 2 leading spaces from `"  Cleanup complete."` - the only top-level print with spurious indentation. All section headers and result lines were already consistently zero-indent.
+
+---
+
 ### Cleanup: delete clips.json and empty output folder (2026-04-06)
 
 `clips.json` is now sent to Recycle Bin at the end of `run_cleanup()` (before the `output_folder.rmdir()` attempt). Previously the folder rmdir silently failed because `clips.json` was still present.
