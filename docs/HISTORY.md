@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Remove estimation logic and printing (2026-04-06)
+
+Removed `_estimate_seconds`, `_fmt_estimate`, and all related constants (`_KO_SCAN_SLOPE`, `_KO_SCAN_INTERCEPT`, `_KO_SCAN_CACHED_SECS`, `FINGERPRINT_SECS_PER_CLIP`, `_MUX_MULT`). Prompt changed to plain "Make this video? [y/N]". Summary line now "Video processed in Xs" with no estimate.
+
+---
+
 ### Cleanup: fix indentation in output (2026-04-06)
 
 Removed 2 leading spaces from `"  Cleanup complete."` - the only top-level print with spurious indentation. All section headers and result lines were already consistently zero-indent.

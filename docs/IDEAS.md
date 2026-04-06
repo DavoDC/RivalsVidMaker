@@ -16,12 +16,6 @@ Full e2e pipeline verified (2026-04-05). Quick wins in progress - see Lower prio
 
 *(ordered by size - smaller first)*
 
-**Remove all estimation logic and printing** *(small - quick win)*
-
-Stream-copy mux is so fast (19s for 15m) that estimates are pointless. Remove `_estimate_seconds`, all related constants, and the "Estimated processing time: ~Xm Xs" prompt/print. Replace with a plain "Make this video? [y/N]" confirm with no estimate. Also remove the estimated time from the summary line ("Video processed in 19s (estimated: ~1m 33s)" -> "Video processed in 19s").
-
----
-
 **Preprocess: top-level menu + run all cacheable work** *(medium, depends on item 3)*
 
 Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 8). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
