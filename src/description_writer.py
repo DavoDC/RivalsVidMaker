@@ -87,7 +87,7 @@ def write_description(
             f"  THOR OVERLOAD Back-to-Back Multikills (Feb-Mar 2026)\n"
             f"  THOR AWAKENS Multikill Highlights (Feb 2026)\n"
             f"\n"
-            f"Return 3 title options. Keep each under 80 characters.\n"
+            f"Return 3 title options. Keep each under 80 characters. Do not include em dashes.\n"
         )
         lines.append("\n\n")
 
@@ -98,20 +98,12 @@ def write_description(
             f"to YouTube. Write a punchy one-liner description that weaves in a real "
             f"{char_name} quote - either a Marvel comic line or an in-game voiceline.\n"
             f"\n"
-            f"Video details:\n"
-            f"- Character: {char_name}\n"
-            f"- Date range: {date_range}\n"
-            f"- Highlights: {kill_summary}\n"
-            f"\n"
             f"Format: one punchy sentence with the quote woven in naturally, hype tone, "
             f"emojis, ends referencing Marvel Rivals. Use a real {char_name} line - "
-            f"not generic hype words.\n"
-            f"\n"
-            f"Return:\n"
-            f"  Description: ...\n"
+            f"not generic hype words. Do not include em dashes.\n"
         )
         lines.append("\n")
-        lines.append("--- Replace description prompt above with AI output before uploading ---\n")
+        lines.append("--- Replace description prompt above with AI output before uploading (Grok recommended over ChatGPT) ---\n")
         lines.append("\n")
 
     else:
