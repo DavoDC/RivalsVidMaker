@@ -6,17 +6,11 @@ Single source of truth for all pending work.
 
 ## Current Directive
 
-Full e2e pipeline verified (2026-04-05). Next: work through quick wins below.
+Full e2e pipeline verified (2026-04-05). Quick wins in progress - see Lower priority section below.
 
 ---
 
 ## Pending - ordered by priority (quick wins first)
-
-**[HIGH - QUICK WIN] Strip angled brackets from description files**
-
-YouTube rejects `<` and `>` characters in video descriptions - user had to manually replace them before pasting. Replace all `<` with `|` and `>` with `|` in the output written by `description_writer.py`. Check what context they appear in (likely `<streak start>` style placeholders in the format header or timestamp lines) and substitute consistently.
-
----
 
 ## Lower priority / future
 

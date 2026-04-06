@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Strip angled brackets from description files (2026-04-06)
+
+`<` and `>` in the title format template (`<CHARACTER> <CAPS TAGLINE>` etc.) replaced with `|` in `description_writer.py:85`. YouTube rejects these characters; user had been manually replacing them before pasting.
+
+---
+
 ### Full e2e pipeline verified end-to-end (2026-04-05)
 
 Complete cycle confirmed working: preprocess - compile - describe - upload - cleanup. THOR_Mar_2026_BATCH1 (28 clips, 15m). Cleanup: 4 Quad+ clips archived to ClipArchive/THOR/, 24 Triples/Doubles sent to Recycle Bin, compiled video (1.87 GB) recycled. Only known issues: `clips.json` + empty folder left after cleanup (quick win fix in IDEAS.md), minor indentation inconsistency in cleanup output.
