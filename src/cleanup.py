@@ -250,7 +250,7 @@ def run_cleanup(
         pass  # Not empty - leave it
 
     print()
-    print("  Cleanup complete.")
+    print("Cleanup complete.")
     print()
 
 
