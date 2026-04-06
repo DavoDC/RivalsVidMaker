@@ -16,12 +16,6 @@ Full e2e pipeline verified (2026-04-05). Quick wins in progress - see Lower prio
 
 *(ordered by size - smaller first)*
 
-**Cleanup: delete clips.json and empty output folder** *(tiny - quick win)*
-
-After cleanup completes, `clips.json` and the now-empty output folder are left on disk. Both should be deleted (sent to Recycle Bin) as the final step of cleanup. The folder can only be removed after all files inside are gone, so delete `clips.json` first, then `os.rmdir` the folder.
-
----
-
 **Cleanup: fix indentation in output** *(tiny - quick win)*
 
 Cleanup output has inconsistent indentation (e.g. the "4 Quad+ clip(s) to archive" list and "24 remaining clip(s) to delete" list). The final "Cleanup complete." message also needs review (spacing/alignment). Audit all `print` calls in the cleanup path and align consistently - likely just leading spaces vs no spaces.

@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Cleanup: delete clips.json and empty output folder (2026-04-06)
+
+`clips.json` is now sent to Recycle Bin at the end of `run_cleanup()` (before the `output_folder.rmdir()` attempt). Previously the folder rmdir silently failed because `clips.json` was still present.
+
+---
+
 ### AI prompt improvements in description_writer.py (2026-04-06)
 
 Four changes: (1) added "do not include em dashes" to title + description prompts, (2) removed "Video details:" block from description prompt (was front-loading stats and derailing tone), (3) added Grok recommendation at the divider line, (4) removed `Return: Description: ...` instruction (caused AI to echo the format literally).
