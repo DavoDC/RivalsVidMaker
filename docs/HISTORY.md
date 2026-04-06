@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### AI prompt improvements in description_writer.py (2026-04-06)
+
+Four changes: (1) added "do not include em dashes" to title + description prompts, (2) removed "Video details:" block from description prompt (was front-loading stats and derailing tone), (3) added Grok recommendation at the divider line, (4) removed `Return: Description: ...` instruction (caused AI to echo the format literally).
+
+---
+
 ### Strip angled brackets from description files (2026-04-06)
 
 `<` and `>` in the title format template (`<CHARACTER> <CAPS TAGLINE>` etc.) replaced with `|` in `description_writer.py:85`. YouTube rejects these characters; user had been manually replacing them before pasting.

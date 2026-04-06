@@ -16,17 +16,6 @@ Full e2e pipeline verified (2026-04-05). Quick wins in progress - see Lower prio
 
 *(ordered by size - smaller first)*
 
-**AI prompt improvements in description_writer.py** *(small - quick win)*
-
-Four changes to the prompts written to `_description.txt`:
-
-1. Add "do not include em dashes" to both the title prompt and the description prompt.
-2. Remove the "Video details:" block (Character / Date range / Highlights counts) from the description prompt - it sends AI on the wrong track by front-loading stats instead of tone.
-3. At the `--- Replace description prompt above with AI output ---` divider, add a note recommending Grok over ChatGPT.
-4. Remove the `Return: Description: ...` instruction line from the description prompt - it causes AI to echo the format literally.
-
----
-
 **Cleanup: delete clips.json and empty output folder** *(tiny - quick win)*
 
 After cleanup completes, `clips.json` and the now-empty output folder are left on disk. Both should be deleted (sent to Recycle Bin) as the final step of cleanup. The folder can only be removed after all files inside are gone, so delete `clips.json` first, then `os.rmdir` the folder.
