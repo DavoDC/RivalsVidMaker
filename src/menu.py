@@ -147,17 +147,17 @@ def _highlights_submenu(char_folders, summaries, target_batch_seconds):
 def _archive_view(archive_path: Path | None) -> None:
     """Show archive contents (read-only) then return to menu."""
     if not archive_path or not archive_path.exists():
-        print("\n  Archive folder is empty (or path not configured).")
+        print("\nArchive folder is empty (or path not configured).")
     else:
         from clip_scanner import VIDEO_EXTS
         clips = [p for p in archive_path.rglob("*") if p.is_file() and p.suffix.lower() in VIDEO_EXTS]
         if clips:
-            print(f"\n  Archive: {len(clips)} clip(s)")
+            print(f"\nArchive: {len(clips)} clip(s)")
             for p in sorted(clips):
-                print(f"    {p.name}")
+                print(f"  {p.name}")
         else:
-            print("\n  Archive folder is empty.")
-    input("  Press Enter to go back...")
+            print("\nArchive folder is empty.")
+    input("Press Enter to go back...")
 
 
 def _output_submenu(output_rows, state, output_path):
