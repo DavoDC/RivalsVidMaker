@@ -16,10 +16,6 @@ Full e2e pipeline verified (2026-04-05). Quick wins in progress - see Lower prio
 
 *(ordered by size - smaller first)*
 
-**Preprocess: top-level menu + run all cacheable work** *(medium, depends on item 3)*
-
-Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 8). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
-
 ---
 
 **Test FFmpeg auto-download on a clean machine**
@@ -34,37 +30,9 @@ Ticker visually appears to alternate between " .." and "..." - looks uneven. Roo
 
 ---
 
-**Code duplication analysis**
+**Preprocess: top-level menu + run all cacheable work** *(medium, depends on item 3)*
 
-Scan codebase for: duplicate/similar logic, files over 300 lines, modularity improvements. Do in a dedicated session after the main items above are done and the codebase has stabilised. Highest-impact files are likely `pipeline.py` (540 lines) and `description_writer.py`.
-
----
-
-**Automated tests for KO detection**
-
-pytest tests for `scan_clip` and OCR logic. Want KO detection solid before running big scans (OldCompilations, Best-of). Test clip strategy to resolve: commit a very short clip (~5s) as a fixture, or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
-
----
-
-**KO scanner large-file efficiency** *(prerequisite for OldCompilations Phase 2)*
-
-Gameplay streams can be 4hr / 7GB+. Current 2fps sampling is fine for 15-min clips but becomes expensive at that scale.
-- Current approach: extract every frame at 2fps via ffmpeg pipe, run OCR on each
-- Improvement: after detecting a kill event, skip ahead confidently (banner is ~2s, mandatory 2s cooldown). Also investigate ffmpeg seek-based extraction vs piping all frames for sparse scanning of long videos.
-- Must solve before running OldCompilations Phase 2 on stream VODs.
-
----
-
-**Best-of compilation from Archive**
-
-Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
-
-Archive clip lifecycle (decided):
-- Archive clips are NEVER deleted - permanent record of best kills.
-- After a Best-of compilation, compiled clips move from `ClipArchive/THOR/` to `ClipArchive/THOR/compiled/`.
-- `ClipArchive/THOR/` (root) = pending, not yet in any Best-of.
-- `ClipArchive/THOR/compiled/` = already used, excluded from future compiles.
-- Archive display table should show pending vs compiled counts separately.
+Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting (item 8). Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
 
 ---
 
@@ -88,6 +56,19 @@ Phase 2 implementation plan:
 
 ---
 
+**Best-of compilation from Archive**
+
+Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`. 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but build the feature ready.
+
+Archive clip lifecycle (decided):
+- Archive clips are NEVER deleted - permanent record of best kills.
+- After a Best-of compilation, compiled clips move from `ClipArchive/THOR/` to `ClipArchive/THOR/compiled/`.
+- `ClipArchive/THOR/` (root) = pending, not yet in any Best-of.
+- `ClipArchive/THOR/compiled/` = already used, excluded from future compiles.
+- Archive display table should show pending vs compiled counts separately.
+
+---
+
 **OldCompilations - retrospective Best-of**
 
 Previously uploaded videos re-downloaded for KO scanning + segment extraction into ClipArchive.
@@ -95,6 +76,13 @@ Location: `C:\Users\David\Videos\MarvelRivals\OldCompilations\`
 Playlist: `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
 
 Phase 1 (download) complete - see `docs/HISTORY.md`. 27 videos downloaded (20 compilations, 7 gameplay streams).
+
+**KO scanner large-file efficiency** (SHIFTED HERE, CLAUDE TO REFINE THIS)
+
+Gameplay streams can be 4hr / 7GB+. Current 2fps sampling is fine for 15-min clips but becomes expensive at that scale.
+- Current approach: extract every frame at 2fps via ffmpeg pipe, run OCR on each
+- Improvement: after detecting a kill event, skip ahead confidently (banner is ~2s, mandatory 2s cooldown). Also investigate ffmpeg seek-based extraction vs piping all frames for sparse scanning of long videos.
+- Must solve before running OldCompilations Phase 2 on stream VODs.
 
 **Phase 2 - KO scan** (prerequisite: large-file efficiency solved first, and KO detection tests passing).
 
@@ -142,6 +130,18 @@ Already-processed: the two 2026-03-17 videos are done (clips saved). Keep as reg
 ---
 
 Settled design decisions and parked ideas are in `docs/HISTORY.md`.
+
+---
+
+**Code duplication analysis**
+
+Scan codebase for: duplicate/similar logic, files over 300 lines, modularity improvements. Do in a dedicated session after the main items above are done and the codebase has stabilised. Highest-impact files are likely `pipeline.py` (540 lines) and `description_writer.py`.
+
+---
+
+**Automated tests for KO detection**
+
+pytest tests for `scan_clip` and OCR logic. Want KO detection solid before running big scans (OldCompilations, Best-of). Test clip strategy to resolve: commit a very short clip (~5s) as a fixture, or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation. Tests to write: ground truth clip detects QUAD at correct timestamp, OCR reads each tier correctly from known crops, cache hit/miss behaviour.
 
 ---
 
