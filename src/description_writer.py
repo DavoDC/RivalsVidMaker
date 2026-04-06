@@ -82,7 +82,7 @@ def write_description(
             f"- Character: {char_name}\n"
             f"- Date range: {date_range}\n"
             f"\n"
-            f"Format: <CHARACTER> <CAPS TAGLINE> <subtitle> (<date range>)\n"
+            f"Format: |CHARACTER| |CAPS TAGLINE| |subtitle| (|date range|)\n"
             f"Examples:\n"
             f"  THOR OVERLOAD Back-to-Back Multikills (Feb-Mar 2026)\n"
             f"  THOR AWAKENS Multikill Highlights (Feb 2026)\n"
