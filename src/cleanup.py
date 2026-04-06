@@ -233,6 +233,15 @@ def run_cleanup(
         except Exception:
             pass
 
+    # Remove clips.json manifest (no longer needed after cleanup)
+    clips_json = output_folder / "clips.json"
+    if clips_json.exists():
+        try:
+            send2trash(str(clips_json))
+            logging.info("Sent clips.json to Recycle Bin")
+        except Exception:
+            pass
+
     # Remove the output folder itself if now empty
     try:
         output_folder.rmdir()
