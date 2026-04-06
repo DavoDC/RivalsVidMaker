@@ -181,44 +181,6 @@ def _menu_status(dur: float, target: int) -> str:
     return "- No clips"
 
 
-# ── Estimate model constants ──────────────────────────────────────────────────
-
-# KO scan: linear model from 68 clips (R2=0.90)
-_KO_SCAN_SLOPE = 0.977
-_KO_SCAN_INTERCEPT = -4.118
-_KO_SCAN_CACHED_SECS = 0.5     # per clip if cache hit
-
-# Fingerprint: 5 frames extracted + pHash per clip (all clips; no cache until item 3)
-FINGERPRINT_SECS_PER_CLIP = 2.5
-
-# Mux: stream-copy; measured ~0.7s for 120s footage (0.6%), use 1% for safety margin
-_MUX_MULT = 0.01
-
-
-def _estimate_seconds(clips: list, cache_dir: Path) -> float:
-    """Composite pipeline estimate: KO scan + fingerprint + mux.
-
-    KO scan model (68 clips, R2=0.90): 0.977 * avg_duration - 4.118 per uncached clip.
-    Fingerprint model: FINGERPRINT_SECS_PER_CLIP per clip.
-    Mux model: total_duration * _MUX_MULT (stream copy, nearly instant).
-    """
-    if not clips:
-        return 0.0
-    total_dur = sum(c.duration for c in clips)
-    avg_dur = total_dur / len(clips)
-    char_cache = cache_dir / clips[0].path.parent.name
-
-    ko_est = 0.0
-    for c in clips:
-        if _cache_exists(c.path, char_cache):
-            ko_est += _KO_SCAN_CACHED_SECS
-        else:
-            ko_est += max(1.0, _KO_SCAN_SLOPE * avg_dur + _KO_SCAN_INTERCEPT)
-    fp_est = len(clips) * FINGERPRINT_SECS_PER_CLIP
-    mux_est = total_dur * _MUX_MULT
-    return ko_est + fp_est + mux_est
-
-
 def _cache_exists(clip: Path, char_cache: Path) -> bool:
     """Check whether a .clip.json with ko_result exists for a clip.
 
@@ -232,12 +194,6 @@ def _cache_exists(clip: Path, char_cache: Path) -> bool:
         return _ko.cache_exists(str(clip))
     finally:
         _ko.CACHE_DIR = old_dir
-
-
-def _fmt_estimate(seconds: float) -> str:
-    s = int(seconds)
-    m, sec = divmod(s, 60)
-    return f"~{m}m {sec:02d}s" if m else f"~{sec}s"
 
 
 def _find_ko_none_clips(clips: list) -> list:
@@ -687,8 +643,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         batches[0].clips.append(clip)
         logging.info("  Added: %s", clip.name)
 
-    est_str = _fmt_estimate(_estimate_seconds(batches[0].clips, config.cache_dir))
-    raw = input(f"Make this video? Estimated processing time: {est_str}. [y/N]: ").strip().lower()
+    raw = input("Make this video? [y/N]: ").strip().lower()
     if raw not in ("y", "yes"):
         logging.info("Cancelled.")
         return
@@ -775,7 +730,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     elapsed_fmt = f"{elapsed_mins}m {elapsed_secs:02d}s" if elapsed_mins else f"{elapsed_secs}s"
     logging.info("")
     logging.info("=" * 50)
-    logging.info("Video processed in %s (estimated: %s)", elapsed_fmt, est_str)
+    logging.info("Video processed in %s", elapsed_fmt)
     logging.info("=" * 50)
     print("\a", end="", flush=True)
 
