@@ -10,15 +10,7 @@ Single source of truth for all pending work.
 
 Work that blocks core functionality. Program cannot ship without these.
 
----
-
-**Uncompile: leaves behind clips.json, warns user**
-
-`run_uncompile()` deletes the compiled video and description files, but leaves `clips.json` in the output folder. Then emits WARNING: "Output folder not empty after uncompile - manual check needed".
-
-Bad UX: the program should either (a) delete clips.json as part of uncompile, (b) silently ignore it, or (c) fail cleanly if it can't rmdir. Currently it's a noisy non-error.
-
-Fix: Add `clips.json` to the cleanup list in uncompile (line 236-243 pattern), or allow rmdir to fail silently since the user doesn't care about empty metadata files.
+*(All current TIER 0 items have been completed.)*
 
 ---
 

@@ -13,6 +13,12 @@ Fixed two TIER 0 blocking issues in YouTube authentication and error handling. (
 
 ---
 
+### Uncompile: delete clips.json manifest (2026-05-09)
+
+`run_uncompile()` now deletes `clips.json` metadata file alongside video, description, and clips during reversal. Previously left `clips.json` behind, causing `rmdir()` to fail with spurious warning "Output folder not empty after uncompile - manual check needed". Fix: added `clips.json` to cleanup list. Includes test covering full uncompile + clips.json deletion flow.
+
+---
+
 ### KeyError fix: offsets dict after clip rename (2026-05-09)
 
 Fixed crash in `_collect_highlights()` where renamed clips (with tier suffixes like `_QUAD`) could not be found in the offsets dictionary. Root cause: offsets dict was keyed by original filenames, but after rename, clip.name returns the new filename. Fix: update offsets dict keys when clips are renamed. Added regression test covering full KO scan → rename → highlights flow.
