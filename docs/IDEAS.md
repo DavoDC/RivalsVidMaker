@@ -31,9 +31,16 @@ After upload failure, still shows: "Upload manually from output folder" + "Paste
 
 ---
 
+
+## TIER 1 (MVP)
+
+Features that improve core workflow. Valuable for scaling and workflow quality, ready to start.
+
+---
+
 **Automated tests for KO detection**
 
-pytest tests for `scan_clip` and OCR logic. Needed BEFORE large-scale KO work (OldCompilations, etc.).
+pytest tests for `scan_clip` and OCR logic. Valuable before large-scale KO work (TIER 4: OldCompilations). Not blocking current app ship, but prerequisite for confident scaling.
 
 Test clip strategy to resolve: commit a very short clip (~5s) as a fixture, or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation.
 
@@ -44,15 +51,9 @@ Tests to write:
 
 ---
 
-## TIER 1 (MVP)
-
-Features that improve core workflow. High user impact, ready to start.
-
----
-
 **Preprocess: top-level menu + run all cacheable work**
 
-Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting. Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
+Very nice-to-have workflow improvement. Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting. Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
 
 Status: Medium complexity. Depends on KO detection tests being solid.
 
@@ -60,13 +61,13 @@ Status: Medium complexity. Depends on KO detection tests being solid.
 
 ## TIER 2 (QUALITY)
 
-Refactoring, perf, and polish on core workflow.
+Polish on core workflow. Nice-to-have visual fixes.
 
 ---
 
 **Animated ticker spacing**
 
-Ticker visually appears to alternate between " .." and "..." - looks uneven. Root cause unknown (may be rendering/timing, not the string values). Investigate before fixing.
+Nice-to-have visual polish. Ticker visually appears to alternate between " .." and "..." - looks uneven. Root cause unknown (may be rendering/timing, not the string values). Investigate before fixing.
 
 ---
 
@@ -100,13 +101,13 @@ The `\n` should be rendered as an actual newline. Grep the codebase for all occu
 
 ## TIER 4 (FUTURE)
 
-Extra functionality, nice-to-have, lower priority. Do not start until TIER 0-2 are solid.
+Extra functionality, lower priority. Do not start until TIER 0-2 are solid. These are improvements beyond core highlight workflow.
 
 ---
 
 **Best-of compilation from Archive**
 
-Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`.
+Extra feature for archive management. Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`.
 
 13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but feature is ready to build.
 
@@ -121,17 +122,19 @@ Archive clip lifecycle (decided):
 
 **KO scanner large-file efficiency**
 
+Performance optimization for TIER 4 OldCompilations Phase 2 only. Not needed for current highlight workflow.
+
 Gameplay streams can be 4hr / 7GB+. Current 2fps sampling is fine for 15-min clips but becomes expensive at that scale.
 
 Current approach: extract every frame at 2fps via ffmpeg pipe, run OCR on each.
 
 Improvement: after detecting a kill event, skip ahead confidently (banner is ~2s, mandatory 2s cooldown). Also investigate ffmpeg seek-based extraction vs piping all frames for sparse scanning of long videos.
 
-Note: This is ONLY needed for OldCompilations Phase 2 (scanning 4hr+ VODs). Not required for current highlight workflow.
-
 ---
 
 **OldCompilations - retrospective Best-of**
+
+Lower priority extra feature. Previously uploaded videos re-downloaded for KO scanning + segment extraction into ClipArchive.
 
 Previously uploaded videos re-downloaded for KO scanning + segment extraction into ClipArchive.
 
