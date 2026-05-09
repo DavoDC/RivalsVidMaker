@@ -10,9 +10,51 @@ Single source of truth for all pending work.
 
 Work that makes the program unusable or unpresentable. Cannot ship without these.
 
-**YouTube upload fails with socket connection abort ([WinError 10053])**
+**YouTube upload fails with socket connection abort ([WinError 10053]) - IMPLEMENTATION BUG, NOT NETWORK**
 
-Upload initialization works (200 OK, gets x-goog-upload-url), but all chunk uploads fail mid-transfer with "connection aborted by the software in your host machine". Happens with both httplib2 and requests libraries. Likely ISP/firewall blocking uploads to YouTube API, or temporary YouTube API issue. Test with VPN or different network to rule out ISP blocking.
+**Status:** CONFIRMED - Network/ISP/Firewall are NOT the issue (browser uploads work fine, proven 2026-05-09 23:00).
+
+**Symptoms:**
+- Upload initialization succeeds: POST to https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable returns 200 OK with x-goog-upload-url header
+- Response headers include: x-goog-upload-status: active, x-goog-upload-url (correct resumable session URI), x-goog-upload-chunk-granularity: 262144
+- First chunk PUT fails mid-transfer with: [WinError 10053] "An established connection was aborted by the software in your host machine" 
+- Happens in SSL layer during data transfer (python ssl.py _sslobj.write())
+- Retries (3-10 attempts with exponential backoff) all fail identically
+- BOTH httplib2 AND requests libraries fail the same way → library agnostic issue
+
+**Investigation (Session 230124, 22:29-23:01 AWST):**
+1. Replaced slow google-api-python-client resumable upload (20 Mbps limit) with direct requests/httplib2 (goal: 40-80 MB/s like Chrome)
+2. Fixed protocol bug: YouTube uses x-goog-upload-url header, not standard Location header
+3. Tried chunk sizes: 10MB, 1MB, 256KB - all fail at first chunk
+4. Tried both httplib2 (youtube._http) and requests library - same failure
+5. Added retry logic (5-10 attempts) with exponential backoff - no improvement
+6. Created isolated test script (test_upload_isolated.py) for standalone debugging
+7. User verified: "Just did upload in browser and works fine" → Network/ISP/Firewall are proven OK
+8. Commits: 11 total (7cfd047 through 22fabe4)
+
+**Root cause likely (unconfirmed):**
+- Content-Range header format incorrect? (currently: "bytes 0-1048575/2515441711")
+- Request body encoding issue? (reading file as binary, sending via data= parameter)
+- Missing header that browser sends automatically?
+- SSL/TLS connection pool management (persistent vs new connection per chunk)?
+- youtube._http object has different behavior than standalone requests?
+- Authorization header format issue? (using token from token.json directly as "Bearer {token}")
+
+**What works in browser:**
+- Chrome/Firefox native upload to YouTube
+- Same file (THOR_Mar-Apr_2026_BATCH1.mp4, 2.4GB)
+- Same YouTube API endpoint
+- Takes 5-10 minutes (vs our code hanging at 1% with retries)
+
+**Next debugging steps:**
+1. Compare Content-Range header format between our code and browser network trace
+2. Test if issue is specific to file size (try 100MB test file)
+3. Try google-api-python-client MediaFileUpload.getbytes() method (different chunking mechanism)
+4. Inspect SSL/TLS socket options (timeout, keep-alive, buffer size)
+5. Try HTTP/2 vs HTTP/1.1 (requests forces HTTP/1.1)
+6. Verify Authorization header is being sent (add logging for actual request headers)
+7. Test with curl directly against the resumable session URI
+8. Check if token expires during upload (add token refresh logic)
 
 ---
 
