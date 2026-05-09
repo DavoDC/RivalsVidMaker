@@ -14,7 +14,7 @@ Work that blocks core functionality. Program cannot ship without these.
 
 **UX: YouTube upload needs progress indication** ⚠️ HIGH PRIORITY
 
-When uploading large video (2+ GB), program shows no terminal feedback. Looks hung. User doesn't know if it's uploading, frozen, or failed. Currently upload_video() logs progress % to file only, never prints to console. Fix: print to terminal during upload (e.g., "Uploading... 15% complete", elapsed time, ETA). Use print() + sys.stdout.flush() for real-time output, or tqdm for progress bar. User can't wait 5-15 min with zero feedback.
+When uploading large video (2+ GB), program shows no terminal feedback. Looks hung. User doesn't know if it's uploading, frozen, or failed. Currently upload_video() logs progress % to file only, never prints to console. Fix: add progress callback to MediaFileUpload.upload_http() loop (already has status.progress() % available), print to terminal inline using pattern from FLAC_Flow/src/deps.py (line 139): `print(f"\r  {pct:.0f}%  ({mb:.1f} / {total_mb:.0f} MB)", end="", flush=True)`. Shows pct + MB downloaded/total, overwrites same line.
 
 ---
 
