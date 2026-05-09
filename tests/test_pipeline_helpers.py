@@ -13,135 +13,15 @@ import pytest
 from batcher import Batch
 from clip_scanner import Clip
 from pipeline import (
-    FINGERPRINT_SECS_PER_CLIP,
-    _KO_SCAN_CACHED_SECS,
-    _KO_SCAN_INTERCEPT,
-    _KO_SCAN_SLOPE,
-    _MUX_MULT,
     _batch_slug,
     _date_range,
-    _estimate_seconds,
     _find_ko_none_clips,
     _fmt_duration,
-    _fmt_estimate,
     _menu_status,
     _move_clips,
     _scan_archive_folder,
     _scan_output_folder,
 )
-
-
-# ── _estimate_seconds ────────────────────────────────────────────────────────
-
-def _make_mp4(directory: Path, name: str) -> Path:
-    p = directory / name
-    p.write_bytes(b"")
-    return p
-
-
-def _make_cache(cache_dir: Path, clip: Path) -> None:
-    """Create a .clip.json cache entry with ko_result for a clip."""
-    import clip_cache
-    clip_cache.cache_save(str(clip), str(cache_dir), ko_result=None)
-
-
-class TestEstimateSeconds:
-    """Composite estimate: KO scan + fingerprint + mux."""
-
-    def test_empty_clips_returns_zero(self, tmp_path):
-        result = _estimate_seconds([], tmp_path / "cache")
-        assert result == 0.0
-
-    def test_all_cached_clips(self, tmp_path):
-        # 1 cached clip, 30s:
-        #   ko:  _KO_SCAN_CACHED_SECS
-        #   fp:  1 * FINGERPRINT_SECS_PER_CLIP
-        #   mux: 30 * _MUX_MULT
-        folder = tmp_path / "THOR"
-        folder.mkdir()
-        cache_root = tmp_path / "cache"
-        char_cache = cache_root / "THOR"
-        clip_path = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
-        _make_cache(char_cache, clip_path)
-        clips = [Clip(path=clip_path, duration=30.0)]
-
-        result = _estimate_seconds(clips, cache_root)
-        expected = _KO_SCAN_CACHED_SECS + FINGERPRINT_SECS_PER_CLIP + 30.0 * _MUX_MULT
-        assert result == pytest.approx(expected)
-
-    def test_uncached_clip_uses_formula(self, tmp_path):
-        # avg=30s, KO formula: _KO_SCAN_SLOPE*30 + _KO_SCAN_INTERCEPT
-        folder = tmp_path / "THOR"
-        folder.mkdir()
-        clip_path = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
-        clips = [Clip(path=clip_path, duration=30.0)]
-
-        result = _estimate_seconds(clips, tmp_path / "cache")
-        ko_est = _KO_SCAN_SLOPE * 30 + _KO_SCAN_INTERCEPT
-        expected = ko_est + FINGERPRINT_SECS_PER_CLIP + 30.0 * _MUX_MULT
-        assert result == pytest.approx(expected, rel=1e-3)
-
-    def test_short_clip_formula_clamped_to_one(self, tmp_path):
-        # Formula for a 4s clip: 0.977*4 - 4.118 = -0.21 -> clamped to 1.0
-        folder = tmp_path / "THOR"
-        folder.mkdir()
-        clip_path = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
-        clips = [Clip(path=clip_path, duration=4.0)]
-
-        result = _estimate_seconds(clips, tmp_path / "cache")
-        expected = 1.0 + FINGERPRINT_SECS_PER_CLIP + 4.0 * _MUX_MULT
-        assert result == pytest.approx(expected)
-
-    def test_mix_cached_and_uncached(self, tmp_path):
-        folder = tmp_path / "THOR"
-        folder.mkdir()
-        cache_root = tmp_path / "cache"
-        char_cache = cache_root / "THOR"
-        cached_path = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
-        _make_cache(char_cache, cached_path)
-        uncached_path = _make_mp4(folder, "THOR_2026-02-07_18-00-00.mp4")
-        clips = [Clip(path=cached_path, duration=30.0), Clip(path=uncached_path, duration=30.0)]
-
-        result = _estimate_seconds(clips, cache_root)
-        ko_cached = _KO_SCAN_CACHED_SECS
-        ko_uncached = max(1.0, _KO_SCAN_SLOPE * 30 + _KO_SCAN_INTERCEPT)  # avg=30s
-        fp_est = 2 * FINGERPRINT_SECS_PER_CLIP
-        mux_est = 60.0 * _MUX_MULT
-        expected = ko_cached + ko_uncached + fp_est + mux_est
-        assert result == pytest.approx(expected, rel=1e-3)
-
-    def test_fingerprint_stage_included(self, tmp_path):
-        """Verify fingerprint estimate is a non-zero part of the composite."""
-        folder = tmp_path / "THOR"
-        folder.mkdir()
-        clip_path = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
-        clips = [Clip(path=clip_path, duration=30.0)]
-
-        result = _estimate_seconds(clips, tmp_path / "cache")
-        # Fingerprint contribution must be FINGERPRINT_SECS_PER_CLIP per clip
-        # (verify by comparing n=1 vs n=2 clips, difference = FINGERPRINT_SECS_PER_CLIP + ko + mux diff)
-        clip2 = _make_mp4(folder, "THOR_2026-02-07_18-00-00.mp4")
-        clips2 = [Clip(path=clip_path, duration=30.0), Clip(path=clip2, duration=30.0)]
-        result2 = _estimate_seconds(clips2, tmp_path / "cache")
-
-        # Adding a second clip adds: ko_uncached + fp_per_clip + mux_for_extra_30s
-        fp_diff = result2 - result
-        assert fp_diff >= FINGERPRINT_SECS_PER_CLIP  # fingerprint contributes to the increase
-
-    def test_mux_scales_with_duration(self, tmp_path):
-        """Longer clips cost more mux time (stream copy scales with footage length)."""
-        folder = tmp_path / "THOR"
-        folder.mkdir()
-        short_clip = _make_mp4(folder, "THOR_2026-02-06_22-38-56.mp4")
-        long_clip = _make_mp4(folder, "THOR_2026-02-07_18-00-00.mp4")
-        clips_short = [Clip(path=short_clip, duration=30.0)]
-        clips_long = [Clip(path=long_clip, duration=300.0)]
-
-        est_short = _estimate_seconds(clips_short, tmp_path / "cache")
-        est_long = _estimate_seconds(clips_long, tmp_path / "cache")
-        # Longer footage = more mux time
-        assert est_long > est_short
-
 
 # ── _fmt_duration ─────────────────────────────────────────────────────────────
 
@@ -168,21 +48,6 @@ class TestFmtDuration:
 
 
 # ── _fmt_estimate ─────────────────────────────────────────────────────────────
-
-class TestFmtEstimate:
-
-    def test_under_one_minute(self):
-        assert _fmt_estimate(45.0) == "~45s"
-
-    def test_exactly_one_minute(self):
-        assert _fmt_estimate(60.0) == "~1m 00s"
-
-    def test_minutes_and_seconds(self):
-        assert _fmt_estimate(125.0) == "~2m 05s"
-
-    def test_zero(self):
-        assert _fmt_estimate(0.0) == "~0s"
-
 
 # ── _menu_status ──────────────────────────────────────────────────────────────
 

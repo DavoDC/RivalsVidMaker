@@ -12,6 +12,31 @@ Work that blocks core functionality. Program cannot ship without these.
 
 ---
 
+**UX: YouTube upload needs progress indication**
+
+When uploading large video (2+ GB), program shows no progress feedback. Looks hung. User doesn't know if it's uploading, frozen, or failed. Fix: show upload progress bar or periodic status updates (e.g., "Uploading... 15% complete" every 5 seconds). Use `tqdm` or similar library for clean progress display.
+
+---
+
+**UX: OAuth flow needs terminal instructions**
+
+When OAuth opens browser, program just prints the URL with no context. User doesn't know what to do next (e.g., "Google hasn't verified this app" warning appears, user doesn't know to click Continue). Fix: print clear instructions before OAuth:
+```
+1. Browser will open for YouTube login
+2. You may see "Google hasn't verified this app" - click Continue
+3. Select account: David (davo29rhino@gmail.com) - NOT Dave369
+4. Grant permissions
+5. Return to terminal
+```
+
+---
+
+**UX: OAuth account selection should show YouTube channel name**
+
+When OAuth shows "Choose your account", user sees multiple accounts but no hint which one owns the configured YouTube channel. User easily selects wrong account (brand account vs personal account). Fix: before OAuth, print "Logging in with YouTube channel UC4x... Select the account that owns this channel."
+
+---
+
 **BUG: Channel validation failure should auto-delete token**
 
 When YouTube upload succeeds but channel validation fails (e.g., authenticated with wrong account), uploader warns "Channel ID mismatch. Delete token.json and re-authenticate." Should instead: auto-delete token.json and re-loop to OAuth prompt. User shouldn't have to manually delete - program should do it and ask for re-auth.

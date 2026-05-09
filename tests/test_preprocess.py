@@ -28,6 +28,7 @@ def make_config(clips_path: Path, protect_recent_clips: int = 0) -> Config:
         target_batch_seconds=900,
         protect_recent_clips=protect_recent_clips,
         state_path=Path("data/state.json"),
+        youtube_channel_id="UC4xPDj5h-MRmTaa8-xIBfaA",
     )
 
 
