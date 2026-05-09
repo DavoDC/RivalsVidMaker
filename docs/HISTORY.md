@@ -7,6 +7,16 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### YouTube upload socket abort fixed - protocol mismatch root cause (2026-05-09)
+
+Fixed SHIPPING BLOCKER: **upload PUTs failed mid-transfer with `[WinError 10053]` socket abort, library-agnostic (httplib2 and requests both failed identically).** Root cause: `uploader.upload_video` mixed two incompatible YouTube resumable protocols. The init request used Google's **custom** protocol (`X-Goog-Upload-Protocol: resumable`, `X-Goog-Upload-Command: start`, `X-Goog-Upload-Header-Content-Length`), which returned a session URI in the `x-goog-upload-url` header. But the chunk PUTs used **standard** resumable headers (`Content-Range: bytes start-end/total`). The custom-protocol session URI rejected `Content-Range` requests by aborting the SSL connection mid-transfer - manifesting as a network error rather than a protocol error.
+
+Fix: switched init to standard resumable (`X-Upload-Content-Length`, `X-Upload-Content-Type`, no `X-Goog-*` headers), reads session URI from standard `Location` header, chunk PUTs unchanged (already using `Content-Range`). Restored chunk size to 8MB (the earlier 1MB workaround was based on a wrong hypothesis about chunk size causing aborts). Verified with isolated upload of 5.9MB test video on first attempt, then again with 8MB chunks: both succeeded end-to-end with no retries. Test script `test_upload_isolated.py` now accepts CLI arg for video path and synthesises title/description when none provided, enabling fast iteration on small files instead of 5-10min waits on the 2.4GB workflow file.
+
+**First-principles lesson:** when the same failure occurs across two HTTP libraries, the bug is in the request being sent, not the library sending it. Browser uploads working = network is innocent = our request shape is wrong. Two competing resumable protocols at the same endpoint is a real Google API foot-gun; mixing them produces a network-shaped error rather than a clear protocol error.
+
+---
+
 ### [v]iew in VLC during clip review (2026-05-09)
 
 Added `vlc_path` to Config (auto-detects `C:\Program Files\VideoLAN\VLC\vlc.exe`, falls back to None). Both low-value clip review prompts (preprocess `_prompt_delete` and pipeline compile-time review) now show `[v] view in VLC` when `vlc_path` is set. Pressing v calls `subprocess.Popen([vlc, clip])` and loops back to the same prompt - user can watch the clip then decide to include/archive/delete without restarting. Option is silently absent when VLC not installed. 3 new tests. 345 tests pass.
