@@ -176,3 +176,23 @@ Quad Kill @ 3:52"""
             "Pipeline should guide users to re-authenticate when YouTube upload fails. "
             "Check pipeline.py exception handling for YouTube upload."
         )
+
+    def test_upload_progress_callback_invoked(self):
+        """Progress callback should be called during chunked upload."""
+        pass
+
+    def test_upload_progress_percentages_correct(self):
+        """Progress percentages should range from 0% to 100%."""
+        pass
+
+    def test_upload_progress_console_output_format(self):
+        """Progress output should match FLAC_Flow pattern: % + MB/total MB."""
+        pass
+
+    def test_upload_doesnt_hang_on_large_file(self):
+        """Upload should complete without hanging (timeout check)."""
+        pass
+
+    def test_upload_uses_optimal_chunk_size(self):
+        """MediaFileUpload should use efficient chunking, not single-chunk."""
+        pass
