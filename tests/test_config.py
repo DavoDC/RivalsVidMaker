@@ -21,6 +21,7 @@ MINIMAL_CONFIG = {
     "clips_path": "C:/Videos/MarvelRivals/Highlights",
     "output_path": "C:/Videos/MarvelRivals/Output",
     "ffmpeg_path": "tools",
+    "youtube_channel_id": "UC4xPDj5h-MRmTaa8-xIBfaA",
 }
 
 FULL_CONFIG = {
