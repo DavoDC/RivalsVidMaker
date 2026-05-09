@@ -104,12 +104,13 @@ class TestPickAction:
         assert result["type"] == "compile"
         assert result["folder"] == char_folders[0]
 
-    def test_highlights_then_preprocess_returns_preprocess(self, tmp_path):
+    def test_preprocess_returns_preprocess(self, tmp_path):
         char_folders = _make_char_folders(tmp_path)
         summaries = [(31, 900.0), (14, 371.0)]
 
         with patch("menu.questionary.select") as mock_select:
-            mock_select.return_value.ask.side_effect = ["highlights", "preprocess"]
+            # Preprocess is now a top-level menu option
+            mock_select.return_value.ask.return_value = "preprocess"
             result = pick_action(char_folders, summaries, [], {}, target_batch_seconds=900)
 
         assert result["type"] == "preprocess"
