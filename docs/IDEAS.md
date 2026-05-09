@@ -10,7 +10,22 @@ Single source of truth for all pending work.
 
 Work that blocks core functionality. Program cannot ship without these.
 
-*(All current TIER 0 items have been completed.)*
+---
+
+**BUG: Pipeline YouTube upload failure has no retry loop**
+
+When YouTube upload fails (auth, network, etc), pipeline falls back to manual upload instructions, forcing user to recompile (30+ min wasted). Should instead:
+1. Catch upload error
+2. Ask "Delete token and re-authenticate? [y/N]"
+3. Delete token.json if yes → triggers OAuth flow on next auth attempt
+4. Automatically retry upload
+5. Proceed to cleanup on success
+
+"Retry YouTube upload" menu option exists for cleanup menu, but NOT in pipeline. This is the critical path users hit first.
+
+**BUG: token.json corruption during write**
+
+token.json sometimes becomes truncated/invalid JSON (JSONDecodeError on read). Likely cause: concurrent writes or failed file operations during token save. Fix: write to temp file first, atomic rename on success.
 
 ---
 
