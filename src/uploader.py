@@ -206,13 +206,16 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
         body=init_body,
     )
 
-    if init_response.status != 200:
-        raise ValueError(f"Failed to initialize resumable upload: {init_response.status} {init_body_bytes}")
+    logging.debug("Init response status: %s", init_response.status)
+    logging.debug("Init response headers: %s", dict(init_response))
 
-    # Get the resumable session URI from Location header (case-sensitive)
-    session_uri = init_response.get("Location")
+    if init_response.status != 200:
+        raise ValueError(f"Failed to initialize resumable upload: {init_response.status}\n{init_body_bytes.decode('utf-8', errors='ignore')}")
+
+    # Get the resumable session URI from Location header (httplib2 uses lowercase keys)
+    session_uri = init_response.get("location") or init_response.get("Location")
     if not session_uri:
-        raise ValueError("YouTube did not return a resumable session URI")
+        raise ValueError(f"YouTube did not return resumable session URI. Headers: {dict(init_response)}")
 
     logging.debug("Resumable session URI: %s", session_uri)
 
