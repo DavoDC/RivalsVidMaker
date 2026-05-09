@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Config error shows literal \n fixed (2026-05-09)
+
+Fixed POLISH item: **config validation error printed `'config.json is missing...\n  See...'` with visible backslash-n.** Root cause: raising `KeyError` - whose `__str__` returns `repr(key)` (with quotes and escaped newlines) - instead of `ValueError` - whose `__str__` returns `str(msg)` (renders newlines correctly). Fix: changed `raise KeyError(...)` to `raise ValueError(...)` in `config.py` and updated the `except KeyError` handler in `main.py` to `except ValueError`. 4 test names updated to match. 339 tests pass.
+
+---
+
 ### YouTube title placeholder + OAuth token reliability (2026-05-09)
 
 Fixed four SHIPPING BLOCKERS in one session. (1) **Title placeholder:** `description_writer.write_description` now accepts a `title` param and writes it as line 1 of the description file. Pipeline passes `title=slug` so `parse_description_file` reads "THOR_FEB-MAR_2026_BATCH1" instead of "=== TITLE PROMPT ===". (2) **OAuth channel hint:** All three `get_authenticated_service()` calls in pipeline.py now pass `expected_channel_id=config.youtube_channel_id` so the OAuth instructions print which channel to select. (3) **Token auto-delete on channel mismatch:** When `validate_channel_id` raises ValueError (wrong account), pipeline now auto-deletes token.json and instructs user to re-run, instead of just warning. (4) **Atomic token write:** `uploader.py` writes token.json via tmp file + atomic rename, preventing JSON truncation from a crash mid-write. 5 new tests added; 339 total pass.

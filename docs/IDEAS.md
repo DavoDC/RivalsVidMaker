@@ -46,13 +46,6 @@ Config: `vlc_path` optional (default None). If not found, skip the option silent
 
 ---
 
-**Error message: literal \n instead of newline**
-
-Config validation error shows literal `\n` in output: `'config.json is missing required field(s): youtube_channel_id\n  See config/config.example.json...`
-
-The `\n` should be rendered as an actual newline. Grep the codebase for all occurrences of `\\n` in error strings and string literals to find similar issues. Fix all at once: ensure error strings use proper newline handling instead of literal escape sequences.
-
----
 
 **Code duplication analysis**
 
