@@ -106,7 +106,9 @@ def get_authenticated_service(expected_channel_id: str = None):
         # Ensure 'type' field is present (required by google.auth)
         if "type" not in token_json:
             token_json["type"] = "authorized_user"
-        TOKEN_PATH.write_text(json.dumps(token_json), encoding="utf-8")
+        tmp = TOKEN_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(token_json), encoding="utf-8")
+        tmp.replace(TOKEN_PATH)
         logging.info("Token saved to %s", TOKEN_PATH)
 
     return build("youtube", "v3", credentials=creds)

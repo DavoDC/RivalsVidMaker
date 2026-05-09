@@ -41,6 +41,7 @@ def write_description(
     highlights: list[Highlight],
     output_dir: Path,
     out_stem: str | None = None,
+    title: str | None = None,
     clip_tiers: dict[str, str] | None = None,
     date_range: str | None = None,
     ko_tiers: dict[str, int] | None = None,
@@ -69,11 +70,16 @@ def write_description(
 
     ai_params_provided = date_range is not None and ko_tiers is not None and clip_count is not None
 
+    # Line 1: actual YouTube title (slug or default). parse_description_file reads this.
+    actual_title = title or f"Marvel Rivals {char_name} Highlights Part {batch.number}"
+    lines.append(f"{actual_title}\n")
+    lines.append("\n")
+
     if ai_params_provided:
         kill_summary = _ko_summary(ko_tiers)
 
-        # Title prompt
-        lines.append("=== TITLE PROMPT ===\n")
+        # Title ideas section (for inspiration only - actual title is line 1 above)
+        lines.append("=== TITLE IDEAS ===\n")
         lines.append(
             f"Write a punchy, hype YouTube title for a Marvel Rivals {char_name} "
             f"multikill highlights compilation.\n"
@@ -107,10 +113,6 @@ def write_description(
         lines.append("\n")
 
     else:
-        lines.append("=== TITLE ===\n")
-        lines.append(f"Marvel Rivals {char_name} Highlights Part {batch.number}\n")
-        lines.append("\n")
-
         lines.append("=== DESCRIPTION ===\n")
         lines.append(
             f"Marvel Rivals {char_name} highlights compilation - "

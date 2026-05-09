@@ -184,16 +184,35 @@ class TestWriteDescriptionTitle:
     """Tests for the title parameter - slug written as line 1 for parse_description_file."""
 
     def test_title_param_written_as_first_line(self, tmp_path):
-        pass
+        out = write_description(make_batch(), "THOR", [], tmp_path, title="THOR_FEB_2026_BATCH1")
+        first_line = out.read_text().split("\n")[0]
+        assert first_line == "THOR_FEB_2026_BATCH1"
 
     def test_first_line_is_not_placeholder_text(self, tmp_path):
-        pass
+        out = write_description(make_batch(), "THOR", [], tmp_path, title="THOR_FEB_2026_BATCH1")
+        first_line = out.read_text().split("\n")[0]
+        assert not first_line.startswith("===")
 
     def test_default_title_when_param_omitted(self, tmp_path):
-        pass
+        out = write_description(make_batch(number=2), "THOR", [], tmp_path)
+        first_line = out.read_text().split("\n")[0]
+        assert "THOR" in first_line
+        assert not first_line.startswith("===")
 
     def test_parse_description_file_reads_slug_title(self, tmp_path):
-        pass
+        from uploader import parse_description_file
+        out = write_description(make_batch(), "THOR", [], tmp_path, title="THOR_MAY_2026_BATCH1")
+        title, _ = parse_description_file(out)
+        assert title == "THOR_MAY_2026_BATCH1"
 
     def test_ai_section_still_present_after_title_line(self, tmp_path):
-        pass
+        out = write_description(
+            make_batch(), "THOR", [], tmp_path,
+            title="THOR_FEB_2026_BATCH1",
+            date_range="1 Feb '26 -> 28 Feb '26",
+            ko_tiers={"QUAD": 2},
+            clip_count=5,
+        )
+        content = out.read_text()
+        assert "TITLE IDEAS" in content
+        assert "DESCRIPTION" in content

@@ -278,7 +278,7 @@ def _retry_youtube_upload(output_folder: Path, config: Config) -> None:
     # Try upload with fresh error guidance
     try:
         logging.info("--- YouTube Upload (Retry) ---")
-        youtube = uploader.get_authenticated_service()
+        youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
         uploader.validate_channel_id(youtube, config.youtube_channel_id)
         title, description = uploader.parse_description_file(desc_path)
         uploader.upload_and_save_state(youtube, video_path, title, description, slug, config.state_path)
@@ -288,7 +288,11 @@ def _retry_youtube_upload(output_folder: Path, config: Config) -> None:
         logging.warning("ACTION: Download OAuth credentials from Google Cloud Console and save to config/client_secret_*.json")
     except ValueError as e:
         logging.warning("YouTube channel validation failed: %s", e)
-        logging.warning("ACTION: Check config.json youtube_channel_id or delete token.json to re-authenticate.")
+        logging.warning("Auto-deleting token to force re-authentication with correct account...")
+        if uploader.TOKEN_PATH.exists():
+            uploader.TOKEN_PATH.unlink()
+        logging.warning("Token deleted. Re-run to authenticate with the correct account.")
+        logging.warning("If the channel ID mismatch persists, verify youtube_channel_id in config.json.")
     except Exception as e:
         logging.warning("YouTube upload failed: %s", e)
         logging.warning("ACTION: Delete config/token.json and re-run to trigger fresh authentication.")
@@ -771,6 +775,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         else:
             desc_path = write_description(
                 batch, char_name, highlights, out_dir, out_stem=slug,
+                title=slug,
                 clip_tiers=clip_tiers,
                 date_range=_date_range(char_path),
                 ko_tiers=ko_tier_counts,
@@ -783,7 +788,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
             try:
                 logging.info("")
                 logging.info("--- YouTube Upload ---")
-                youtube = uploader.get_authenticated_service()
+                youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
                 uploader.validate_channel_id(youtube, config.youtube_channel_id)
                 video_path = out_dir / f"{slug}.mp4"
                 title, description = uploader.parse_description_file(desc_path)
@@ -792,7 +797,11 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                 logging.warning("ACTION: Download OAuth credentials from Google Cloud Console and save to config/client_secret_*.json")
             except ValueError as e:
                 logging.warning("YouTube channel validation failed: %s", e)
-                logging.warning("ACTION: Check config.json youtube_channel_id or delete token.json to re-authenticate.")
+                logging.warning("Auto-deleting token to force re-authentication with correct account...")
+                if uploader.TOKEN_PATH.exists():
+                    uploader.TOKEN_PATH.unlink()
+                logging.warning("Token deleted. Re-run to authenticate with the correct account.")
+                logging.warning("If the channel ID mismatch persists, verify youtube_channel_id in config.json.")
             else:
                 # Auth and validation succeeded. Now attempt upload with retry loop.
                 while True:
@@ -815,7 +824,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                             logging.info("Token deleted. Re-authenticating...")
                         # Retry: get fresh authenticated service and loop back
                         try:
-                            youtube = uploader.get_authenticated_service()
+                            youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
                             uploader.validate_channel_id(youtube, config.youtube_channel_id)
                         except Exception as auth_err:
                             logging.warning("Re-authentication failed: %s", auth_err)
