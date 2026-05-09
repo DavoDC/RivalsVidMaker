@@ -45,11 +45,33 @@ def find_credentials() -> Path:
     )
 
 
-def get_authenticated_service():
+def _print_oauth_instructions(expected_channel_id: str = None):
+    """Print clear instructions for OAuth flow to terminal."""
+    print("\n" + "="*70)
+    print("YOUTUBE LOGIN")
+    print("="*70)
+    print()
+    print("1. Browser will open for YouTube login")
+    print("2. You may see 'Google hasn't verified this app' - click [Continue]")
+    if expected_channel_id:
+        print(f"3. Select the account that owns: {expected_channel_id}")
+    else:
+        print("3. Select your YouTube account")
+    print("4. Grant permissions when prompted")
+    print("5. Return to terminal - login will complete automatically")
+    print()
+    print("="*70)
+    print()
+
+
+def get_authenticated_service(expected_channel_id: str = None):
     """Get authenticated YouTube v3 service. Handles token refresh and OAuth flow.
 
     If token.json exists but is corrupted/empty, it will be deleted and a new
     OAuth flow will be triggered to create a fresh token.
+
+    Args:
+        expected_channel_id: If provided, print instructions showing which account to select during OAuth.
     """
     os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     try:
@@ -78,6 +100,7 @@ def get_authenticated_service():
         else:
             credentials_path = find_credentials()
             flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), SCOPES)
+            _print_oauth_instructions(expected_channel_id)
             creds = flow.run_local_server(port=0)
         token_json = json.loads(creds.to_json())
         # Ensure 'type' field is present (required by google.auth)
@@ -142,9 +165,15 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
     """
     from googleapiclient.http import MediaFileUpload
 
-    file_size_mb = mp4_path.stat().st_size / (1024 * 1024)
+    file_size_bytes = mp4_path.stat().st_size
+    file_size_mb = file_size_bytes / (1024 * 1024)
     logging.info("Uploading: %s (%.1f MB)", mp4_path.name, file_size_mb)
     logging.info("Title: %s", title)
+    print()  # blank line before progress
+
+    # Use 5MB chunks (not -1, which uploads entire file as one request)
+    # 5MB is efficient for typical broadband speeds without excessive memory use
+    chunksize = 5 * 1024 * 1024  # 5 MB
 
     request = youtube.videos().insert(
         part="snippet,status",
@@ -157,7 +186,7 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
             },
             "status": {"privacyStatus": "private"},  # Always private; user makes public manually
         },
-        media_body=MediaFileUpload(str(mp4_path), chunksize=-1, resumable=True),
+        media_body=MediaFileUpload(str(mp4_path), chunksize=chunksize, resumable=True),
     )
 
     response = None
@@ -165,8 +194,14 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
         status, response = request.next_chunk()
         if status:
             pct = int(status.progress() * 100)
-            logging.info("  Upload progress: %d%%", pct)
+            bytes_uploaded = int(file_size_bytes * status.progress())
+            bytes_mb = bytes_uploaded / (1024 * 1024)
+            total_mb = file_size_mb
+            # Print to console in real-time (FLAC_Flow pattern)
+            print(f"\r  {pct:.0f}%  ({bytes_mb:.1f} / {total_mb:.0f} MB)", end="", flush=True)
+            logging.debug("  Upload progress: %d%% (%d bytes)", pct, bytes_uploaded)
 
+    print()  # newline after progress
     video_id = response["id"]
     logging.info("Upload successful! Video ID: %s", video_id)
     return video_id
