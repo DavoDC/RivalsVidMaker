@@ -10,13 +10,9 @@ Single source of truth for all pending work.
 
 Work that makes the program unusable or unpresentable. Cannot ship without these.
 
-**Ellipsis animation broken during KO scanning/fingerprinting**
-
-Progress indicators with "..." animation during KO scan and fingerprinting: cursor moves through positions but the dots stay visible the whole time. Should clear/overwrite previous dots as it cycles. Currently shows accumulated dots instead of animated cycling.
-
 **OAuth prompt shows channel ID instead of channel name**
 
-During OAuth flow, user is asked to "Select the account that owns: UC4xPDj5h-MRmTaa8-xIBfaA". The channel ID is not human-readable. Should query YouTube API during get_authenticated_service() to fetch the channel name and display: "Select the account that owns: [Channel Name] (UC4xPDj5h-MRmTaa8-xIBfaA)" for clarity.
+During OAuth flow, user is asked to "Select the account that owns: UC4xPDj5h-MRmTaa8-xIBfaA". The channel ID is not human-readable. Currently shows the expected channel ID for context (Session 242), but needs human-readable channel name fetched from YouTube API during get_authenticated_service(). Display format: "Select the account that owns: [Channel Name] (UC4xPDj5h-MRmTaa8-xIBfaA)" for clarity. Prevents accidental upload to wrong channel on multi-account systems.
 
 ---
 
@@ -27,11 +23,11 @@ Features needed for smooth operation but with workarounds.
 
 ---
 
-**Output batch folders don't persist clip metadata**
+**[PENDING CLARIFICATION] Output batch folders don't persist clip metadata**
 
-When a batch is compiled (e.g., THOR_Mar-Apr_2026_BATCH1), the muxed video and description file are created successfully, but the UI dashboard shows "-" for the Clips column because it only counts individual clip files in the folder (unlike Highlights which has 35 individual .mp4 files). Solution: create `batch-metadata.json` in the output folder with the clip list when the batch is compiled, or update the UI to parse the description file's clip section.
+When a batch is compiled (e.g., THOR_Mar-Apr_2026_BATCH1), the muxed video + description file are created, but the UI dashboard shows "-" for the Clips column. The description file DOES contain the clip list (as timestamped segments), but the UI doesn't parse it.
 
-Root cause found in logs: 2026-05-09 20:55:11.997 - batch compilation succeeded but UI can't track the 35 source clips that went into it.
+**Question for David:** Do you actively use the "Clips" count in the UI dashboard, or is this just informational? If it's not a blocker, can defer indefinitely. If you check it regularly, worth fixing: either create batch-metadata.json or update UI to parse description file's clip section.
 
 ---
 
@@ -63,11 +59,9 @@ Extra functionality beyond core highlight workflow. Do not start until SHIPPING 
 
 ---
 
-**Best-of compilation from Archive**
+**Best-of compilation from Archive** (tied to OldCompilations workflow)
 
-Extra feature for archive management. Archive submenu should offer "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`.
-
-13 THOR Quad+ clips currently in archive (6m 11s) - too short yet, but feature is ready to build.
+Extra feature for archive management. Archive submenu offers "Compile Best-of" per character, running the same KO scan + encode pipeline as Highlights. Output slug e.g. `THOR_BEST_OF_2026`.
 
 Archive clip lifecycle (decided):
 - Archive clips are NEVER deleted - permanent record of best kills.
@@ -75,6 +69,8 @@ Archive clip lifecycle (decided):
 - `ClipArchive/THOR/` (root) = pending, not yet in any Best-of.
 - `ClipArchive/THOR/compiled/` = already used, excluded from future compiles.
 - Archive display table should show pending vs compiled counts separately.
+
+Status: 13 THOR Quad+ clips currently in archive (6m 11s) - accumulating, ready to build when OldCompilations Phase 2 is underway.
 
 ---
 
