@@ -36,6 +36,12 @@ Features needed for smooth operation but with workarounds.
 
 ---
 
+**Show upload speed while uploading (MB/s, not MB/min)**
+
+Currently shows percent + cumulative MB during upload progress. Should also show live speed estimate in MB/s so user can gauge whether upload will complete in reasonable time. Final summary should show speed in MB/s not MB/min. Example progress line: `100% (2399.0 / 2399 MB) - 150 MB/s`
+
+---
+
 **Output batch folders don't persist clip metadata**
 
 When a batch is compiled (e.g., THOR_Mar-Apr_2026_BATCH1), the muxed video + description file are created, but the UI dashboard shows "-" for the Clips column because it can't see the individual clips that went into the batch. The description file DOES contain the clip list (as timestamped segments), but the UI doesn't parse it.
