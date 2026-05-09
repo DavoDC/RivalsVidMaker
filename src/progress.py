@@ -20,7 +20,7 @@ Usage - indeterminate spinner (shows "Label..."):
 import threading
 
 
-_DOTS = (" ", "..", "...")
+_DOTS = (".", "..", "...")
 
 
 class AnimatedTicker:
