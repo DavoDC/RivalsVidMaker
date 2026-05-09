@@ -7,6 +7,18 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### YouTube title placeholder + OAuth token reliability (2026-05-09)
+
+Fixed four SHIPPING BLOCKERS in one session. (1) **Title placeholder:** `description_writer.write_description` now accepts a `title` param and writes it as line 1 of the description file. Pipeline passes `title=slug` so `parse_description_file` reads "THOR_FEB-MAR_2026_BATCH1" instead of "=== TITLE PROMPT ===". (2) **OAuth channel hint:** All three `get_authenticated_service()` calls in pipeline.py now pass `expected_channel_id=config.youtube_channel_id` so the OAuth instructions print which channel to select. (3) **Token auto-delete on channel mismatch:** When `validate_channel_id` raises ValueError (wrong account), pipeline now auto-deletes token.json and instructs user to re-run, instead of just warning. (4) **Atomic token write:** `uploader.py` writes token.json via tmp file + atomic rename, preventing JSON truncation from a crash mid-write. 5 new tests added; 339 total pass.
+
+---
+
+### OAuth flow terminal instructions (2026-05-09)
+
+Fixed SHIPPING BLOCKER: **OAuth opens browser with no context.** Added `_print_oauth_instructions()` to `uploader.py` which prints a numbered guide before the browser opens: (1) browser will open; (2) click Continue past unverified-app warning; (3) select the account that owns the configured channel ID; (4) grant permissions; (5) return to terminal. Called automatically on every OAuth flow.
+
+---
+
 ### YouTube upload speed: 150x improvement - 5MB chunking + progress feedback (2026-05-09)
 
 Fixed SHIPPING BLOCKER: **YouTube upload crawling at 0.3 Mbps (16+ hours for 2.4GB) despite 45 Mbps available bandwidth.** Root cause: `chunksize=-1` in MediaFileUpload uploaded entire file as single HTTP request with no chunking. Fix: (1) Changed chunksize to 5MB (5242880 bytes) - Google API now splits upload into multiple chunks for efficient bandwidth utilization; (2) Added real-time console progress output using FLAC_Flow pattern (`\r` overwrite + `flush=True`) showing % + MB/total. Expected result: Upload now uses full available bandwidth (~45 Mbps), reducing 2.4GB upload from 16+ hours to ~7 minutes. All 332 tests pass.

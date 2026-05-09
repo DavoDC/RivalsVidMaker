@@ -12,46 +12,10 @@ Work that makes the program unusable or unpresentable. Cannot ship without these
 
 ---
 
-**BUG: Video title shows placeholder instead of batch name**
-
-When uploading to YouTube, video title shows "=== TITLE PROMPT ===" (placeholder) instead of actual batch name (e.g., "THOR_Mar-Apr_2026_BATCH1"). Root cause: title is extracted from description file but prompt never fills in actual title. Fix: (1) Use output folder name as default title (e.g., extract from slug or folder). (2) Move title prompt from blocking user input into description file generation step - pre-fill title in _description.txt with folder name, let user edit if needed instead of hanging on interactive prompt during upload.
-
----
-
-**UX: OAuth flow needs terminal instructions**
-
-When OAuth opens browser, program just prints the URL with no context. User doesn't know what to do next (e.g., "Google hasn't verified this app" warning appears, user doesn't know to click Continue). Fix: print clear instructions before OAuth:
-```
-1. Browser will open for YouTube login
-2. You may see "Google hasn't verified this app" - click Continue
-3. Select account: David (davo29rhino@gmail.com) - NOT Dave369
-4. Grant permissions
-5. Return to terminal
-```
-
----
-
-**UX: OAuth account selection should show YouTube channel name**
-
-When OAuth shows "Choose your account", user sees multiple accounts but no hint which one owns the configured YouTube channel. User easily selects wrong account (brand account vs personal account). Fix: before OAuth, print "Logging in with YouTube channel UC4x... Select the account that owns this channel."
-
----
-
-**BUG: token.json corruption during write**
-
-token.json sometimes becomes truncated/invalid JSON (JSONDecodeError on read). Likely cause: concurrent writes or failed file operations during token save. Fix: write to temp file first, atomic rename on success.
-
----
 
 ## CORE WORKFLOW
 
 Features needed for smooth operation but with workarounds.
-
----
-
-**BUG: Channel validation failure should auto-delete token**
-
-When YouTube upload succeeds but channel validation fails (e.g., authenticated with wrong account), uploader warns "Channel ID mismatch. Delete token.json and re-authenticate." Should instead: auto-delete token.json and re-loop to OAuth prompt. User shouldn't have to manually delete - program should do it and ask for re-auth.
 
 ---
 
