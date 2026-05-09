@@ -10,6 +10,12 @@ Single source of truth for all pending work.
 
 Work that makes the program unusable or unpresentable. Cannot ship without these.
 
+**YouTube upload fails with socket connection abort ([WinError 10053])**
+
+Upload initialization works (200 OK, gets x-goog-upload-url), but all chunk uploads fail mid-transfer with "connection aborted by the software in your host machine". Happens with both httplib2 and requests libraries. Likely ISP/firewall blocking uploads to YouTube API, or temporary YouTube API issue. Test with VPN or different network to rule out ISP blocking.
+
+---
+
 **Ellipsis animation broken during KO scanning/fingerprinting**
 
 Progress indicators with "..." animation during KO scan and fingerprinting: cursor moves through positions but the dots stay visible the whole time. Should clear/overwrite previous dots as it cycles. Currently shows accumulated dots instead of animated cycling.
