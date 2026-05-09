@@ -45,24 +45,11 @@ Features that improve core workflow. Valuable for scaling and workflow quality, 
 
 ---
 
-**Automated tests for KO detection**
-
-pytest tests for `scan_clip` and OCR logic. Valuable before large-scale KO work (TIER 4: OldCompilations). Not blocking current app ship, but prerequisite for confident scaling.
-
-Test clip strategy to resolve: commit a very short clip (~5s) as a fixture, or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation.
-
-Tests to write:
-- Ground truth clip detects QUAD at correct timestamp
-- OCR reads each tier correctly from known crops
-- Cache hit/miss behaviour
-
----
-
 **Preprocess: top-level menu + run all cacheable work**
 
-Very nice-to-have workflow improvement. Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting. Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
+High-value workflow improvement. Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting. Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
 
-Status: Medium complexity. Depends on KO detection tests being solid.
+Status: Medium complexity. Independent - KO system already validated on normal compilations.
 
 ---
 
@@ -139,6 +126,19 @@ Archive clip lifecycle (decided):
 - `ClipArchive/THOR/` (root) = pending, not yet in any Best-of.
 - `ClipArchive/THOR/compiled/` = already used, excluded from future compiles.
 - Archive display table should show pending vs compiled counts separately.
+
+---
+
+**Automated tests for KO detection**
+
+pytest tests for `scan_clip` and OCR logic. Prerequisite for confident scaling in OldCompilations Phase 2 (large-file scanning).
+
+Test clip strategy to resolve: commit a very short clip (~5s) as a fixture, or a synthetic test image of the banner crop (~50KB PNG) to test OCR in isolation.
+
+Tests to write:
+- Ground truth clip detects QUAD at correct timestamp
+- OCR reads each tier correctly from known crops
+- Cache hit/miss behaviour
 
 ---
 
