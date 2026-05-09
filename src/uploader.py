@@ -168,13 +168,13 @@ def parse_description_file(desc_path: Path) -> tuple[str, str]:
 
 
 def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
-    """Upload video to YouTube using resumable protocol with fast chunk upload.
+    """Upload video to YouTube using resumable protocol with requests library.
 
-    Uses 10MB chunks with direct HTTP requests instead of googleapiclient's slow uploader.
+    Uses requests library (more robust than httplib2) with 10MB chunks.
     Expected speed: 40-80 MB/s (5-10 min for 2.4GB) vs 20 Mbps (40+ min) with old library.
 
     Args:
-        youtube: authenticated YouTube v3 service (provides HTTP client + auth)
+        youtube: authenticated YouTube v3 service (for auth token extraction)
         mp4_path: path to .mp4 file
         title: video title
         description: full description (with timestamps)
@@ -183,6 +183,8 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
         video_id of the uploaded video
     """
     import json
+    import requests
+    import time
 
     file_size_bytes = mp4_path.stat().st_size
     file_size_mb = file_size_bytes / (1024 * 1024)
@@ -190,8 +192,16 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
     logging.info("Title: %s", title)
     print()  # blank line before progress
 
-    # Use the youtube service's HTTP object for authorized requests
-    http = youtube._http
+    # Extract auth token from saved token.json file
+    if not TOKEN_PATH.exists():
+        raise ValueError(f"Token not found at {TOKEN_PATH}. Run authentication first.")
+
+    token_data = json.loads(TOKEN_PATH.read_text(encoding="utf-8"))
+    access_token = token_data.get("token") or token_data.get("access_token")
+    if not access_token:
+        raise ValueError(f"No token in token.json. Keys: {list(token_data.keys())}")
+
+    auth_header = f"Bearer {access_token}"
 
     # Initialize resumable session with YouTube API
     metadata = {
@@ -206,37 +216,33 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
 
     init_url = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status"
     init_headers = {
+        "Authorization": auth_header,
         "X-Goog-Upload-Protocol": "resumable",
         "X-Goog-Upload-Command": "start",
         "X-Goog-Upload-Header-Content-Length": str(file_size_bytes),
         "Content-Type": "application/json",
     }
 
-    init_body = json.dumps(metadata).encode("utf-8")
-    init_response, init_body_bytes = http.request(
-        init_url,
-        method="POST",
-        headers=init_headers,
-        body=init_body,
-    )
+    init_response = requests.post(init_url, headers=init_headers, json=metadata, timeout=30)
 
-    logging.debug("Init response status: %s", init_response.status)
-    logging.debug("Init response headers: %s", dict(init_response))
+    logging.debug("Init response status: %s", init_response.status_code)
+    logging.debug("Init response headers: %s", dict(init_response.headers))
 
-    if init_response.status != 200:
-        raise ValueError(f"Failed to initialize resumable upload: {init_response.status}\n{init_body_bytes.decode('utf-8', errors='ignore')}")
+    if init_response.status_code != 200:
+        raise ValueError(f"Failed to initialize resumable upload: {init_response.status_code}\n{init_response.text}")
 
-    # Get upload URL from Google's custom resumable protocol headers (not standard Location header)
-    session_uri = init_response.get("x-goog-upload-url")
+    # Get upload URL from Google's custom resumable protocol headers
+    session_uri = init_response.headers.get("x-goog-upload-url")
     if not session_uri:
-        raise ValueError(f"YouTube did not return upload URL. Headers: {dict(init_response)}")
+        raise ValueError(f"YouTube did not return upload URL. Headers: {dict(init_response.headers)}")
 
     logging.debug("Resumable session URI: %s", session_uri)
 
-    # Upload file in 10MB chunks
-    chunksize = 10 * 1024 * 1024  # 10 MB (larger chunks = fewer round-trips)
+    # Upload file in smaller chunks to avoid connection drops
+    # (10MB was too large and caused SSL connection aborts)
+    chunksize = 1 * 1024 * 1024  # 1 MB for stability
     bytes_uploaded = 0
-    response = None
+    response_json = None
 
     with open(mp4_path, "rb") as f:
         while bytes_uploaded < file_size_bytes:
@@ -244,46 +250,51 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
             chunk_len = len(chunk)
             chunk_end = min(bytes_uploaded + chunk_len, file_size_bytes)
 
-            # Build Content-Range header
             content_range = f"bytes {bytes_uploaded}-{chunk_end - 1}/{file_size_bytes}"
 
             upload_headers = {
+                "Authorization": auth_header,
                 "Content-Type": "application/octet-stream",
                 "Content-Length": str(chunk_len),
                 "Content-Range": content_range,
             }
 
-            # Upload this chunk with retry on transient failures
-            max_retries = 3
+            # Upload chunk with aggressive retry on transient failures
+            max_retries = 5  # More retries for 1MB chunks
+            chunk_response = None
             for attempt in range(max_retries):
                 try:
-                    chunk_response, chunk_body = http.request(
+                    logging.debug("Uploading chunk: bytes %d-%d/%d (attempt %d/%d)", bytes_uploaded, chunk_end - 1, file_size_bytes, attempt + 1, max_retries)
+                    logging.debug("  Content-Range: %s", upload_headers.get("Content-Range"))
+                    logging.debug("  Content-Length: %s", upload_headers.get("Content-Length"))
+                    logging.debug("  Session URI: %s", session_uri[:100] + "...")
+
+                    chunk_response = requests.put(
                         session_uri,
-                        method="PUT",
                         headers=upload_headers,
-                        body=chunk,
-                        redirections=5,
-                        connection_type=None,
+                        data=chunk,
+                        timeout=300,
                     )
+                    logging.debug("  Response status: %s", chunk_response.status_code)
                     break
                 except Exception as e:
                     if attempt < max_retries - 1:
-                        logging.warning("Chunk upload failed (attempt %d/%d): %s. Retrying...", attempt + 1, max_retries, e)
-                        import time
-                        time.sleep(2 ** attempt)  # exponential backoff
+                        logging.warning("Chunk upload failed (attempt %d/%d): %s. Retrying in %ds...", attempt + 1, max_retries, e, 2 ** attempt)
+                        time.sleep(2 ** attempt)  # exponential backoff: 1s, 2s, 4s, 8s, 16s
                     else:
+                        logging.error("All retry attempts failed for chunk bytes %d-%d", bytes_uploaded, chunk_end - 1)
                         raise
 
             # YouTube returns 200 (final) or 308 (more chunks coming)
-            if chunk_response.status == 200:
-                response = json.loads(chunk_body.decode("utf-8"))
+            if chunk_response.status_code == 200:
+                response_json = chunk_response.json()
                 bytes_uploaded = chunk_end
                 pct = 100
-            elif chunk_response.status == 308:
+            elif chunk_response.status_code == 308:
                 bytes_uploaded = chunk_end
                 pct = int((bytes_uploaded / file_size_bytes) * 100)
             else:
-                raise ValueError(f"Upload chunk failed: {chunk_response.status} {chunk_body}")
+                raise ValueError(f"Upload chunk failed: {chunk_response.status_code}\n{chunk_response.text}")
 
             # Progress reporting
             bytes_mb = bytes_uploaded / (1024 * 1024)
@@ -292,7 +303,7 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
             logging.debug("  Upload progress: %d%% (%d bytes)", pct, bytes_uploaded)
 
     print()  # newline after progress
-    video_id = response["id"]
+    video_id = response_json["id"]
     logging.info("Upload successful! Video ID: %s", video_id)
     return video_id
 
