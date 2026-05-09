@@ -19,6 +19,12 @@ Fixed two TIER 0 blocking issues in YouTube authentication and error handling. (
 
 ---
 
+### Retry YouTube upload (without recompiling) (2026-05-09)
+
+Added "Retry YouTube upload" menu option for compiled videos. When YouTube upload fails (e.g., auth error), user can now fix credentials and retry without manually uncompiling → fixing → recompiling (tedious workflow). Menu detects retryable videos: must have .mp4 + description.txt in output folder but NOT yet in state.json['videos']. User fixes credentials (deletes token.json, re-authenticates) and selects retry. Handler reuses existing compiled files, skips encoding, goes straight to upload. Includes 5 tests covering retry detection logic. Generalizes principle: after external-resource failures, offer retry + fix instructions instead of forcing upstream re-work.
+
+---
+
 ### KeyError fix: offsets dict after clip rename (2026-05-09)
 
 Fixed crash in `_collect_highlights()` where renamed clips (with tier suffixes like `_QUAD`) could not be found in the offsets dictionary. Root cause: offsets dict was keyed by original filenames, but after rename, clip.name returns the new filename. Fix: update offsets dict keys when clips are renamed. Added regression test covering full KO scan → rename → highlights flow.
