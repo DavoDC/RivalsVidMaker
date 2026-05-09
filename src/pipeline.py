@@ -732,13 +732,14 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                 logging.info("Video uploaded successfully!")
             except FileNotFoundError as e:
                 logging.warning("YouTube credentials not set up: %s", e)
-                logging.warning("Skipping automatic upload. You can upload manually from the output folder.")
+                logging.warning("ACTION: Download OAuth credentials from Google Cloud Console and save to config/client_secret_*.json")
             except ValueError as e:
                 logging.warning("YouTube channel validation failed: %s", e)
-                logging.warning("Skipping upload. Check config.json youtube_channel_id.")
+                logging.warning("ACTION: Check config.json youtube_channel_id or delete token.json to re-authenticate.")
             except Exception as e:
                 logging.warning("YouTube upload failed: %s", e)
-                logging.warning("Skipping upload. You can upload manually from the output folder.")
+                logging.warning("ACTION: Delete config/token.json and re-run to trigger fresh authentication.")
+                logging.warning("If the error persists, check that client_secret_*.json credentials are in config/.")
 
         logging.info("")
         logging.info("--- Cleanup ---")

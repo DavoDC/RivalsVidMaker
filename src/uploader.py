@@ -46,7 +46,11 @@ def find_credentials() -> Path:
 
 
 def get_authenticated_service():
-    """Get authenticated YouTube v3 service. Handles token refresh and OAuth flow."""
+    """Get authenticated YouTube v3 service. Handles token refresh and OAuth flow.
+
+    If token.json exists but is corrupted/empty, it will be deleted and a new
+    OAuth flow will be triggered to create a fresh token.
+    """
     os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     try:
         import google.auth
@@ -59,7 +63,14 @@ def get_authenticated_service():
 
     creds = None
     if TOKEN_PATH.exists():
-        creds, _ = google.auth.load_credentials_from_file(str(TOKEN_PATH), SCOPES)
+        try:
+            creds, _ = google.auth.load_credentials_from_file(str(TOKEN_PATH), SCOPES)
+        except (ValueError, KeyError) as e:
+            # Token file is corrupted/malformed (missing 'type' field, invalid JSON, etc)
+            logging.warning("Token file corrupted or invalid: %s", e)
+            logging.warning("Deleting corrupted token and triggering re-authentication...")
+            TOKEN_PATH.unlink()
+            creds = None
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
