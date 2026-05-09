@@ -198,9 +198,25 @@ Quad Kill @ 3:52"""
         pass
 
     def test_token_written_atomically(self):
-        """token.json must be written via temp-file + rename to prevent corruption on crash."""
-        pass
+        """token.json must be written via temp-file + rename - no direct write_text on TOKEN_PATH."""
+        uploader_source = Path(__file__).parent.parent / "src" / "uploader.py"
+        content = uploader_source.read_text(encoding="utf-8")
+        # Atomic pattern: write to .tmp then replace
+        assert ".tmp" in content, "Token write must use a temp file"
+        assert ".replace(" in content, "Token write must use atomic replace"
+        # Ensure we're NOT doing a direct write on TOKEN_PATH in the save path
+        # (the save block should go through the tmp -> replace pattern)
+        assert "TOKEN_PATH.write_text" not in content, \
+            "Direct TOKEN_PATH.write_text is non-atomic - must use tmp+replace"
 
     def test_channel_validation_failure_guidance(self):
-        """validate_channel_id mismatch raises ValueError with actionable guidance."""
-        pass
+        """validate_channel_id mismatch raises ValueError with actionable message."""
+        from uploader import validate_channel_id
+        mock_youtube = MagicMock()
+        mock_youtube.channels().list().execute.return_value = {
+            "items": [{"id": "UCWrongChannelID"}]
+        }
+        with pytest.raises(ValueError) as exc_info:
+            validate_channel_id(mock_youtube, "UC4xPDj5h-MRmTaa8-xIBfaA")
+        msg = str(exc_info.value)
+        assert "mismatch" in msg.lower() or "expected" in msg.lower()
