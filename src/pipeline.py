@@ -787,19 +787,39 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                 uploader.validate_channel_id(youtube, config.youtube_channel_id)
                 video_path = out_dir / f"{slug}.mp4"
                 title, description = uploader.parse_description_file(desc_path)
-                uploader.upload_and_save_state(youtube, video_path, title, description, slug, config.state_path)
-                yt_uploaded = True
-                logging.info("Video uploaded successfully!")
             except FileNotFoundError as e:
                 logging.warning("YouTube credentials not set up: %s", e)
                 logging.warning("ACTION: Download OAuth credentials from Google Cloud Console and save to config/client_secret_*.json")
             except ValueError as e:
                 logging.warning("YouTube channel validation failed: %s", e)
                 logging.warning("ACTION: Check config.json youtube_channel_id or delete token.json to re-authenticate.")
-            except Exception as e:
-                logging.warning("YouTube upload failed: %s", e)
-                logging.warning("ACTION: Delete config/token.json and re-run to trigger fresh authentication.")
-                logging.warning("If the error persists, check that client_secret_*.json credentials are in config/.")
+            else:
+                # Auth and validation succeeded. Now attempt upload with retry loop.
+                while True:
+                    try:
+                        uploader.upload_and_save_state(youtube, video_path, title, description, slug, config.state_path)
+                        yt_uploaded = True
+                        logging.info("Video uploaded successfully!")
+                        break
+                    except Exception as e:
+                        logging.warning("YouTube upload failed: %s", e)
+                        logging.warning("")
+                        confirm = input("Delete token.json and re-authenticate? [y/N]: ").strip().lower()
+                        if confirm not in ('y', 'yes'):
+                            logging.warning("Upload cancelled by user. Falling back to manual upload.")
+                            break
+                        # User agreed: delete token to force re-auth on next attempt
+                        token_path = Path(__file__).parent.parent / "config" / "token.json"
+                        if token_path.exists():
+                            token_path.unlink()
+                            logging.info("Token deleted. Re-authenticating...")
+                        # Retry: get fresh authenticated service and loop back
+                        try:
+                            youtube = uploader.get_authenticated_service()
+                            uploader.validate_channel_id(youtube, config.youtube_channel_id)
+                        except Exception as auth_err:
+                            logging.warning("Re-authentication failed: %s", auth_err)
+                            break
 
         logging.info("")
         logging.info("--- Cleanup ---")
