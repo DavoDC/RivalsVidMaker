@@ -16,9 +16,12 @@ from pathlib import Path
 import json
 import os
 
-# Suppress verbose logging from google-auth libraries
+
+# Suppress verbose logging from google-auth libraries to reduce output noise
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("google_auth_httplib2").setLevel(logging.WARNING)
+logging.getLogger("google_auth_oauthlib").setLevel(logging.ERROR)
+logging.getLogger("google.auth").setLevel(logging.ERROR)
 
 # Allow running from repo root
 REPO_ROOT = Path(__file__).resolve().parent.parent
