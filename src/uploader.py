@@ -299,7 +299,7 @@ def upload_and_save_state(youtube, mp4_path: Path, title: str, description: str,
     Returns:
         video_id
     """
-    from state import load, save
+    from state import load, save, mark_youtube_confirmed
 
     video_id = upload_video(youtube, mp4_path, title, description)
     url = f"https://www.youtube.com/watch?v={video_id}"
@@ -314,6 +314,9 @@ def upload_and_save_state(youtube, mp4_path: Path, title: str, description: str,
         "url": url,
         "title": title,
     }
+
+    # Mark the output folder as youtube_confirmed
+    state = mark_youtube_confirmed(state, slug)
 
     save(state, state_path)
     logging.info("Video metadata saved to state.json")

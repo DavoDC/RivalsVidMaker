@@ -790,6 +790,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
 
         # --- YouTube upload (optional, graceful if credentials unavailable) ---
         yt_uploaded = False
+        yt_upload_speed = None
         if not dry_run and desc_path:
             try:
                 logging.info("")
@@ -812,7 +813,11 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                 # Auth and validation succeeded. Now attempt upload with retry loop.
                 while True:
                     try:
+                        t_upload_start = time.perf_counter()
+                        file_size_mb = video_path.stat().st_size / (1024 * 1024)
                         uploader.upload_and_save_state(youtube, video_path, title, description, slug, config.state_path)
+                        upload_duration = time.perf_counter() - t_upload_start
+                        yt_upload_speed = file_size_mb / (upload_duration / 60)  # MB/min
                         yt_uploaded = True
                         logging.info("Video uploaded successfully!")
                         break
@@ -853,6 +858,8 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     logging.info("")
     logging.info("=" * 50)
     logging.info("Video processed in %s", elapsed_fmt)
+    if yt_uploaded and yt_upload_speed:
+        logging.info("Upload speed: %.0f MB/min", yt_upload_speed)
     logging.info("=" * 50)
     print("\a", end="", flush=True)
 
@@ -866,17 +873,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
         _os.startfile(str(last_out_dir))
 
     logging.info("")
-    logging.info(">>> NEXT STEPS <<<")
-    logging.info("")
-    logging.info("1. Open folder:")
-    logging.info("   %s", last_out_dir)
-    logging.info("")
     if yt_uploaded:
-        logging.info("2. ✓ Video uploaded to YouTube (private)")
-        logging.info("   Check YouTube Studio to review and publish")
-    else:
-        logging.info("2. Upload video to YouTube using temporary title:")
-        logging.info("   %s.mp4", last_slug)
-        logging.info("")
-        logging.info("3. Paste in description from text file there.")
+        logging.info("✓ Video uploaded to YouTube (private)")
+        logging.info("Check YouTube Studio to review and publish")
     logging.info("")
