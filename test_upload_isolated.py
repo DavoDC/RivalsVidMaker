@@ -20,18 +20,15 @@ config = load()
 # To test the real 2.4GB workflow file: pass it as arg1.
 if len(sys.argv) > 1:
     video_path = Path(sys.argv[1])
-    desc_path = video_path.with_name(video_path.stem + "_description.txt")
 else:
     video_path = Path("C:/Users/David/Downloads/Instagram_2.mp4")
-    desc_path = None  # synthesise title/desc inline
 
 if not video_path.exists():
     print(f"ERROR: Video not found: {video_path}")
     sys.exit(1)
 
-if desc_path is not None and not desc_path.exists():
-    print(f"ERROR: Description not found: {desc_path}")
-    sys.exit(1)
+_desc_path = video_path.with_name(video_path.stem + "_description.txt")
+desc_path = _desc_path if _desc_path.exists() else None
 
 print(f"Video: {video_path.name} ({video_path.stat().st_size / (1024**3):.2f} GB)")
 print()
@@ -62,7 +59,7 @@ try:
     print(f"URL: https://www.youtube.com/watch?v={video_id}")
 
 except Exception as e:
-    print(f"✗ ERROR: {type(e).__name__}: {e}")
+    print(f"ERROR: {type(e).__name__}: {e}")
     import traceback
     traceback.print_exc()
     sys.exit(1)
