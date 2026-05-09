@@ -139,16 +139,16 @@ class TestTokenJsonAutoFix:
 class TestPreprocessTopLevelMenu:
     """Test Preprocess appears as top-level menu option."""
 
-    def test_preprocess_option_in_highlights_menu(self, tmp_path):
-        """Highlights submenu should include 'preprocess' option."""
+    def test_preprocess_option_in_top_level_menu(self, tmp_path):
+        """Preprocess should be available as top-level menu option."""
         from menu import pick_action
 
         char_folders = [tmp_path / "THOR"]
         char_folders[0].mkdir()
 
         with patch("menu.questionary.select") as mock_select:
-            # User selects Highlights, then Preprocess
-            mock_select.return_value.ask.side_effect = ["highlights", "preprocess"]
+            # User selects Preprocess directly from level 1
+            mock_select.return_value.ask.return_value = "preprocess"
             result = pick_action(char_folders, [(10, 600.0)], [], {}, target_batch_seconds=900)
 
         assert result["type"] == "preprocess"
