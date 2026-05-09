@@ -209,8 +209,8 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
     if init_response.status != 200:
         raise ValueError(f"Failed to initialize resumable upload: {init_response.status} {init_body_bytes}")
 
-    # Get the resumable session URI from Location header
-    session_uri = init_response.get("location")
+    # Get the resumable session URI from Location header (case-sensitive)
+    session_uri = init_response.get("Location")
     if not session_uri:
         raise ValueError("YouTube did not return a resumable session URI")
 

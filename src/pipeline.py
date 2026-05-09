@@ -298,7 +298,6 @@ def _retry_youtube_upload(output_folder: Path, config: Config) -> None:
         logging.warning("YouTube upload failed: %s", e)
         logging.warning("ACTION: Delete config/token.json and re-run to trigger fresh authentication.")
         logging.warning("If the error persists, check that client_secret_*.json credentials are in config/.")
-    logging.debug("Manifest written: %s (%d clips)", manifest_path.name, len(batch.clips))
 
 
 def _batch_slug(char_name: str, batch) -> str:
