@@ -10,12 +10,28 @@ Single source of truth for all pending work.
 
 Work that makes the program unusable or unpresentable. Cannot ship without these.
 
+**Ellipsis animation broken during KO scanning/fingerprinting**
+
+Progress indicators with "..." animation during KO scan and fingerprinting: cursor moves through positions but the dots stay visible the whole time. Should clear/overwrite previous dots as it cycles. Currently shows accumulated dots instead of animated cycling.
+
 ---
 
 
 ## CORE WORKFLOW
 
 Features needed for smooth operation but with workarounds.
+
+**YouTube upload is 3-6x slower than Chrome direct upload**
+
+App uploads at ~1.5 MB/s (12 Mbps), taking ~40 min for 2.4GB. Chrome's direct upload takes 5-10 min for the same video. Not a network speed issue (confirmed: Chrome proves 40+ Mbps available). Root cause is the upload implementation - likely the google-api-python-client library or how resumable upload is configured. Investigate chunk size, parallelization, or switch to a faster upload method.
+
+---
+
+**Output batch folders don't persist clip metadata**
+
+When a batch is compiled (e.g., THOR_Mar-Apr_2026_BATCH1), the muxed video and description file are created successfully, but the UI dashboard shows "-" for the Clips column because it only counts individual clip files in the folder (unlike Highlights which has 35 individual .mp4 files). Solution: create `batch-metadata.json` in the output folder with the clip list when the batch is compiled, or update the UI to parse the description file's clip section.
+
+Root cause found in logs: 2026-05-09 20:55:11.997 - batch compilation succeeded but UI can't track the 35 source clips that went into it.
 
 ---
 
