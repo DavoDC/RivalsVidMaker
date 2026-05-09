@@ -14,6 +14,10 @@ Work that makes the program unusable or unpresentable. Cannot ship without these
 
 Progress indicators with "..." animation during KO scan and fingerprinting: cursor moves through positions but the dots stay visible the whole time. Should clear/overwrite previous dots as it cycles. Currently shows accumulated dots instead of animated cycling.
 
+**OAuth prompt shows channel ID instead of channel name**
+
+During OAuth flow, user is asked to "Select the account that owns: UC4xPDj5h-MRmTaa8-xIBfaA". The channel ID is not human-readable. Should query YouTube API during get_authenticated_service() to fetch the channel name and display: "Select the account that owns: [Channel Name] (UC4xPDj5h-MRmTaa8-xIBfaA)" for clarity.
+
 ---
 
 
