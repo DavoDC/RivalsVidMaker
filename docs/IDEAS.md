@@ -12,9 +12,9 @@ Work that blocks core functionality. Program cannot ship without these.
 
 ---
 
-**UX: YouTube upload needs progress indication**
+**UX: YouTube upload needs progress indication** ⚠️ HIGH PRIORITY
 
-When uploading large video (2+ GB), program shows no progress feedback. Looks hung. User doesn't know if it's uploading, frozen, or failed. Fix: show upload progress bar or periodic status updates (e.g., "Uploading... 15% complete" every 5 seconds). Use `tqdm` or similar library for clean progress display.
+When uploading large video (2+ GB), program shows no terminal feedback. Looks hung. User doesn't know if it's uploading, frozen, or failed. Currently upload_video() logs progress % to file only, never prints to console. Fix: print to terminal during upload (e.g., "Uploading... 15% complete", elapsed time, ETA). Use print() + sys.stdout.flush() for real-time output, or tqdm for progress bar. User can't wait 5-15 min with zero feedback.
 
 ---
 
