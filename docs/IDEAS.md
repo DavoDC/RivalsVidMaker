@@ -12,6 +12,10 @@ Work that blocks core functionality. Program cannot ship without these.
 
 ---
 
+**BUG: Channel validation failure should auto-delete token**
+
+When YouTube upload succeeds but channel validation fails (e.g., authenticated with wrong account), uploader warns "Channel ID mismatch. Delete token.json and re-authenticate." Should instead: auto-delete token.json and re-loop to OAuth prompt. User shouldn't have to manually delete - program should do it and ask for re-auth.
+
 **BUG: token.json corruption during write**
 
 token.json sometimes becomes truncated/invalid JSON (JSONDecodeError on read). Likely cause: concurrent writes or failed file operations during token save. Fix: write to temp file first, atomic rename on success.
