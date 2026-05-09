@@ -9,5 +9,6 @@
   "target_batch_seconds": 900,
   "protect_recent_clips": 5,
   "state_path": "data/state.json",
+  "youtube_channel_id": "UC4xPDj5h-MRmTaa8-xIBfaA",
   "force_rescan_cache": false
 }

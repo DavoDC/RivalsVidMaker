@@ -1,7 +1,8 @@
 """
-state.py - Persistent state log for output folders.
+state.py - Persistent state log for output folders and uploads.
 
 Tracks per-folder state (YouTube confirmed, etc.) in data/state.json.
+Also tracks uploaded videos (video_id, URL, title).
 This is local-only state - not committed to git.
 
 Schema:
@@ -10,6 +11,13 @@ Schema:
     "thor_vid1": {
       "youtube_confirmed": true,
       "confirmed_at": "2026-03-28T20:00:00+00:00"
+    }
+  },
+  "videos": {
+    "THOR_FEB-MAR_2026_BATCH1": {
+      "video_id": "dQw4w9WgXcQ",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "title": "THOR Feb-Mar 2026 Compilation"
     }
   }
 }

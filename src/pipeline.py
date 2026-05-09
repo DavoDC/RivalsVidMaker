@@ -23,6 +23,7 @@ from progress import AnimatedTicker
 from menu import pick_action
 from preprocess import preprocess_all
 from state import is_youtube_confirmed, load as load_state
+import uploader
 
 
 # ── KO scan helpers ──────────────────────────────────────────────────────────
@@ -705,6 +706,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
             ko_tier_counts[tier] = ko_tier_counts.get(tier, 0) + 1
         if dry_run:
             logging.info("[DRY RUN] Would write %s_description.txt", out_dir / slug)
+            desc_path = None
         else:
             desc_path = write_description(
                 batch, char_name, highlights, out_dir, out_stem=slug,
@@ -713,6 +715,29 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                 ko_tiers=ko_tier_counts,
                 clip_count=len(batch.clips),
             )
+
+        # --- YouTube upload (optional, graceful if credentials unavailable) ---
+        yt_uploaded = False
+        if not dry_run and desc_path:
+            try:
+                logging.info("")
+                logging.info("--- YouTube Upload ---")
+                youtube = uploader.get_authenticated_service()
+                uploader.validate_channel_id(youtube, config.youtube_channel_id)
+                video_path = out_dir / f"{slug}.mp4"
+                title, description = uploader.parse_description_file(desc_path)
+                uploader.upload_and_save_state(youtube, video_path, title, description, slug, config.state_path)
+                yt_uploaded = True
+                logging.info("Video uploaded successfully!")
+            except FileNotFoundError as e:
+                logging.warning("YouTube credentials not set up: %s", e)
+                logging.warning("Skipping automatic upload. You can upload manually from the output folder.")
+            except ValueError as e:
+                logging.warning("YouTube channel validation failed: %s", e)
+                logging.warning("Skipping upload. Check config.json youtube_channel_id.")
+            except Exception as e:
+                logging.warning("YouTube upload failed: %s", e)
+                logging.warning("Skipping upload. You can upload manually from the output folder.")
 
         logging.info("")
         logging.info("--- Cleanup ---")
@@ -749,8 +774,12 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     logging.info("1. Open folder:")
     logging.info("   %s", last_out_dir)
     logging.info("")
-    logging.info("2. Upload video to YouTube using temporary title:")
-    logging.info("   %s.mp4", last_slug)
-    logging.info("")
-    logging.info("3. Paste in description from text file there.")
+    if yt_uploaded:
+        logging.info("2. ✓ Video uploaded to YouTube (private)")
+        logging.info("   Check YouTube Studio to review and publish")
+    else:
+        logging.info("2. Upload video to YouTube using temporary title:")
+        logging.info("   %s.mp4", last_slug)
+        logging.info("")
+        logging.info("3. Paste in description from text file there.")
     logging.info("")
