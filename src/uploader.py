@@ -105,7 +105,14 @@ def get_authenticated_service(expected_channel_id: str = None):
             credentials_path = find_credentials()
             flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), SCOPES)
             _print_oauth_instructions(expected_channel_id)
-            creds = flow.run_local_server(port=0)
+            # Suppress library's duplicate print() of the URL by redirecting stdout during OAuth
+            import io
+            old_stdout = sys.stdout
+            sys.stdout = io.StringIO()
+            try:
+                creds = flow.run_local_server(port=0)
+            finally:
+                sys.stdout = old_stdout
         token_json = json.loads(creds.to_json())
         # Ensure 'type' field is present (required by google.auth)
         if "type" not in token_json:
@@ -216,10 +223,10 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
     if init_response.status != 200:
         raise ValueError(f"Failed to initialize resumable upload: {init_response.status}\n{init_body_bytes.decode('utf-8', errors='ignore')}")
 
-    # Get the resumable session URI from Location header (httplib2 uses lowercase keys)
-    session_uri = init_response.get("location") or init_response.get("Location")
+    # Get upload URL from Google's custom resumable protocol headers (not standard Location header)
+    session_uri = init_response.get("x-goog-upload-url")
     if not session_uri:
-        raise ValueError(f"YouTube did not return resumable session URI. Headers: {dict(init_response)}")
+        raise ValueError(f"YouTube did not return upload URL. Headers: {dict(init_response)}")
 
     logging.debug("Resumable session URI: %s", session_uri)
 
