@@ -36,9 +36,9 @@ Features needed for smooth operation but with workarounds.
 
 ---
 
-**Show upload speed while uploading (MB/s, not MB/min)**
+**Show upload speed and ETA while uploading (MB/s, not MB/min)**
 
-Currently shows percent + cumulative MB during upload progress. Should also show live speed estimate in MB/s so user can gauge whether upload will complete in reasonable time. Final summary should show speed in MB/s not MB/min. Example progress line: `100% (2399.0 / 2399 MB) - 150 MB/s`
+Currently shows percent + cumulative MB during upload progress. Should also show live speed estimate in MB/s and estimated time to completion (ETA) so user can gauge whether upload will complete in reasonable time. Final summary should show speed in MB/s not MB/min. Example progress line: `100% (2399.0 / 2399 MB) - 150 MB/s - ETA 2m 15s`
 
 ---
 
