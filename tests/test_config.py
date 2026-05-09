@@ -83,28 +83,28 @@ class TestLoad:
         with pytest.raises(FileNotFoundError, match="config.json not found"):
             load(tmp_path / "nonexistent.json")
 
-    def test_missing_clips_path_raises_key_error(self, tmp_path):
+    def test_missing_clips_path_raises_value_error(self, tmp_path):
         data = {k: v for k, v in MINIMAL_CONFIG.items() if k != "clips_path"}
         cfg_path = write_config(tmp_path, data)
-        with pytest.raises(KeyError, match="clips_path"):
+        with pytest.raises(ValueError, match="clips_path"):
             load(cfg_path)
 
-    def test_missing_output_path_raises_key_error(self, tmp_path):
+    def test_missing_output_path_raises_value_error(self, tmp_path):
         data = {k: v for k, v in MINIMAL_CONFIG.items() if k != "output_path"}
         cfg_path = write_config(tmp_path, data)
-        with pytest.raises(KeyError, match="output_path"):
+        with pytest.raises(ValueError, match="output_path"):
             load(cfg_path)
 
-    def test_missing_ffmpeg_path_raises_key_error(self, tmp_path):
+    def test_missing_ffmpeg_path_raises_value_error(self, tmp_path):
         data = {k: v for k, v in MINIMAL_CONFIG.items() if k != "ffmpeg_path"}
         cfg_path = write_config(tmp_path, data)
-        with pytest.raises(KeyError, match="ffmpeg_path"):
+        with pytest.raises(ValueError, match="ffmpeg_path"):
             load(cfg_path)
 
     def test_error_message_mentions_config_example(self, tmp_path):
         data = {k: v for k, v in MINIMAL_CONFIG.items() if k != "clips_path"}
         cfg_path = write_config(tmp_path, data)
-        with pytest.raises(KeyError, match="config.example.json"):
+        with pytest.raises(ValueError, match="config.example.json"):
             load(cfg_path)
 
     def test_custom_target_batch_seconds(self, tmp_path):

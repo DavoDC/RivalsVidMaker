@@ -74,7 +74,7 @@ def main() -> None:
     except FileNotFoundError as e:
         logging.error(str(e))
         sys.exit(1)
-    except KeyError as e:
+    except ValueError as e:
         logging.error(str(e))
         sys.exit(1)
 
