@@ -237,6 +237,62 @@ def _write_manifest(out_dir: Path, slug: str, char_name: str, batch, clip_tiers:
     tmp = manifest_path.with_suffix(".tmp")
     tmp.write_text(_json.dumps(manifest, indent=2))
     tmp.replace(manifest_path)
+
+
+def _retry_youtube_upload(output_folder: Path, config: Config) -> None:
+    """Retry YouTube upload for a previously compiled video.
+
+    Used when upload fails (e.g., auth error) but video is already compiled.
+    Skips encode and goes straight to YouTube upload attempt.
+
+    Looks for:
+    - video.mp4 in output_folder root
+    - video_description.txt in output_folder root
+    """
+    logging.info("")
+    logging.info("═" * 56)
+    logging.info("Retry YouTube Upload: %s", output_folder.name)
+    logging.info("═" * 56)
+    logging.info("")
+
+    # Find compiled video and description
+    mp4_files = list(output_folder.glob("*.mp4"))
+    desc_files = list(output_folder.glob("*_description.txt"))
+
+    if not mp4_files:
+        logging.error("No compiled video (.mp4) found in %s", output_folder.name)
+        return
+
+    if not desc_files:
+        logging.error("No description file found in %s", output_folder.name)
+        return
+
+    video_path = mp4_files[0]
+    desc_path = desc_files[0]
+    slug = output_folder.name
+
+    logging.info("Video: %s", video_path.name)
+    logging.info("Description: %s", desc_path.name)
+    logging.info("")
+
+    # Try upload with fresh error guidance
+    try:
+        logging.info("--- YouTube Upload (Retry) ---")
+        youtube = uploader.get_authenticated_service()
+        uploader.validate_channel_id(youtube, config.youtube_channel_id)
+        title, description = uploader.parse_description_file(desc_path)
+        uploader.upload_and_save_state(youtube, video_path, title, description, slug, config.state_path)
+        logging.info("✅ Video uploaded successfully!")
+    except FileNotFoundError as e:
+        logging.warning("YouTube credentials not set up: %s", e)
+        logging.warning("ACTION: Download OAuth credentials from Google Cloud Console and save to config/client_secret_*.json")
+    except ValueError as e:
+        logging.warning("YouTube channel validation failed: %s", e)
+        logging.warning("ACTION: Check config.json youtube_channel_id or delete token.json to re-authenticate.")
+    except Exception as e:
+        logging.warning("YouTube upload failed: %s", e)
+        logging.warning("ACTION: Delete config/token.json and re-run to trigger fresh authentication.")
+        logging.warning("If the error persists, check that client_secret_*.json credentials are in config/.")
     logging.debug("Manifest written: %s (%d clips)", manifest_path.name, len(batch.clips))
 
 
@@ -567,6 +623,10 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
             from cleanup import run_uncompile
             run_uncompile(action["folder"], config.clips_path,
                           state_path=config.state_path)
+            return
+
+        if action["type"] == "retry_youtube":
+            _retry_youtube_upload(action["folder"], config)
             return
 
     # --- Step 6: process selected character ---

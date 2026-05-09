@@ -21,6 +21,21 @@ Features that improve core workflow. Valuable for scaling and workflow quality, 
 
 ---
 
+**Retry YouTube upload (no recompile)**
+
+After YouTube upload fails (e.g., auth error), allow user to retry without forcing full recompile. Current UX: user must manually uncompile → fix credentials → recompile (tedious). New UX:
+1. Upload fails, show error + fix instructions (e.g., "Delete token.json and re-authenticate")
+2. Add menu option: "Retry YouTube upload for [video_name]"
+3. User fixes credentials
+4. Select retry → upload uses same compiled .mp4 + description.txt
+5. Success or new error (no intermediate steps)
+
+Generalizes beyond YouTube: after any external-dependency step fails, offer retry + fix instructions instead of forcing upstream re-work.
+
+Implementation: Store upload state (video path, description path, slug, output folder) in state.json during compile. Offer retry menu option when upload fails. Retry logic: skip encode step, go directly to YouTube attempt.
+
+---
+
 **Automated tests for KO detection**
 
 pytest tests for `scan_clip` and OCR logic. Valuable before large-scale KO work (TIER 4: OldCompilations). Not blocking current app ship, but prerequisite for confident scaling.
