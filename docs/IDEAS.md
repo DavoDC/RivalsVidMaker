@@ -45,9 +45,6 @@ When YouTube upload succeeds but channel validation fails (e.g., authenticated w
 
 token.json sometimes becomes truncated/invalid JSON (JSONDecodeError on read). Likely cause: concurrent writes or failed file operations during token save. Fix: write to temp file first, atomic rename on success.
 
-**TEST MAINTENANCE: Config and Preprocess tests failing (21 failures)**
-
-Pre-existing test failures discovered during 2026-05-09 session: test_config.py and test_preprocess.py have 21 failing tests. Root cause: test configs don't include `youtube_channel_id` (now a required field in config.json since YouTube upload feature was added). Also test_pipeline_helpers.py has import error trying to load non-existent `FINGERPRINT_SECS_PER_CLIP` constant. Fix: update test configs to include youtube_channel_id, investigate missing constant. Related tests: test_uploader.py (9 passing), test_cleanup.py (8 passing), test_integration.py (4 passing), test_pipeline_retry.py (7 passing) all pass cleanly.
 
 ---
 

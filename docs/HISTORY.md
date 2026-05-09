@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Test suite: all 327 tests passing (2026-05-09)
+
+Fixed TIER 0 blocking issue: **21 test failures in test_config.py, test_preprocess.py, test_pipeline_helpers.py**. Root cause: (1) test configs didn't include `youtube_channel_id` field now required in Config since YouTube upload feature was added; (2) test_pipeline_helpers.py imported non-existent constants and functions (`_estimate_seconds`, `FINGERPRINT_SECS_PER_CLIP`, `_fmt_estimate`). Fix: (1) added `youtube_channel_id="UC4xPDj5h-MRmTaa8-xIBfaA"` to MINIMAL_CONFIG in test_config.py and make_config() in test_preprocess.py; (2) removed non-existent imports and TestEstimateSeconds/TestFmtEstimate test classes from test_pipeline_helpers.py. Result: all 327 tests now pass.
+
+---
+
 ### YouTube upload retry loop in pipeline (2026-05-09)
 
 Fixed TIER 0 blocking bug: **Pipeline YouTube upload failure has no retry loop**. When upload fails during compile (auth error, network failure, etc), user is now prompted in-pipeline to delete token.json and re-authenticate, then retry immediately. No need to recompile (30+ min time loss). Flow: (1) upload fails → catch exception; (2) prompt user "Delete token.json and re-authenticate? [y/N]"; (3) if yes: delete token → triggers fresh OAuth on next auth attempt → retry upload; (4) if yes and succeeds: set yt_uploaded=True → proceed to cleanup; (5) if no or re-auth fails: fall back to manual upload instructions. Note: "Retry YouTube upload" menu option exists for cleanup, but THIS fix adds retry to the main pipeline where users actually hit the failure. Includes 7 tests covering all retry paths, token deletion, OAuth flow re-triggering.
