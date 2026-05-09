@@ -253,13 +253,26 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
                 "Content-Range": content_range,
             }
 
-            # Upload this chunk
-            chunk_response, chunk_body = http.request(
-                session_uri,
-                method="PUT",
-                headers=upload_headers,
-                body=chunk,
-            )
+            # Upload this chunk with retry on transient failures
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    chunk_response, chunk_body = http.request(
+                        session_uri,
+                        method="PUT",
+                        headers=upload_headers,
+                        body=chunk,
+                        redirections=5,
+                        connection_type=None,
+                    )
+                    break
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        logging.warning("Chunk upload failed (attempt %d/%d): %s. Retrying...", attempt + 1, max_retries, e)
+                        import time
+                        time.sleep(2 ** attempt)  # exponential backoff
+                    else:
+                        raise
 
             # YouTube returns 200 (final) or 308 (more chunks coming)
             if chunk_response.status == 200:
