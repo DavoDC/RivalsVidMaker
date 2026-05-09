@@ -1,10 +1,14 @@
 {
   "clips_path": "C:\\Users\\David\\Videos\\MarvelRivals\\Highlights",
   "output_path": "C:\\Users\\David\\Videos\\MarvelRivals\\Output",
+  "archive_path": "C:\\Users\\David\\Videos\\MarvelRivals\\ClipArchive",
   "ffmpeg_path": "dependencies\\ffmpeg",
   "tesseract_path": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
   "cache_dir": "data\\cache",
   "min_batch_seconds": 600,
   "target_batch_seconds": 900,
+  "protect_recent_clips": 5,
+  "state_path": "data/state.json",
+  "youtube_channel_id": "UC4xPDj5h-MRmTaa8-xIBfaA",
   "force_rescan_cache": false
 }

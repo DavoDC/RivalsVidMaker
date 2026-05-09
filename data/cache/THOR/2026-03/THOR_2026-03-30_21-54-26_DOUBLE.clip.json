@@ -1,1 +1,1 @@
-{"file_mtime": 1774878903.145647, "ko_result": {"tier": "DOUBLE", "start_ts": 12.5, "max_ts": 12.5, "end_ts": 15.0, "events": [{"tier": "DOUBLE", "ts": 12.5}]}, "duration": 29.37, "scan_time": 23.06, "scan_pass": 1}
+{"file_mtime": 1774878903.145647, "ko_result": {"tier": "DOUBLE", "start_ts": 12.5, "max_ts": 12.5, "end_ts": 15.0, "events": [{"tier": "DOUBLE", "ts": 12.5}]}, "duration": 29.37, "scan_time": 23.06, "scan_pass": 1, "fingerprint": ["9bc66c1730db9998", "c9cb3d71a9b0c88d", "929675894dab9696", "8f86bc993cb23227", "d98c7333cc8c3137"], "file_size": 62990117}

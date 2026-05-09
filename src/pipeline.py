@@ -116,6 +116,7 @@ def _collect_highlights(
                 old_cache.rename(new_cache)
             scan_results[new_path.name] = scan_results.pop(clip.name)
             clip.path = new_path
+            offsets[new_path.name] = offsets.pop(old_path.name)
             logging.info("Renamed: %s -> %s", old_path.name, new_path.name)
         except OSError as e:
             logging.warning("Could not rename %s: %s", old_path.name, e)
