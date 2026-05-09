@@ -7,6 +7,14 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### YouTube API Phase 2 - Automated video upload (2026-05-09)
+
+Implemented OAuth-authenticated automated video upload to YouTube. New `src/uploader.py` module handles channel ID validation, description parsing, and state management. Integrated into pipeline after encode+describe step with graceful error handling (falls back to manual upload instructions if credentials missing). Videos uploaded as PRIVATE by default. Config extended with required `youtube_channel_id` field. State.json now stores video_id, URL, and title for each upload. 6 unit tests included.
+
+**Setup required:** Download OAuth credentials from Google Cloud Console, add youtube_channel_id to config.json.
+
+---
+
 ### Remove estimation logic and printing (2026-04-06)
 
 Removed `_estimate_seconds`, `_fmt_estimate`, and all related constants (`_KO_SCAN_SLOPE`, `_KO_SCAN_INTERCEPT`, `_KO_SCAN_CACHED_SECS`, `FINGERPRINT_SECS_PER_CLIP`, `_MUX_MULT`). Prompt changed to plain "Make this video? [y/N]". Summary line now "Video processed in Xs" with no estimate.

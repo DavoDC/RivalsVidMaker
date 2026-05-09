@@ -12,28 +12,6 @@ Work that blocks core functionality. Program cannot ship without these.
 
 ---
 
-**YouTube API Phase 2 pipeline integration**
-
-OAuth confirmed working (2026-04-04). This automates the core workflow (upload clips to YouTube).
-
-What works (confirmed):
-- OAuth flow via `davo29rhino@gmail.com`, `youtube.upload` scope
-- Working test script: `scripts/once_off/yt_upload_test.py`
-- Credentials: `config/client_secret_*.json` (gitignored), token: `config/token.json` (gitignored)
-- Set `OAUTHLIB_RELAX_TOKEN_SCOPE=1` - required when user grants narrower scope than requested
-- `youtube.upload` scope alone is sufficient for video upload
-
-Phase 2 implementation plan:
-- Add `src/uploader.py` - reuse auth logic from `scripts/once_off/yt_upload_test.py`
-- Channel ID check: call `channels.list?part=id&mine=true`, compare against `"youtube_channel_id"` in config.json (target: `UC4xPDj5h-MRmTaa8-xIBfaA` / `@dave369_`). Abort if mismatch.
-- Parse title + description from the `_description.txt` file written by `description_writer.py`
-- After successful upload, write video ID + URL to state.json so cleanup can link to it
-- Hook into `pipeline.py` after encode + describe steps
-
-Reference: See `docs/YOUTUBE_API.md` for full API reference and auth setup notes.
-
----
-
 **Automated tests for KO detection**
 
 pytest tests for `scan_clip` and OCR logic. Needed BEFORE large-scale KO work (OldCompilations, etc.).
