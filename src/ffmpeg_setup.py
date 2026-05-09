@@ -12,10 +12,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-_FFMPEG_URL = (
-    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/"
-    "ffmpeg-master-latest-win64-gpl.zip"
-)
+_FFMPEG_URL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
 _FFMPEG_BINS = {"ffmpeg.exe", "ffprobe.exe", "ffplay.exe"}
 
 
