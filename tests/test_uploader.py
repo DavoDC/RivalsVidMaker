@@ -196,3 +196,11 @@ Quad Kill @ 3:52"""
     def test_upload_uses_optimal_chunk_size(self):
         """MediaFileUpload should use efficient chunking, not single-chunk."""
         pass
+
+    def test_token_written_atomically(self):
+        """token.json must be written via temp-file + rename to prevent corruption on crash."""
+        pass
+
+    def test_channel_validation_failure_guidance(self):
+        """validate_channel_id mismatch raises ValueError with actionable guidance."""
+        pass

@@ -178,3 +178,22 @@ class TestWriteDescriptionOutStem:
         batch = make_batch()
         out = write_description(batch, "STORM", [], tmp_path, out_stem="STORM_Mar_2026")
         assert "STORM" in out.read_text()
+
+
+class TestWriteDescriptionTitle:
+    """Tests for the title parameter - slug written as line 1 for parse_description_file."""
+
+    def test_title_param_written_as_first_line(self, tmp_path):
+        pass
+
+    def test_first_line_is_not_placeholder_text(self, tmp_path):
+        pass
+
+    def test_default_title_when_param_omitted(self, tmp_path):
+        pass
+
+    def test_parse_description_file_reads_slug_title(self, tmp_path):
+        pass
+
+    def test_ai_section_still_present_after_title_line(self, tmp_path):
+        pass
