@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch, call
 import pytest
 
 from config import Config
-from preprocess import preprocess_all
+from preprocess import preprocess_all, _prompt_delete
 
 
 def make_config(clips_path: Path, protect_recent_clips: int = 0) -> Config:
@@ -29,6 +29,7 @@ def make_config(clips_path: Path, protect_recent_clips: int = 0) -> Config:
         protect_recent_clips=protect_recent_clips,
         state_path=Path("data/state.json"),
         youtube_channel_id="UC4xPDj5h-MRmTaa8-xIBfaA",
+        vlc_path=None,
     )
 
 
@@ -239,3 +240,33 @@ class TestPreprocessDryRun:
             preprocess_all(make_config(tmp_path), dry_run=True)
 
         mock_prompt.assert_not_called()
+
+
+class TestPromptDeleteVlc:
+    """Tests for [v]iew in VLC option in _prompt_delete."""
+
+    def test_vlc_option_launches_popen_and_loops(self, tmp_path):
+        clip = tmp_path / "THOR_clip_KO.mp4"
+        clip.touch()
+        vlc = Path("/fake/vlc.exe")
+        inputs = iter(["v", "n"])
+        with patch("builtins.input", side_effect=inputs), \
+             patch("subprocess.Popen") as mock_popen:
+            _prompt_delete(clip, "KO", vlc_path=vlc)
+        mock_popen.assert_called_once_with([str(vlc), str(clip)])
+
+    def test_no_vlc_path_skips_option(self, tmp_path):
+        clip = tmp_path / "THOR_clip_KO.mp4"
+        clip.touch()
+        with patch("builtins.input", return_value="n"), \
+             patch("subprocess.Popen") as mock_popen:
+            _prompt_delete(clip, "KO", vlc_path=None)
+        mock_popen.assert_not_called()
+
+    def test_v_ignored_when_vlc_not_configured(self, tmp_path):
+        clip = tmp_path / "THOR_clip_KO.mp4"
+        clip.touch()
+        with patch("builtins.input", return_value="v"), \
+             patch("send2trash.send2trash"):
+            result = _prompt_delete(clip, "KO", vlc_path=None)
+        assert result is False

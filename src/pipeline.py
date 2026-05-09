@@ -5,6 +5,7 @@ pipeline.py - Main orchestrator: sort → scan → batch → detect → encode �
 import logging
 import re
 import shutil
+import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -664,7 +665,13 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
                 logging.info("")
                 logging.info("  📹 %s", clip.name)
                 logging.info("  Path: %s", clip.path)
-                raw = input("  [y] include  [a] archive to ClipArchive  [d] delete: ").strip().lower()
+                vlc_hint = "  [v] view in VLC" if config.vlc_path else ""
+                while True:
+                    raw = input(f"  [y] include  [a] archive to ClipArchive  [d] delete{vlc_hint}: ").strip().lower()
+                    if raw == "v" and config.vlc_path:
+                        subprocess.Popen([str(config.vlc_path), str(clip.path)])
+                        continue
+                    break
                 if raw in ("y", "yes"):
                     logging.info("  -> Included in compilation.")
                 elif raw in ("a", "archive"):
