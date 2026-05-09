@@ -183,10 +183,9 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
         video_id of the uploaded video
     """
     import json
-    import requests
+    import httpx
     import time
 
-    session = requests.Session()  # reuse SSL connection across all chunks
     file_size_bytes = mp4_path.stat().st_size
     file_size_mb = file_size_bytes / (1024 * 1024)
     logging.info("Uploading: %s (%.1f MB)", mp4_path.name, file_size_mb)
@@ -228,84 +227,80 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
         "X-Upload-Content-Type": "video/*",
     }
 
-    init_response = session.post(init_url, headers=init_headers, json=metadata, timeout=30)
+    with httpx.Client(http2=True, timeout=httpx.Timeout(30.0, read=300.0)) as client:
+        init_response = client.post(init_url, headers=init_headers, json=metadata)
 
-    logging.debug("Init response status: %s", init_response.status_code)
-    logging.debug("Init response headers: %s", dict(init_response.headers))
+        logging.debug("Init response status: %s", init_response.status_code)
+        logging.debug("Init response headers: %s", dict(init_response.headers))
 
-    if init_response.status_code != 200:
-        raise ValueError(f"Failed to initialize resumable upload: {init_response.status_code}\n{init_response.text}")
+        if init_response.status_code != 200:
+            raise ValueError(f"Failed to initialize resumable upload: {init_response.status_code}\n{init_response.text}")
 
-    # Standard resumable returns session URI in Location header
-    session_uri = init_response.headers.get("Location") or init_response.headers.get("location")
-    if not session_uri:
-        raise ValueError(f"YouTube did not return upload URL (Location header). Headers: {dict(init_response.headers)}")
+        # Standard resumable returns session URI in Location header
+        session_uri = init_response.headers.get("location")
+        if not session_uri:
+            raise ValueError(f"YouTube did not return upload URL (Location header). Headers: {dict(init_response.headers)}")
 
-    logging.debug("Resumable session URI: %s", session_uri)
+        logging.debug("Resumable session URI: %s", session_uri)
 
-    # 32MB chunks - larger chunks = fewer round-trips = less per-chunk SSL overhead.
-    # Must be a multiple of 256KB (YouTube's chunk granularity). 32MB = 128 * 256KB.
-    chunksize = 32 * 1024 * 1024
-    bytes_uploaded = 0
-    response_json = None
+        # 32MB chunks - larger = fewer round-trips. Must be multiple of 256KB.
+        chunksize = 32 * 1024 * 1024
+        bytes_uploaded = 0
+        response_json = None
 
-    with open(mp4_path, "rb") as f:
-        while bytes_uploaded < file_size_bytes:
-            chunk = f.read(chunksize)
-            chunk_len = len(chunk)
-            chunk_end = min(bytes_uploaded + chunk_len, file_size_bytes)
+        with open(mp4_path, "rb") as f:
+            while bytes_uploaded < file_size_bytes:
+                chunk = f.read(chunksize)
+                chunk_len = len(chunk)
+                chunk_end = min(bytes_uploaded + chunk_len, file_size_bytes)
 
-            content_range = f"bytes {bytes_uploaded}-{chunk_end - 1}/{file_size_bytes}"
+                content_range = f"bytes {bytes_uploaded}-{chunk_end - 1}/{file_size_bytes}"
 
-            upload_headers = {
-                "Authorization": auth_header,
-                "Content-Type": "application/octet-stream",
-                "Content-Length": str(chunk_len),
-                "Content-Range": content_range,
-            }
+                upload_headers = {
+                    "Authorization": auth_header,
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(chunk_len),
+                    "Content-Range": content_range,
+                }
 
-            # Upload chunk with aggressive retry on transient failures
-            max_retries = 5  # More retries for 1MB chunks
-            chunk_response = None
-            for attempt in range(max_retries):
-                try:
-                    logging.debug("Uploading chunk: bytes %d-%d/%d (attempt %d/%d)", bytes_uploaded, chunk_end - 1, file_size_bytes, attempt + 1, max_retries)
-                    logging.debug("  Content-Range: %s", upload_headers.get("Content-Range"))
-                    logging.debug("  Content-Length: %s", upload_headers.get("Content-Length"))
-                    logging.debug("  Session URI: %s", session_uri[:100] + "...")
+                max_retries = 5
+                chunk_response = None
+                for attempt in range(max_retries):
+                    try:
+                        logging.debug("Uploading chunk: bytes %d-%d/%d (attempt %d/%d)", bytes_uploaded, chunk_end - 1, file_size_bytes, attempt + 1, max_retries)
+                        logging.debug("  Content-Range: %s", upload_headers.get("Content-Range"))
+                        logging.debug("  Content-Length: %s", upload_headers.get("Content-Length"))
+                        logging.debug("  Session URI: %s", session_uri[:100] + "...")
 
-                    chunk_response = session.put(
-                        session_uri,
-                        headers=upload_headers,
-                        data=chunk,
-                        timeout=300,
-                    )
-                    logging.debug("  Response status: %s", chunk_response.status_code)
-                    break
-                except Exception as e:
-                    if attempt < max_retries - 1:
-                        logging.warning("Chunk upload failed (attempt %d/%d): %s. Retrying in %ds...", attempt + 1, max_retries, e, 2 ** attempt)
-                        time.sleep(2 ** attempt)  # exponential backoff: 1s, 2s, 4s, 8s, 16s
-                    else:
-                        logging.error("All retry attempts failed for chunk bytes %d-%d", bytes_uploaded, chunk_end - 1)
-                        raise
+                        chunk_response = client.put(
+                            session_uri,
+                            headers=upload_headers,
+                            content=chunk,
+                        )
+                        logging.debug("  Response status: %s", chunk_response.status_code)
+                        break
+                    except Exception as e:
+                        if attempt < max_retries - 1:
+                            logging.warning("Chunk upload failed (attempt %d/%d): %s. Retrying in %ds...", attempt + 1, max_retries, e, 2 ** attempt)
+                            time.sleep(2 ** attempt)
+                        else:
+                            logging.error("All retry attempts failed for chunk bytes %d-%d", bytes_uploaded, chunk_end - 1)
+                            raise
 
-            # YouTube returns 200 (final) or 308 (more chunks coming)
-            if chunk_response.status_code == 200:
-                response_json = chunk_response.json()
-                bytes_uploaded = chunk_end
-                pct = 100
-            elif chunk_response.status_code == 308:
-                bytes_uploaded = chunk_end
-                pct = int((bytes_uploaded / file_size_bytes) * 100)
-            else:
-                raise ValueError(f"Upload chunk failed: {chunk_response.status_code}\n{chunk_response.text}")
+                # YouTube returns 200 (final) or 308 (more chunks coming)
+                if chunk_response.status_code == 200:
+                    response_json = chunk_response.json()
+                    bytes_uploaded = chunk_end
+                    pct = 100
+                elif chunk_response.status_code == 308:
+                    bytes_uploaded = chunk_end
+                    pct = int((bytes_uploaded / file_size_bytes) * 100)
+                else:
+                    raise ValueError(f"Upload chunk failed: {chunk_response.status_code}\n{chunk_response.text}")
 
-            # Progress reporting
-            bytes_mb = bytes_uploaded / (1024 * 1024)
-            total_mb = file_size_mb
-            print(f"\r  {pct:.0f}%  ({bytes_mb:.1f} / {total_mb:.0f} MB)", end="", flush=True)
-            logging.debug("  Upload progress: %d%% (%d bytes)", pct, bytes_uploaded)
+                bytes_mb = bytes_uploaded / (1024 * 1024)
+                print(f"\r  {pct:.0f}%  ({bytes_mb:.1f} / {file_size_mb:.0f} MB)", end="", flush=True)
+                logging.debug("  Upload progress: %d%% (%d bytes)", pct, bytes_uploaded)
 
     print()  # newline after progress
     video_id = response_json["id"]
