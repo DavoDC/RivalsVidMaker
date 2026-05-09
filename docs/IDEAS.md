@@ -15,6 +15,30 @@ Work that blocks core functionality. Program cannot ship without these.
 ---
 
 
+**Uncompile: should fully delete output folder**
+
+`run_uncompile()` restores clips but leaves an empty output folder behind if any files can't be deleted (e.g., clips.json). Menu then shows the empty folder as "cleanup waiting". Fix: use `shutil.rmtree()` or explicitly delete stragglers before rmdir, so uncompile fully cleans up.
+
+---
+
+**BUG: Retry YouTube upload feature broken**
+
+Dev session implemented "Retry YouTube upload" feature (appears in menu when upload fails), but it doesn't work. Root cause: menu.py `_has_failed_upload()` checks for `state.get("videos", {})`, but state.json uses `output_folders` structure instead. Mismatch causes function to always return False, so retry option never appears.
+
+Fix: Either (1) migrate state.json to use "videos" dict as uploader expects, or (2) update `_has_failed_upload()` to check both old and new state structures for backward compatibility.
+
+Impact: Users see "manually upload" instead of being offered a retry option when auth fails.
+
+---
+
+**BUG: token.json validation doesn't auto-fix missing "type" field**
+
+Dev session added validation + error messages, but didn't address root cause: generated token.json missing required "type": "authorized_user" field. Validation catches it and warns user, but should auto-add the field during validation or token generation.
+
+Fix: In uploader.py or token loading code, check if token has "type" field; if missing, add it and save. Prevents "type is None" errors upfront.
+
+---
+
 ## TIER 1 (MVP)
 
 Features that improve core workflow. Valuable for scaling and workflow quality, ready to start.
@@ -71,6 +95,21 @@ Highest-impact files are likely `pipeline.py` (540 lines) and `description_write
 **FFmpeg auto-download test on clean machine**
 
 Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts correctly. ~70MB download. Only needed before shipping to a new machine.
+
+---
+
+**Clip review: add [v]iew in VLC option**
+
+During low-value clip review (preprocess and compile), user sees:
+```
+[y] include  [a] archive to ClipArchive  [d] delete:
+```
+
+Add [v] option to launch the clip in VLC without deciding. Lets user visually inspect the clip before deciding to keep/archive/delete.
+
+Implementation: detect VLC at `C:\Program Files\VideoLAN\VLC\vlc.exe`, use `subprocess.Popen()` to open the clip, loop back to the same prompt so user can decide after viewing.
+
+Config: `vlc_path` optional (default None). If not found, skip the option silently.
 
 ---
 
