@@ -35,7 +35,7 @@ def load(path: Path = Path("config/config.json")) -> Config:
     required = ("clips_path", "output_path", "ffmpeg_path", "youtube_channel_id")
     missing = [k for k in required if k not in raw]
     if missing:
-        raise KeyError(
+        raise ValueError(
             f"config.json is missing required field(s): {', '.join(missing)}\n"
             f"  See config/config.example.json for the expected format."
         )
