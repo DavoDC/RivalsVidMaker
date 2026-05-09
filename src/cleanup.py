@@ -348,6 +348,15 @@ def run_uncompile(
         except Exception as e:
             logging.error("Failed to send description to Recycle Bin %s: %s", txt.name, e)
 
+    # Delete clips.json manifest (written during compile)
+    clips_json = output_folder / "clips.json"
+    if clips_json.exists():
+        try:
+            send2trash(str(clips_json))
+            logging.debug("Sent clips.json to Recycle Bin: %s", clips_json.name)
+        except Exception as e:
+            logging.error("Failed to send clips.json to Recycle Bin: %s", e)
+
     # Remove now-empty clips/ dir and output folder
     try:
         clips_dir.rmdir()
