@@ -78,6 +78,9 @@ def pick_action(
                 return result
             # None = back, loop to Level 1
 
+        elif answer == "preprocess":
+            return {"type": "preprocess"}
+
         elif answer == "output":
             result = _output_submenu(output_rows, state, output_path)
             if result is not None:
@@ -112,6 +115,7 @@ def _build_level1_choices(char_folders, summaries, output_rows, state, target_ba
 
     return [
         questionary.Choice(f"Compile a new highlights video  ({h_detail})", value="highlights"),
+        questionary.Choice("Preprocess all clips (warm KO cache)", value="preprocess"),
         questionary.Choice(f"Clean up a completed output folder  ({o_detail})", value="output"),
         questionary.Choice("Browse the archive", value="archive"),
         questionary.Choice("Quit", value="quit"),
@@ -129,7 +133,6 @@ def _highlights_submenu(char_folders, summaries, target_batch_seconds):
         label = _char_label(folder.name, count, dur_str, batches, status)
         choices.append(questionary.Choice(label, value=str(folder)))
 
-    choices.append(questionary.Choice("Pre-process all clips (warm KO cache)", value="preprocess"))
     choices.append(questionary.Choice("Back", value="back"))
 
     answer = questionary.select(
@@ -139,8 +142,6 @@ def _highlights_submenu(char_folders, summaries, target_batch_seconds):
 
     if answer is None or answer == "back":
         return None
-    if answer == "preprocess":
-        return {"type": "preprocess"}
     return {"type": "compile", "folder": Path(answer)}
 
 
@@ -172,11 +173,15 @@ def _has_failed_upload(folder_path: Path, state: dict) -> bool:
     if not mp4_files or not desc_files:
         return False
 
-    # Must NOT be in state.json['videos'] (not successfully uploaded)
+    # Must NOT be in state (check both old 'videos' and new 'output_folders' structures for backward compatibility)
     folder_name = folder_path.name
     videos = state.get("videos", {})
     if folder_name in videos:
-        return False  # Already successfully uploaded
+        return False  # Already successfully uploaded (old structure)
+
+    output_folders = state.get("output_folders", {})
+    if folder_name in output_folders:
+        return False  # Already successfully uploaded (new structure)
 
     return True
 
