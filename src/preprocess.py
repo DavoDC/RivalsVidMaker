@@ -12,6 +12,7 @@ Usage:
 """
 
 import logging
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -60,16 +61,23 @@ def _rename_clip(clip_path: Path, tier: str | None) -> Path:
         return clip_path
 
 
-def _prompt_delete(clip_path: Path, tier: str | None) -> bool:
+def _prompt_delete(clip_path: Path, tier: str | None, vlc_path=None) -> bool:
     """Offer to delete a low-value clip after scanning. Returns True if deleted.
 
     Deletes both the clip file and its cache entry.
     Default answer is No so a bulk run never deletes on an accidental Enter.
+    If vlc_path is set, shows [v]iew option and loops back after launching VLC.
     """
     reason = "single kill only (KO tier)" if tier == "KO" else "no kill detected"
-    print(f"\n  [LOW VALUE] {clip_path.name}")
-    print(f"  Pass 1 found: {reason}. Not usable in compilations.")
-    answer = input("  Delete clip and cache? [y/N] ").strip().lower()
+    while True:
+        print(f"\n  [LOW VALUE] {clip_path.name}")
+        print(f"  Pass 1 found: {reason}. Not usable in compilations.")
+        vlc_hint = "  [v] view in VLC  " if vlc_path else ""
+        answer = input(f"  {vlc_hint}Delete? [y/N] ").strip().lower()
+        if answer == "v" and vlc_path:
+            subprocess.Popen([str(vlc_path), str(clip_path)])
+            continue
+        break
     if answer != "y":
         return False
 
@@ -213,7 +221,7 @@ def preprocess_all(config: Config, dry_run: bool = False) -> dict[str, int]:
                     reason = "single kill only (KO tier)" if tier == "KO" else "no kill detected"
                     logging.info("[DRY RUN] Would prompt to delete: %s (%s)", clip_path.name, reason)
                 else:
-                    _prompt_delete(clip_path, tier)
+                    _prompt_delete(clip_path, tier, vlc_path=config.vlc_path)
 
         results[char_name] = char_done
 

@@ -6,6 +6,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+_DEFAULT_VLC = Path(r"C:\Program Files\VideoLAN\VLC\vlc.exe")
+
 
 @dataclass
 class Config:
@@ -23,6 +25,7 @@ class Config:
     force_rescan_cache: bool   # if True, pre-process ignores existing cache entries and rescans all clips
     use_pass2_scanner: bool    # if True, scan_clip falls back to pass 2 when pass 1 finds nothing (rescan/data mode only)
     youtube_channel_id: str    # YouTube channel ID for validation (e.g. UC4xPDj5h-MRmTaa8-xIBfaA)
+    vlc_path: Path | None      # optional: enables [v]iew option during clip review
 
 
 def load(path: Path = Path("config/config.json")) -> Config:
@@ -59,4 +62,5 @@ def load(path: Path = Path("config/config.json")) -> Config:
         force_rescan_cache=bool(raw.get("force_rescan_cache", False)),
         use_pass2_scanner=bool(raw.get("use_pass2_scanner", False)),
         youtube_channel_id=raw["youtube_channel_id"],
+        vlc_path=Path(raw["vlc_path"]) if "vlc_path" in raw else (_DEFAULT_VLC if _DEFAULT_VLC.exists() else None),
     )
