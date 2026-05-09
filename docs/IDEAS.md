@@ -12,6 +12,18 @@ Work that blocks core functionality. Program cannot ship without these.
 
 ---
 
+**BUG: KeyError on renamed clips after KO scan**
+
+Pipeline crashes with `KeyError: 'THOR_2026-04-04_22-32-48_QUAD.mp4'` in `pipeline.py:134` during `_collect_highlights()`.
+
+Root cause: KO scan renames clips (adds `_QUAD`, `_TRIPLE`, `_DOUBLE` suffixes), but the `offsets` dictionary retains keys with OLD filenames. When `_collect_highlights()` tries to look up the renamed clip name in offsets, it fails.
+
+Steps to reproduce: Run full compile pipeline (fingerprint + KO scan passes successfully, then crashes at highlights collection).
+
+Regression test: Add a full e2e test that exercises fingerprint + KO scan + encode pipeline.
+
+---
+
 **Automated tests for KO detection**
 
 pytest tests for `scan_clip` and OCR logic. Needed BEFORE large-scale KO work (OldCompilations, etc.).
@@ -68,6 +80,14 @@ Highest-impact files are likely `pipeline.py` (540 lines) and `description_write
 **FFmpeg auto-download test on clean machine**
 
 Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts correctly. ~70MB download. Only needed before shipping to a new machine.
+
+---
+
+**Error message: literal \n instead of newline**
+
+Config validation error shows literal `\n` in output: `'config.json is missing required field(s): youtube_channel_id\n  See config/config.example.json...`
+
+The `\n` should be rendered as an actual newline. Grep the codebase for all occurrences of `\\n` in error strings and string literals to find similar issues. Fix all at once: ensure error strings use proper newline handling instead of literal escape sequences.
 
 ---
 
