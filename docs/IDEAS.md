@@ -2,19 +2,31 @@
 
 Single source of truth for all pending work.
 
-**Do not move to next tier until current tier is verified on real data.**
+**Do not ship until SHIPPING BLOCKERS are resolved.**
 
 ---
 
-## TIER 0 (BLOCKING)
+## SHIPPING BLOCKERS
 
-Work that blocks core functionality. Program cannot ship without these.
+Work that makes the program unusable or unpresentable. Cannot ship without these.
+
+---
+
+**BUG: YouTube upload speed ~150x slower than available bandwidth** ⚠️ BLOCKING - INSANELY SLOW
+
+Upload to YouTube crawling at 0.3 Mbps despite 45.31 Mbps available upload speed (measured via speedtest). 2.4 GB file takes 16+ hours instead of ~7 minutes. Root cause unknown - likely issue in uploader.py upload_video() function or Google API client configuration. Possibilities: (1) chunksize=-1 in MediaFileUpload not optimal; (2) missing resumable=True performance setting; (3) sequential chunking instead of parallel; (4) buffering issue in request.next_chunk() loop. Investigate upload_video() at src/uploader.py line 166-195.
 
 ---
 
 **UX: YouTube upload needs progress indication** ⚠️ HIGH PRIORITY
 
 When uploading large video (2+ GB), program shows no terminal feedback. Looks hung. User doesn't know if it's uploading, frozen, or failed. Currently upload_video() logs progress % to file only, never prints to console. Fix: add progress callback to MediaFileUpload.upload_http() loop (already has status.progress() % available), print to terminal inline using pattern from FLAC_Flow/src/deps.py (line 139): `print(f"\r  {pct:.0f}%  ({mb:.1f} / {total_mb:.0f} MB)", end="", flush=True)`. Shows pct + MB downloaded/total, overwrites same line.
+
+---
+
+**BUG: Video title shows placeholder instead of batch name**
+
+When uploading to YouTube, video title shows "=== TITLE PROMPT ===" (placeholder) instead of actual batch name (e.g., "THOR_Mar-Apr_2026_BATCH1"). Root cause: title is extracted from description file but prompt never fills in actual title. Fix: (1) Use output folder name as default title (e.g., extract from slug or folder). (2) Move title prompt from blocking user input into description file generation step - pre-fill title in _description.txt with folder name, let user edit if needed instead of hanging on interactive prompt during upload.
 
 ---
 
@@ -37,62 +49,33 @@ When OAuth shows "Choose your account", user sees multiple accounts but no hint 
 
 ---
 
-**BUG: Channel validation failure should auto-delete token**
-
-When YouTube upload succeeds but channel validation fails (e.g., authenticated with wrong account), uploader warns "Channel ID mismatch. Delete token.json and re-authenticate." Should instead: auto-delete token.json and re-loop to OAuth prompt. User shouldn't have to manually delete - program should do it and ask for re-auth.
-
-**BUG: Video title shows placeholder instead of batch name**
-
-When uploading to YouTube, video title shows "=== TITLE PROMPT ===" (placeholder) instead of actual batch name (e.g., "THOR_Mar-Apr_2026_BATCH1"). Root cause: title is extracted from description file but prompt never fills in actual title. Fix: (1) Use output folder name as default title (e.g., extract from slug or folder). (2) Move title prompt from blocking user input into description file generation step - pre-fill title in _description.txt with folder name, let user edit if needed instead of hanging on interactive prompt during upload.
-
-**BUG: YouTube upload speed ~150x slower than available bandwidth** ⚠️ INVESTIGATE
-
-Upload to YouTube crawling at 0.3 Mbps despite 45.31 Mbps available upload speed (measured via speedtest). 2.4 GB file takes 16+ hours instead of ~7 minutes. Root cause unknown - likely issue in uploader.py upload_video() function or Google API client configuration. Possibilities: (1) chunksize=-1 in MediaFileUpload not optimal; (2) missing resumable=True performance setting; (3) sequential chunking instead of parallel; (4) buffering issue in request.next_chunk() loop. Investigate upload_video() at src/uploader.py line 166-195.
-
 **BUG: token.json corruption during write**
 
 token.json sometimes becomes truncated/invalid JSON (JSONDecodeError on read). Likely cause: concurrent writes or failed file operations during token save. Fix: write to temp file first, atomic rename on success.
 
+---
+
+## CORE WORKFLOW
+
+Features needed for smooth operation but with workarounds.
 
 ---
 
-## TIER 1 (MVP)
+**BUG: Channel validation failure should auto-delete token**
 
-Features that improve core workflow. Valuable for scaling and workflow quality, ready to start.
-
-*(All current TIER 1 items have been completed.)*
+When YouTube upload succeeds but channel validation fails (e.g., authenticated with wrong account), uploader warns "Channel ID mismatch. Delete token.json and re-authenticate." Should instead: auto-delete token.json and re-loop to OAuth prompt. User shouldn't have to manually delete - program should do it and ask for re-auth.
 
 ---
 
-## TIER 2 (QUALITY)
+## POLISH / NICE-TO-HAVE
 
-Polish on core workflow. Nice-to-have visual fixes.
+Visual improvements and quality-of-life features. Non-blocking.
 
 ---
 
 **Animated ticker spacing**
 
 Nice-to-have visual polish. Ticker visually appears to alternate between " .." and "..." - looks uneven. Root cause unknown (may be rendering/timing, not the string values). Investigate before fixing.
-
----
-
-## TIER 3 (POLISH)
-
-Cosmetic improvements, documentation, nice-to-haves.
-
----
-
-**Code duplication analysis**
-
-Scan codebase for: duplicate/similar logic, files over 300 lines, modularity improvements. Do in a dedicated session after the main items above are done and the codebase has stabilised.
-
-Highest-impact files are likely `pipeline.py` (540 lines) and `description_writer.py`.
-
----
-
-**FFmpeg auto-download test on clean machine**
-
-Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts correctly. ~70MB download. Only needed before shipping to a new machine.
 
 ---
 
@@ -119,9 +102,23 @@ The `\n` should be rendered as an actual newline. Grep the codebase for all occu
 
 ---
 
-## TIER 4 (FUTURE)
+**Code duplication analysis**
 
-Extra functionality, lower priority. Do not start until TIER 0-2 are solid. These are improvements beyond core highlight workflow.
+Scan codebase for: duplicate/similar logic, files over 300 lines, modularity improvements. Do in a dedicated session after the main items above are done and the codebase has stabilised.
+
+Highest-impact files are likely `pipeline.py` (540 lines) and `description_writer.py`.
+
+---
+
+**FFmpeg auto-download test on clean machine** (Manual test for later)
+
+Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_setup.py` downloads and extracts correctly. ~70MB download. Only needed before shipping to a new machine. Manual verification only, not automated.
+
+---
+
+## FUTURE - PHASE 2+
+
+Extra functionality beyond core highlight workflow. Do not start until SHIPPING BLOCKERS + CORE WORKFLOW are solid.
 
 ---
 
@@ -168,8 +165,6 @@ Improvement: after detecting a kill event, skip ahead confidently (banner is ~2s
 **OldCompilations - retrospective Best-of**
 
 Lower priority extra feature. Previously uploaded videos re-downloaded for KO scanning + segment extraction into ClipArchive.
-
-Previously uploaded videos re-downloaded for KO scanning + segment extraction into ClipArchive.
 
 Location: `C:\Users\David\Videos\MarvelRivals\OldCompilations\`
 Playlist: `https://youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W`
