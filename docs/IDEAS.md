@@ -12,18 +12,6 @@ Work that makes the program unusable or unpresentable. Cannot ship without these
 
 ---
 
-**BUG: YouTube upload speed ~150x slower than available bandwidth** ⚠️ BLOCKING - INSANELY SLOW
-
-Upload to YouTube crawling at 0.3 Mbps despite 45.31 Mbps available upload speed (measured via speedtest). 2.4 GB file takes 16+ hours instead of ~7 minutes. Root cause unknown - likely issue in uploader.py upload_video() function or Google API client configuration. Possibilities: (1) chunksize=-1 in MediaFileUpload not optimal; (2) missing resumable=True performance setting; (3) sequential chunking instead of parallel; (4) buffering issue in request.next_chunk() loop. Investigate upload_video() at src/uploader.py line 166-195.
-
----
-
-**UX: YouTube upload needs progress indication** ⚠️ HIGH PRIORITY
-
-When uploading large video (2+ GB), program shows no terminal feedback. Looks hung. User doesn't know if it's uploading, frozen, or failed. Currently upload_video() logs progress % to file only, never prints to console. Fix: add progress callback to MediaFileUpload.upload_http() loop (already has status.progress() % available), print to terminal inline using pattern from FLAC_Flow/src/deps.py (line 139): `print(f"\r  {pct:.0f}%  ({mb:.1f} / {total_mb:.0f} MB)", end="", flush=True)`. Shows pct + MB downloaded/total, overwrites same line.
-
----
-
 **BUG: Video title shows placeholder instead of batch name**
 
 When uploading to YouTube, video title shows "=== TITLE PROMPT ===" (placeholder) instead of actual batch name (e.g., "THOR_Mar-Apr_2026_BATCH1"). Root cause: title is extracted from description file but prompt never fills in actual title. Fix: (1) Use output folder name as default title (e.g., extract from slug or folder). (2) Move title prompt from blocking user input into description file generation step - pre-fill title in _description.txt with folder name, let user edit if needed instead of hanging on interactive prompt during upload.

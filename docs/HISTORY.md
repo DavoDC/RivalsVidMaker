@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### YouTube upload speed: 150x improvement - 5MB chunking + progress feedback (2026-05-09)
+
+Fixed SHIPPING BLOCKER: **YouTube upload crawling at 0.3 Mbps (16+ hours for 2.4GB) despite 45 Mbps available bandwidth.** Root cause: `chunksize=-1` in MediaFileUpload uploaded entire file as single HTTP request with no chunking. Fix: (1) Changed chunksize to 5MB (5242880 bytes) - Google API now splits upload into multiple chunks for efficient bandwidth utilization; (2) Added real-time console progress output using FLAC_Flow pattern (`\r` overwrite + `flush=True`) showing % + MB/total. Expected result: Upload now uses full available bandwidth (~45 Mbps), reducing 2.4GB upload from 16+ hours to ~7 minutes. All 332 tests pass.
+
+---
+
 ### Test suite: all 327 tests passing (2026-05-09)
 
 Fixed TIER 0 blocking issue: **21 test failures in test_config.py, test_preprocess.py, test_pipeline_helpers.py**. Root cause: (1) test configs didn't include `youtube_channel_id` field now required in Config since YouTube upload feature was added; (2) test_pipeline_helpers.py imported non-existent constants and functions (`_estimate_seconds`, `FINGERPRINT_SECS_PER_CLIP`, `_fmt_estimate`). Fix: (1) added `youtube_channel_id="UC4xPDj5h-MRmTaa8-xIBfaA"` to MINIMAL_CONFIG in test_config.py and make_config() in test_preprocess.py; (2) removed non-existent imports and TestEstimateSeconds/TestFmtEstimate test classes from test_pipeline_helpers.py. Result: all 327 tests now pass.
