@@ -186,6 +186,7 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
     import requests
     import time
 
+    session = requests.Session()  # reuse SSL connection across all chunks
     file_size_bytes = mp4_path.stat().st_size
     file_size_mb = file_size_bytes / (1024 * 1024)
     logging.info("Uploading: %s (%.1f MB)", mp4_path.name, file_size_mb)
@@ -227,7 +228,7 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
         "X-Upload-Content-Type": "video/*",
     }
 
-    init_response = requests.post(init_url, headers=init_headers, json=metadata, timeout=30)
+    init_response = session.post(init_url, headers=init_headers, json=metadata, timeout=30)
 
     logging.debug("Init response status: %s", init_response.status_code)
     logging.debug("Init response headers: %s", dict(init_response.headers))
@@ -242,11 +243,9 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
 
     logging.debug("Resumable session URI: %s", session_uri)
 
-    # 8MB chunks - good balance between throughput and per-chunk overhead.
-    # Must be a multiple of 256KB (YouTube's reported chunk granularity).
-    # Earlier hypothesis blamed 10MB chunks for SSL aborts; root cause was actually
-    # the init/chunk protocol mismatch (now fixed above), not chunk size.
-    chunksize = 8 * 1024 * 1024
+    # 32MB chunks - larger chunks = fewer round-trips = less per-chunk SSL overhead.
+    # Must be a multiple of 256KB (YouTube's chunk granularity). 32MB = 128 * 256KB.
+    chunksize = 32 * 1024 * 1024
     bytes_uploaded = 0
     response_json = None
 
@@ -275,7 +274,7 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
                     logging.debug("  Content-Length: %s", upload_headers.get("Content-Length"))
                     logging.debug("  Session URI: %s", session_uri[:100] + "...")
 
-                    chunk_response = requests.put(
+                    chunk_response = session.put(
                         session_uri,
                         headers=upload_headers,
                         data=chunk,
