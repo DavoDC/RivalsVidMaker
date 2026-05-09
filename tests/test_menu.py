@@ -161,3 +161,69 @@ class TestPickAction:
             result = pick_action(char_folders, [(31, 900.0), (14, 371.0)], [], {}, target_batch_seconds=900)
 
         assert result["type"] == "quit"
+
+
+# ---------------------------------------------------------------------------
+# Retry YouTube detection
+# ---------------------------------------------------------------------------
+
+class TestHasFailedUpload:
+
+    def test_has_failed_upload_with_video_and_description(self, tmp_path):
+        """Folder with .mp4 + _description.txt but not in state = retryable."""
+        from menu import _has_failed_upload
+
+        folder = tmp_path / "THOR_MAR_2026"
+        folder.mkdir()
+        (folder / "THOR_MAR_2026.mp4").write_text("fake video")
+        (folder / "THOR_MAR_2026_description.txt").write_text("Title\nDescription")
+
+        state = {"videos": {}}  # Empty, video not uploaded yet
+
+        assert _has_failed_upload(folder, state) is True
+
+    def test_no_failed_upload_if_already_in_state(self, tmp_path):
+        """Folder in state['videos'] = successfully uploaded, not retryable."""
+        from menu import _has_failed_upload
+
+        folder = tmp_path / "THOR_MAR_2026"
+        folder.mkdir()
+        (folder / "THOR_MAR_2026.mp4").write_text("fake video")
+        (folder / "THOR_MAR_2026_description.txt").write_text("Title\nDescription")
+
+        state = {"videos": {"THOR_MAR_2026": {"video_id": "abc123", "url": "..."}}}
+
+        assert _has_failed_upload(folder, state) is False
+
+    def test_no_failed_upload_if_missing_video(self, tmp_path):
+        """Folder without .mp4 = not retryable."""
+        from menu import _has_failed_upload
+
+        folder = tmp_path / "THOR_MAR_2026"
+        folder.mkdir()
+        (folder / "THOR_MAR_2026_description.txt").write_text("Title\nDescription")
+
+        state = {"videos": {}}
+
+        assert _has_failed_upload(folder, state) is False
+
+    def test_no_failed_upload_if_missing_description(self, tmp_path):
+        """Folder without _description.txt = not retryable."""
+        from menu import _has_failed_upload
+
+        folder = tmp_path / "THOR_MAR_2026"
+        folder.mkdir()
+        (folder / "THOR_MAR_2026.mp4").write_text("fake video")
+
+        state = {"videos": {}}
+
+        assert _has_failed_upload(folder, state) is False
+
+    def test_no_failed_upload_if_folder_missing(self):
+        """Nonexistent folder = not retryable."""
+        from menu import _has_failed_upload
+
+        folder = Path("/nonexistent/folder")
+        state = {"videos": {}}
+
+        assert _has_failed_upload(folder, state) is False

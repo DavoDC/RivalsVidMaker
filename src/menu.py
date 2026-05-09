@@ -160,6 +160,27 @@ def _archive_view(archive_path: Path | None) -> None:
     input("Press Enter to go back...")
 
 
+def _has_failed_upload(folder_path: Path, state: dict) -> bool:
+    """Check if a folder has compiled video + description but upload wasn't saved to state.json."""
+    if not folder_path.exists():
+        return False
+
+    # Must have both .mp4 and _description.txt
+    mp4_files = list(folder_path.glob("*.mp4"))
+    desc_files = list(folder_path.glob("*_description.txt"))
+
+    if not mp4_files or not desc_files:
+        return False
+
+    # Must NOT be in state.json['videos'] (not successfully uploaded)
+    folder_name = folder_path.name
+    videos = state.get("videos", {})
+    if folder_name in videos:
+        return False  # Already successfully uploaded
+
+    return True
+
+
 def _output_submenu(output_rows, state, output_path):
     """Returns action dict or None (back)."""
     from state import is_youtube_confirmed
@@ -186,13 +207,20 @@ def _output_submenu(output_rows, state, output_path):
     folder = (output_path / answer) if output_path else Path(answer)
 
     # Second submenu: choose action for this output folder
+    action_choices = [
+        questionary.Choice("Clean up (archive Quad+, delete rest)", value="cleanup"),
+        questionary.Choice("Uncompile (restore clips to Highlights, discard output)", value="uncompile"),
+    ]
+
+    # Offer retry if upload failed (has video + description but not in state.json)
+    if _has_failed_upload(folder, state):
+        action_choices.insert(0, questionary.Choice("Retry YouTube upload", value="retry_youtube"))
+
+    action_choices.append(questionary.Choice("Back", value="back"))
+
     action_answer = questionary.select(
         f"Action for {answer}?",
-        choices=[
-            questionary.Choice("Clean up (archive Quad+, delete rest)", value="cleanup"),
-            questionary.Choice("Uncompile (restore clips to Highlights, discard output)", value="uncompile"),
-            questionary.Choice("Back", value="back"),
-        ],
+        choices=action_choices,
     ).ask()
 
     if action_answer is None or action_answer == "back":
