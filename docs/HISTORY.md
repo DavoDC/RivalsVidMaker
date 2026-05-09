@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### YouTube upload retry loop in pipeline (2026-05-09)
+
+Fixed TIER 0 blocking bug: **Pipeline YouTube upload failure has no retry loop**. When upload fails during compile (auth error, network failure, etc), user is now prompted in-pipeline to delete token.json and re-authenticate, then retry immediately. No need to recompile (30+ min time loss). Flow: (1) upload fails → catch exception; (2) prompt user "Delete token.json and re-authenticate? [y/N]"; (3) if yes: delete token → triggers fresh OAuth on next auth attempt → retry upload; (4) if yes and succeeds: set yt_uploaded=True → proceed to cleanup; (5) if no or re-auth fails: fall back to manual upload instructions. Note: "Retry YouTube upload" menu option exists for cleanup, but THIS fix adds retry to the main pipeline where users actually hit the failure. Includes 7 tests covering all retry paths, token deletion, OAuth flow re-triggering.
+
+---
+
 ### P0 fixes: Retry upload detection, Uncompile cleanup, token.json auto-fix (2026-05-09)
 
 Three P0 bugs fixed together. (1) **Retry YouTube upload detection:** Fixed state.json structure mismatch - `_has_failed_upload()` now checks both old "videos" and new "output_folders" structures for backward compatibility. (2) **Uncompile full cleanup:** Replaced individual file deletion with `shutil.rmtree()` to fully delete output folder even if some files fail (e.g., files in use). Prevents orphaned empty folders. (3) **token.json auto-fix:** When generating new OAuth token, now auto-adds missing "type": "authorized_user" field if absent, preventing "type is None" errors on first OAuth flow.
