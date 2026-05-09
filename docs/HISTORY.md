@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### YouTube upload: token validation and error messaging (2026-05-09)
+
+Fixed two TIER 0 blocking issues in YouTube authentication and error handling. (1) **Invalid token.json type:** `uploader.py` now catches corrupted/empty token.json files (missing 'type' field), deletes them, and automatically triggers fresh OAuth flow. Prevents cryptic "type is None" errors. (2) **Fallback messaging:** Pipeline error messages now guide users to action instead of "upload manually" - tells them to delete token.json and re-run, or where to download credentials. Includes 3 new tests for token validation, OAuth triggering, and error message guidance.
+
+---
+
 ### KeyError fix: offsets dict after clip rename (2026-05-09)
 
 Fixed crash in `_collect_highlights()` where renamed clips (with tier suffixes like `_QUAD`) could not be found in the offsets dictionary. Root cause: offsets dict was keyed by original filenames, but after rename, clip.name returns the new filename. Fix: update offsets dict keys when clips are renamed. Added regression test covering full KO scan → rename → highlights flow.

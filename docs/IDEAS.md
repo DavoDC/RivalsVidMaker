@@ -12,25 +12,6 @@ Work that blocks core functionality. Program cannot ship without these.
 
 ---
 
-**YouTube upload: invalid token.json type**
-
-Upload fails with: `The file config\token.json does not have a valid type. Type is None, expected one of ('authorized_user', 'service_account'...)`.
-
-The OAuth token file is missing or malformed. Needs:
-1. Check if token.json exists and has valid structure
-2. If missing, guide user through OAuth flow or show clear error
-3. If corrupted, handle gracefully (delete + re-auth)
-
-Test: First real YouTube upload attempt should work end-to-end, not fall back to manual instructions.
-
----
-
-**YouTube upload: fallback messaging incorrect**
-
-After upload failure, still shows: "Upload manually from output folder" + "Paste in description from text file there". Should instead show: "Upload failed: [error]. Run auth flow: ..." with clear next steps for re-authenticating.
-
----
-
 **Uncompile: leaves behind clips.json, warns user**
 
 `run_uncompile()` deletes the compiled video and description files, but leaves `clips.json` in the output folder. Then emits WARNING: "Output folder not empty after uncompile - manual check needed".

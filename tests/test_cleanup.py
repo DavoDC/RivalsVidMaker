@@ -183,3 +183,40 @@ class TestRunCleanupVideoFile:
         with patch("builtins.input", side_effect=["y"]) as mock_input:
             run_cleanup(out, archive)
         assert mock_input.call_count == 1
+
+
+class TestRunUncompile:
+
+    def test_uncompile_deletes_clips_json(self, tmp_path):
+        """run_uncompile() should delete clips.json manifest during cleanup."""
+        from cleanup import run_uncompile
+        from pathlib import Path
+        import json
+
+        # Create output folder with clips and clips.json
+        out_folder = tmp_path / "THOR_MAR_2026"
+        out_folder.mkdir()
+        clips_dir = out_folder / "clips"
+        clips_dir.mkdir()
+
+        # Create a clip file
+        clip = clips_dir / "THOR_2026-03-01_12-00-00_QUAD.mp4"
+        clip.write_bytes(b"fake video")
+
+        # Create clips.json manifest
+        clips_json = out_folder / "clips.json"
+        clips_json.write_text(json.dumps({"clips": ["THOR_2026-03-01_12-00-00_QUAD.mp4"]}))
+
+        # Create highlights folder
+        highlights = tmp_path / "Highlights"
+        (highlights / "THOR").mkdir(parents=True)
+
+        # Run uncompile with confirmation
+        with patch("builtins.input", return_value="y"):
+            with patch("cleanup.send2trash") as mock_trash:
+                with patch("builtins.print"):  # Suppress emoji print
+                    run_uncompile(out_folder, highlights)
+                # Verify clips.json was sent to trash
+                calls = [str(call) for call in mock_trash.call_args_list]
+                assert any("clips.json" in call for call in calls), \
+                    f"clips.json not sent to trash. Calls: {calls}"
