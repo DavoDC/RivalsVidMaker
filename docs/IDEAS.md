@@ -16,6 +16,19 @@ During OAuth flow, user is asked to "Select the account that owns: UC4xPDj5h-MRm
 
 ---
 
+## COMPLETED (Session 246)
+
+**After YouTube upload, second run showed YT? No** - FIXED
+
+Bug: After successful upload, the state.json saved video_id but didn't mark the output folder as `youtube_confirmed`, so the menu showed "YT? No" on the next run. uploader.py now calls `mark_youtube_confirmed()` after successful upload.
+
+Also improved:
+- Removed "Open folder" from NEXT STEPS (confusing after YouTube upload)
+- Added upload speed stats (MB/min) to final output
+- Verified with 345 passing tests
+
+---
+
 
 ## CORE WORKFLOW
 
