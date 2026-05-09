@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### [v]iew in VLC during clip review (2026-05-09)
+
+Added `vlc_path` to Config (auto-detects `C:\Program Files\VideoLAN\VLC\vlc.exe`, falls back to None). Both low-value clip review prompts (preprocess `_prompt_delete` and pipeline compile-time review) now show `[v] view in VLC` when `vlc_path` is set. Pressing v calls `subprocess.Popen([vlc, clip])` and loops back to the same prompt - user can watch the clip then decide to include/archive/delete without restarting. Option is silently absent when VLC not installed. 3 new tests. 345 tests pass.
+
+---
+
 ### Animated ticker smooth progression (2026-05-09)
 
 Fixed POLISH item: **ticker jumped from blank to `..` to `...`, looked uneven.** Root cause: `_DOTS[0]` was `" "` (a space), so frame 0 erased the dots entirely. Fix: changed to `(".", "..", "...")` for a smooth one-dot-per-step progression. 3 tests added in new `test_progress.py` (starts with single dot, each frame longer than previous, no blank frame). 342 tests pass.

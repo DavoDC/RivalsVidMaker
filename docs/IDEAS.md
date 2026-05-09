@@ -25,20 +25,6 @@ Visual improvements and quality-of-life features. Non-blocking.
 
 ---
 
-**Clip review: add [v]iew in VLC option**
-
-During low-value clip review (preprocess and compile), user sees:
-```
-[y] include  [a] archive to ClipArchive  [d] delete:
-```
-
-Add [v] option to launch the clip in VLC without deciding. Lets user visually inspect the clip before deciding to keep/archive/delete.
-
-Implementation: detect VLC at `C:\Program Files\VideoLAN\VLC\vlc.exe`, use `subprocess.Popen()` to open the clip, loop back to the same prompt so user can decide after viewing.
-
-Config: `vlc_path` optional (default None). If not found, skip the option silently.
-
----
 
 
 **Code duplication analysis**
