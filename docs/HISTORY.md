@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### KeyError fix: offsets dict after clip rename (2026-05-09)
+
+Fixed crash in `_collect_highlights()` where renamed clips (with tier suffixes like `_QUAD`) could not be found in the offsets dictionary. Root cause: offsets dict was keyed by original filenames, but after rename, clip.name returns the new filename. Fix: update offsets dict keys when clips are renamed. Added regression test covering full KO scan → rename → highlights flow.
+
+---
+
 ### YouTube API Phase 2 - Automated video upload (2026-05-09)
 
 Implemented OAuth-authenticated automated video upload to YouTube. New `src/uploader.py` module handles channel ID validation, description parsing, and state management. Integrated into pipeline after encode+describe step with graceful error handling (falls back to manual upload instructions if credentials missing). Videos uploaded as PRIVATE by default. Config extended with required `youtube_channel_id` field. State.json now stores video_id, URL, and title for each upload. 6 unit tests included.

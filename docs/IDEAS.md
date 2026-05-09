@@ -12,18 +12,6 @@ Work that blocks core functionality. Program cannot ship without these.
 
 ---
 
-**BUG: KeyError on renamed clips after KO scan**
-
-Pipeline crashes with `KeyError: 'THOR_2026-04-04_22-32-48_QUAD.mp4'` in `pipeline.py:134` during `_collect_highlights()`.
-
-Root cause: KO scan renames clips (adds `_QUAD`, `_TRIPLE`, `_DOUBLE` suffixes), but the `offsets` dictionary retains keys with OLD filenames. When `_collect_highlights()` tries to look up the renamed clip name in offsets, it fails.
-
-Steps to reproduce: Run full compile pipeline (fingerprint + KO scan passes successfully, then crashes at highlights collection).
-
-Regression test: Add a full e2e test that exercises fingerprint + KO scan + encode pipeline.
-
----
-
 **Automated tests for KO detection**
 
 pytest tests for `scan_clip` and OCR logic. Needed BEFORE large-scale KO work (OldCompilations, etc.).
