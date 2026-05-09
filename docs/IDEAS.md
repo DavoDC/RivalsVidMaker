@@ -14,42 +14,11 @@ Work that blocks core functionality. Program cannot ship without these.
 
 ---
 
-
-**Uncompile: should fully delete output folder**
-
-`run_uncompile()` restores clips but leaves an empty output folder behind if any files can't be deleted (e.g., clips.json). Menu then shows the empty folder as "cleanup waiting". Fix: use `shutil.rmtree()` or explicitly delete stragglers before rmdir, so uncompile fully cleans up.
-
----
-
-**BUG: Retry YouTube upload feature broken**
-
-Dev session implemented "Retry YouTube upload" feature (appears in menu when upload fails), but it doesn't work. Root cause: menu.py `_has_failed_upload()` checks for `state.get("videos", {})`, but state.json uses `output_folders` structure instead. Mismatch causes function to always return False, so retry option never appears.
-
-Fix: Either (1) migrate state.json to use "videos" dict as uploader expects, or (2) update `_has_failed_upload()` to check both old and new state structures for backward compatibility.
-
-Impact: Users see "manually upload" instead of being offered a retry option when auth fails.
-
----
-
-**BUG: token.json validation doesn't auto-fix missing "type" field**
-
-Dev session added validation + error messages, but didn't address root cause: generated token.json missing required "type": "authorized_user" field. Validation catches it and warns user, but should auto-add the field during validation or token generation.
-
-Fix: In uploader.py or token loading code, check if token has "type" field; if missing, add it and save. Prevents "type is None" errors upfront.
-
----
-
 ## TIER 1 (MVP)
 
 Features that improve core workflow. Valuable for scaling and workflow quality, ready to start.
 
----
-
-**Preprocess: top-level menu + run all cacheable work**
-
-High-value workflow improvement. Preprocess is buried in a submenu. Move it to the top-level menu. When selected, run ALL cacheable work: KO scanning + fingerprinting. Intended for "going AFK" use. Show overall progress bar across all characters. Text on menu item: "Preprocess all (warm cache)".
-
-Status: Medium complexity. Independent - KO system already validated on normal compilations.
+*(All current TIER 1 items have been completed.)*
 
 ---
 

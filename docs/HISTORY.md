@@ -7,6 +7,18 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### P0 fixes: Retry upload detection, Uncompile cleanup, token.json auto-fix (2026-05-09)
+
+Three P0 bugs fixed together. (1) **Retry YouTube upload detection:** Fixed state.json structure mismatch - `_has_failed_upload()` now checks both old "videos" and new "output_folders" structures for backward compatibility. (2) **Uncompile full cleanup:** Replaced individual file deletion with `shutil.rmtree()` to fully delete output folder even if some files fail (e.g., files in use). Prevents orphaned empty folders. (3) **token.json auto-fix:** When generating new OAuth token, now auto-adds missing "type": "authorized_user" field if absent, preventing "type is None" errors on first OAuth flow.
+
+---
+
+### Preprocess to top-level menu (2026-05-09)
+
+Moved "Preprocess all clips (warm KO cache)" from buried in highlights submenu to top-level menu option. Improves discoverability for cache-warming workflows (AFK preprocessing before compilation). Menu structure: Level 1 now shows Compile / Preprocess / Cleanup / Archive / Quit. Handler calls `preprocess_all()` which runs KO detection on all clips across all characters in parallel, respecting cache and force-rescan settings.
+
+---
+
 ### YouTube upload: token validation and error messaging (2026-05-09)
 
 Fixed two TIER 0 blocking issues in YouTube authentication and error handling. (1) **Invalid token.json type:** `uploader.py` now catches corrupted/empty token.json files (missing 'type' field), deletes them, and automatically triggers fresh OAuth flow. Prevents cryptic "type is None" errors. (2) **Fallback messaging:** Pipeline error messages now guide users to action instead of "upload manually" - tells them to delete token.json and re-run, or where to download credentials. Includes 3 new tests for token validation, OAuth triggering, and error message guidance.
