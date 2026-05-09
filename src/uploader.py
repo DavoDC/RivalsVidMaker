@@ -79,7 +79,11 @@ def get_authenticated_service():
             credentials_path = find_credentials()
             flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), SCOPES)
             creds = flow.run_local_server(port=0)
-        TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
+        token_json = json.loads(creds.to_json())
+        # Ensure 'type' field is present (required by google.auth)
+        if "type" not in token_json:
+            token_json["type"] = "authorized_user"
+        TOKEN_PATH.write_text(json.dumps(token_json), encoding="utf-8")
         logging.info("Token saved to %s", TOKEN_PATH)
 
     return build("youtube", "v3", credentials=creds)

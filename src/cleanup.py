@@ -357,16 +357,12 @@ def run_uncompile(
         except Exception as e:
             logging.error("Failed to send clips.json to Recycle Bin: %s", e)
 
-    # Remove now-empty clips/ dir and output folder
+    # Remove output folder and all remaining contents (including clips/ dir)
     try:
-        clips_dir.rmdir()
-    except OSError:
-        pass
-    try:
-        output_folder.rmdir()
+        shutil.rmtree(str(output_folder))
         logging.info("Removed output folder: %s", output_folder.name)
-    except OSError:
-        logging.warning("Output folder not empty after uncompile - manual check needed: %s", output_folder)
+    except OSError as e:
+        logging.error("Failed to remove output folder: %s", e)
 
     # Clear YouTube-confirmed state if present
     if state_path:
