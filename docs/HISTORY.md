@@ -7,6 +7,12 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Animated ticker smooth progression (2026-05-09)
+
+Fixed POLISH item: **ticker jumped from blank to `..` to `...`, looked uneven.** Root cause: `_DOTS[0]` was `" "` (a space), so frame 0 erased the dots entirely. Fix: changed to `(".", "..", "...")` for a smooth one-dot-per-step progression. 3 tests added in new `test_progress.py` (starts with single dot, each frame longer than previous, no blank frame). 342 tests pass.
+
+---
+
 ### Config error shows literal \n fixed (2026-05-09)
 
 Fixed POLISH item: **config validation error printed `'config.json is missing...\n  See...'` with visible backslash-n.** Root cause: raising `KeyError` - whose `__str__` returns `repr(key)` (with quotes and escaped newlines) - instead of `ValueError` - whose `__str__` returns `str(msg)` (renders newlines correctly). Fix: changed `raise KeyError(...)` to `raise ValueError(...)` in `config.py` and updated the `except KeyError` handler in `main.py` to `except ValueError`. 4 test names updated to match. 339 tests pass.

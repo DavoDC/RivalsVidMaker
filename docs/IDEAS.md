@@ -25,12 +25,6 @@ Visual improvements and quality-of-life features. Non-blocking.
 
 ---
 
-**Animated ticker spacing**
-
-Nice-to-have visual polish. Ticker visually appears to alternate between " .." and "..." - looks uneven. Root cause unknown (may be rendering/timing, not the string values). Investigate before fixing.
-
----
-
 **Clip review: add [v]iew in VLC option**
 
 During low-value clip review (preprocess and compile), user sees:
