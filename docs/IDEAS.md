@@ -23,11 +23,11 @@ Features needed for smooth operation but with workarounds.
 
 ---
 
-**[PENDING CLARIFICATION] Output batch folders don't persist clip metadata**
+**Output batch folders don't persist clip metadata**
 
-When a batch is compiled (e.g., THOR_Mar-Apr_2026_BATCH1), the muxed video + description file are created, but the UI dashboard shows "-" for the Clips column. The description file DOES contain the clip list (as timestamped segments), but the UI doesn't parse it.
+When a batch is compiled (e.g., THOR_Mar-Apr_2026_BATCH1), the muxed video + description file are created, but the UI dashboard shows "-" for the Clips column because it can't see the individual clips that went into the batch. The description file DOES contain the clip list (as timestamped segments), but the UI doesn't parse it.
 
-**Question for David:** Do you actively use the "Clips" count in the UI dashboard, or is this just informational? If it's not a blocker, can defer indefinitely. If you check it regularly, worth fixing: either create batch-metadata.json or update UI to parse description file's clip section.
+**Solution:** Either (a) create `batch-metadata.json` in output folder with clip list when batch compiles, or (b) update UI to parse description file's clip section and extract clip count. Table must show accurate/correct counts.
 
 ---
 
