@@ -214,13 +214,17 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
         "status": {"privacyStatus": "private"},
     }
 
+    # Standard resumable protocol (NOT the custom X-Goog-Upload-* protocol).
+    # Init request announces upload size and content type; server returns session URI in Location header.
+    # Subsequent chunk PUTs use Content-Range. Mixing standard chunks with the custom-protocol init
+    # is what caused [WinError 10053] socket aborts in earlier sessions - the custom-protocol session URI
+    # rejected Content-Range PUTs mid-transfer.
     init_url = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status"
     init_headers = {
         "Authorization": auth_header,
-        "X-Goog-Upload-Protocol": "resumable",
-        "X-Goog-Upload-Command": "start",
-        "X-Goog-Upload-Header-Content-Length": str(file_size_bytes),
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Length": str(file_size_bytes),
+        "X-Upload-Content-Type": "video/*",
     }
 
     init_response = requests.post(init_url, headers=init_headers, json=metadata, timeout=30)
@@ -231,16 +235,18 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
     if init_response.status_code != 200:
         raise ValueError(f"Failed to initialize resumable upload: {init_response.status_code}\n{init_response.text}")
 
-    # Get upload URL from Google's custom resumable protocol headers
-    session_uri = init_response.headers.get("x-goog-upload-url")
+    # Standard resumable returns session URI in Location header
+    session_uri = init_response.headers.get("Location") or init_response.headers.get("location")
     if not session_uri:
-        raise ValueError(f"YouTube did not return upload URL. Headers: {dict(init_response.headers)}")
+        raise ValueError(f"YouTube did not return upload URL (Location header). Headers: {dict(init_response.headers)}")
 
     logging.debug("Resumable session URI: %s", session_uri)
 
-    # Upload file in smaller chunks to avoid connection drops
-    # (10MB was too large and caused SSL connection aborts)
-    chunksize = 1 * 1024 * 1024  # 1 MB for stability
+    # 8MB chunks - good balance between throughput and per-chunk overhead.
+    # Must be a multiple of 256KB (YouTube's reported chunk granularity).
+    # Earlier hypothesis blamed 10MB chunks for SSL aborts; root cause was actually
+    # the init/chunk protocol mismatch (now fixed above), not chunk size.
+    chunksize = 8 * 1024 * 1024
     bytes_uploaded = 0
     response_json = None
 

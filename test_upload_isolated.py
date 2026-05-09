@@ -15,14 +15,21 @@ from uploader import get_authenticated_service, validate_channel_id, upload_vide
 from config import load
 
 config = load()
-video_path = Path("C:/Users/David/Videos/MarvelRivals/Output/THOR_Mar-Apr_2026_BATCH1/THOR_Mar-Apr_2026_BATCH1.mp4")
-desc_path = Path("C:/Users/David/Videos/MarvelRivals/Output/THOR_Mar-Apr_2026_BATCH1/THOR_Mar-Apr_2026_BATCH1_description.txt")
+
+# CLI arg = video path. Default = small Instagram_2.mp4 (5.9MB) for fast iteration.
+# To test the real 2.4GB workflow file: pass it as arg1.
+if len(sys.argv) > 1:
+    video_path = Path(sys.argv[1])
+    desc_path = video_path.with_name(video_path.stem + "_description.txt")
+else:
+    video_path = Path("C:/Users/David/Downloads/Instagram_2.mp4")
+    desc_path = None  # synthesise title/desc inline
 
 if not video_path.exists():
     print(f"ERROR: Video not found: {video_path}")
     sys.exit(1)
 
-if not desc_path.exists():
+if desc_path is not None and not desc_path.exists():
     print(f"ERROR: Description not found: {desc_path}")
     sys.exit(1)
 
@@ -41,7 +48,11 @@ try:
     print()
 
     print("Step 3: Parse description...")
-    title, description = parse_description_file(desc_path)
+    if desc_path is not None:
+        title, description = parse_description_file(desc_path)
+    else:
+        title = f"TEST UPLOAD - {video_path.stem} (private, will be deleted)"
+        description = "Isolated upload test. Safe to delete."
     print(f"[OK] Title: {title[:60]}...")
     print()
 
