@@ -1,0 +1,1 @@
+{"duration": 34.91, "width": 1920, "height": 1080, "file_mtime": 1775227397.286749, "file_size": 76613947, "ko_result": {"tier": "TRIPLE", "start_ts": 10.5, "max_ts": 23.5, "end_ts": 25.0, "events": [{"tier": "KO", "ts": 10.5}, {"tier": "DOUBLE", "ts": 18.0}, {"tier": "TRIPLE", "ts": 23.5}]}, "scan_time": 33.16, "scan_pass": 1}
