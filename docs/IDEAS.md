@@ -66,15 +66,24 @@ During OAuth flow, user is asked to "Select the account that owns: UC4xPDj5h-MRm
 
 ---
 
-**Auto-set Marvel Rivals playlist on upload**
+**Upload metadata automation - auto-set all applicable fields via API**
 
-When uploading a video via RVM, automatically assign it to the Marvel Rivals playlist: https://www.youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W. This saves a manual step in the YouTube UI each time a video is uploaded. Feature integrates with the YouTube upload pipeline - set playlist ID during upload request or immediately after video processes.
+Consolidate post-upload manual steps into one comprehensive feature. After video upload completes, automatically set all YouTube metadata via `videos.update` API call. Scope:
 
----
+**Settable via API (auto-set):**
+- Category: "Gaming" (categoryId=20)
+- Tags: "Marvel Rivals" + any additional tags
+- Language: "English" (defaultLanguage)
+- License: "Standard YouTube License" or "Creative Commons"
+- Embeddable: true (allow embedding)
+- Public stats: true (show view counts)
+- Playlist: add to "Marvel Rivals" playlist (PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W) via playlistItems.insert
 
-**Auto-set category to Gaming and game title to Marvel Rivals**
+**NOT settable via API (manual in YouTube Studio):**
+- Game title link ("Marvel Rivals" dropdown) - not exposed in Data API v3
+- Caption certification - manual selection only
 
-When uploading a video via RVM, automatically set the YouTube video metadata: Category = "Gaming", Game title = "Marvel Rivals" (selected from dropdown). Saves two manual clicks per upload. Uses YouTube Data API v3 during video creation or via separate metadata PATCH call after upload completes. See `docs/YOUTUBE_API.md` for API reference.
+**Implementation:** Collect config settings for each field, apply via `videos.update` immediately after upload succeeds. See `docs/YOUTUBE_API.md` for API quota costs (~50 units per update call). Saves 5-10 manual clicks per video.
 
 ---
 
