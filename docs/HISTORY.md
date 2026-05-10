@@ -7,6 +7,18 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Generalise cleanup menu: "Manage output folder" with retry upload (2026-05-10)
+
+Refactored post-upload cleanup workflow. Previously: `python src/main.py --cleanup` → pick folder → auto-cleanup (archive Quad+ clips, delete rest). Now: pick folder → show sub-menu with two options: **Retry YouTube upload** or **Clean up**. Retry upload re-uploads the compiled .mp4 without re-encoding (uses existing description file for title/description). Solves real workflow pain: if the initial upload failed or was set to private, user can now retry from the output folder menu instead of recompiling. Implementation includes:
+- `locate_video_and_description()` helper: safely finds .mp4 and _description.txt in output folder, handles edge cases (multiple files, missing files)
+- `retry_upload()` function: calls existing `uploader.upload_and_save_state()` with re-auth if needed, provides clear error messages
+- Refactored `_run_cleanup_mode()` in main.py: changed from direct cleanup call to sub-menu prompt
+- 4 real tests + 4 integration test stubs; all 353 tests pass, no regressions
+
+Design recovered from git history (retry upload was a previous feature that was removed; now re-integrated as a sub-menu action).
+
+---
+
 ### YouTube upload socket abort fixed - protocol mismatch root cause (2026-05-09)
 
 Fixed SHIPPING BLOCKER: **upload PUTs failed mid-transfer with `[WinError 10053]` socket abort, library-agnostic (httplib2 and requests both failed identically).** Root cause: `uploader.upload_video` mixed two incompatible YouTube resumable protocols. The init request used Google's **custom** protocol (`X-Goog-Upload-Protocol: resumable`, `X-Goog-Upload-Command: start`, `X-Goog-Upload-Header-Content-Length`), which returned a session URI in the `x-goog-upload-url` header. But the chunk PUTs used **standard** resumable headers (`Content-Range: bytes start-end/total`). The custom-protocol session URI rejected `Content-Range` requests by aborting the SSL connection mid-transfer - manifesting as a network error rather than a protocol error.
