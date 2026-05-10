@@ -28,18 +28,36 @@ Set `status.privacyStatus` to `"private"`. The video remains hidden until you ch
 }
 ```
 
-### 1.2 Set the "Game" / game title to "Marvel Rivals"
+### 1.2 Set video metadata after upload (title, tags, category, language, etc.)
 
-**Partially -- with caveats.**
+**Yes -- via `videos.update` call.**
 
-The game link ("Marvel Rivals" appearing under the video as a clickable link) is set through
-YouTube Studio UI and is **not exposed in the Data API v3**.
+After `videos.insert` completes and you have the videoId, call `videos.update` with the `snippet` and `status` parts to set additional metadata. Cost: 50 units per update call. You can set metadata during the initial insert call (include it in the request body), or update it separately after the upload finishes.
 
-**What you can do via API:**
-- Set `snippet.categoryId = "20"` to mark as Gaming.
-- Add `"Marvel Rivals"` as a tag in `snippet.tags`.
+**Settable via API in snippet (videos.update or videos.insert):**
+- `snippet.title` - Video title (max 100 chars)
+- `snippet.description` - Video description (max 5000 bytes)
+- `snippet.categoryId` - Category ID (e.g., "20" = Gaming)
+- `snippet.tags` - List of keyword tags (max 500 chars total)
+- `snippet.defaultLanguage` - Language of the video (e.g., "en" for English)
+- `snippet.localizations.(language).title` - Localized title for a specific language
+- `snippet.localizations.(language).description` - Localized description
 
-**Practical recommendation:** Upload via API, then manually set the game link in Studio. Takes 5 seconds.
+**Settable via API in status (videos.update or videos.insert):**
+- `status.privacyStatus` - `"private"`, `"public"`, or `"unlisted"`
+- `status.license` - `"youtube"` or `"creativeCommon"`
+- `status.embeddable` - boolean (allow embedding)
+- `status.publicStatsViewable` - boolean (show view counts)
+- `status.madeForKids` - boolean (child-directed content)
+- `status.publishAt` - Scheduled publish time (ISO 8601, only for private videos)
+- `status.recordingDetails.recordingDate` - Recording date (ISO 8601)
+- `status.paidProductPlacementDetails.hasPaidProductPlacement` - boolean
+
+**NOT settable via API (manual in YouTube Studio):**
+- Game title link ("Marvel Rivals" clickable link) - not exposed in Data API v3
+- Caption certification - manual selection only
+
+**Practical approach:** Set `categoryId`, `tags`, `defaultLanguage` during `videos.insert`. Optionally call `videos.update` afterward to set additional fields like `license`, `publicStatsViewable`, or playlist assignment.
 
 ### 1.3 Add a video to an existing playlist
 
@@ -83,7 +101,7 @@ subsequent runs use stored `token.json`. Handled entirely by `google-api-python-
 
 ### 1.6 API Quota Costs
 
-Daily quota: **10,000 units** per project (resets midnight Pacific).
+Daily quota: **10,000 units** per project (resets midnight Pacific). **Free tier -- no payment required** unless you exceed the quota significantly and apply for an increase.
 
 | Operation | Endpoint | Quota Cost |
 |---|---|---|
@@ -93,9 +111,16 @@ Daily quota: **10,000 units** per project (resets midnight Pacific).
 | Set thumbnail | `thumbnails.set` | 50 units |
 | List videos (read) | `videos.list` | 1 unit |
 
-**Cost per full pipeline run:** ~1,750 units. Free quota allows ~5 videos/day -- sufficient for a personal channel.
+**Cost per full pipeline run (upload + metadata + playlist + thumbnail):** ~1,750 units.
 
-**Blind retry burns quota fast.** At 1,600 units/upload, you hit the daily ceiling in ~6 attempts. Always diagnose before retrying.
+**Free quota capacity:**
+- Single video per day: ~1,700 units = **plenty of room (6x overhead)**
+- Batch of 5 videos: ~8,500 units = **within free quota**
+- Batch of 10 videos: ~17,000 units = **exceeds free quota by 70% -- will fail on 7th video**
+
+**For a 1-video-per-day workflow:** quota is not a constraint. You use ~17% of daily quota and have headroom for retries or additional metadata calls.
+
+**Best practice:** Always diagnose upload failures before retrying. At 1,600 units/retry, blind retries exhaust quota fast.
 
 ---
 
