@@ -2,33 +2,7 @@
 
 Single source of truth for all pending work.
 
-**Do not ship until SHIPPING BLOCKERS are resolved.**
-
 ---
-
-## SHIPPING BLOCKERS
-
-Work that makes the program unusable or unpresentable. Cannot ship without these.
-
-**OAuth prompt shows channel ID instead of channel name**
-
-During OAuth flow, user is asked to "Select the account that owns: UC4xPDj5h-MRmTaa8-xIBfaA". The channel ID is not human-readable. Currently shows the expected channel ID for context (Session 242), but needs human-readable channel name fetched from YouTube API during get_authenticated_service(). Display format: "Select the account that owns: [Channel Name] (UC4xPDj5h-MRmTaa8-xIBfaA)" for clarity. Prevents accidental upload to wrong channel on multi-account systems.
-
----
-
-## COMPLETED (Session 246)
-
-**After YouTube upload, second run showed YT? No** - FIXED
-
-Bug: After successful upload, the state.json saved video_id but didn't mark the output folder as `youtube_confirmed`, so the menu showed "YT? No" on the next run. uploader.py now calls `mark_youtube_confirmed()` after successful upload.
-
-Also improved:
-- Removed "Open folder" from NEXT STEPS (confusing after YouTube upload)
-- Added upload speed stats (MB/min) to final output
-- Verified with 345 passing tests
-
----
-
 
 ## CORE WORKFLOW
 
@@ -39,14 +13,6 @@ Features needed for smooth operation but with workarounds.
 **Show upload speed and ETA while uploading (MB/s, not MB/min)**
 
 Currently shows percent + cumulative MB during upload progress. Should also show live speed estimate in MB/s and estimated time to completion (ETA) so user can gauge whether upload will complete in reasonable time. Final summary should show speed in MB/s not MB/min. Example progress line: `100% (2399.0 / 2399 MB) - 150 MB/s - ETA 2m 15s`
-
----
-
-**Output batch folders don't persist clip metadata**
-
-When a batch is compiled (e.g., THOR_Mar-Apr_2026_BATCH1), the muxed video + description file are created, but the UI dashboard shows "-" for the Clips column because it can't see the individual clips that went into the batch. The description file DOES contain the clip list (as timestamped segments), but the UI doesn't parse it.
-
-**Solution:** Either (a) create `batch-metadata.json` in output folder with clip list when batch compiles, or (b) update UI to parse description file's clip section and extract clip count. Table must show accurate/correct counts.
 
 ---
 
@@ -65,13 +31,25 @@ implementing to recover the original approach rather than rebuilding from scratc
 
 ---
 
+**Output batch folders don't persist clip metadata**
+
+When a batch is compiled (e.g., THOR_Mar-Apr_2026_BATCH1), the muxed video + description file are created, but the UI dashboard shows "-" for the Clips column because it can't see the individual clips that went into the batch. The description file DOES contain the clip list (as timestamped segments), but the UI doesn't parse it.
+
+**Solution:** Either (a) create `batch-metadata.json` in output folder with clip list when batch compiles, or (b) update UI to parse description file's clip section and extract clip count. Table must show accurate/correct counts.
+
+---
+
+**OAuth prompt shows channel ID instead of channel name**
+
+During OAuth flow, user is asked to "Select the account that owns: UC4xPDj5h-MRmTaa8-xIBfaA". The channel ID is not human-readable. Currently shows the expected channel ID for context (Session 242), but needs human-readable channel name fetched from YouTube API during get_authenticated_service(). Display format: "Select the account that owns: [Channel Name] (UC4xPDj5h-MRmTaa8-xIBfaA)" for clarity. Prevents accidental upload to wrong channel on multi-account systems.
+
+---
+
 ## POLISH / NICE-TO-HAVE
 
 Visual improvements and quality-of-life features. Non-blocking.
 
 ---
-
-
 
 **Code duplication analysis**
 
@@ -89,7 +67,7 @@ Delete `dependencies/ffmpeg/` and run `python src/main.py` to verify `ffmpeg_set
 
 ## FUTURE - PHASE 2+
 
-Extra functionality beyond core highlight workflow. Do not start until SHIPPING BLOCKERS + CORE WORKFLOW are solid.
+Extra functionality beyond core highlight workflow. Do not start until CORE WORKFLOW is solid.
 
 ---
 
