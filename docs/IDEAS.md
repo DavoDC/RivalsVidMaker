@@ -50,6 +50,21 @@ When a batch is compiled (e.g., THOR_Mar-Apr_2026_BATCH1), the muxed video + des
 
 ---
 
+**Generalise "Clean up output folder" to "Manage output folder" with sub-actions**
+
+Current menu item "Clean up a completed output folder" is too narrow - it only offers deletion.
+Real need: any action on an output folder (retry upload, clean up, inspect, etc.).
+
+Proposed change: rename top-level option to "Manage output folder", then show a sub-menu:
+- Retry YouTube upload (upload the compiled video again - e.g. first upload failed or was private)
+- Clean up (current behaviour - deletes compiled video once confirmed live on YT)
+- (future: re-generate description, change privacy, etc.)
+
+RVM previously had YouTube upload retry but it was removed at some point - check git log before
+implementing to recover the original approach rather than rebuilding from scratch.
+
+---
+
 ## POLISH / NICE-TO-HAVE
 
 Visual improvements and quality-of-life features. Non-blocking.
