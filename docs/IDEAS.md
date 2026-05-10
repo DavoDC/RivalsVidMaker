@@ -10,6 +10,24 @@ Features needed for smooth operation but with workarounds.
 
 ---
 
+**Add UI/menu testing framework - Claude must test menu flows, not humans**
+
+CRITICAL: Menu system (questionary-based interactive flows) is the most important user-facing component, more critical than KO detection tests. Currently Claude cannot test menu changes end-to-end without user manually running scripts/run.bat and navigating menus. This led to a complete implementation failure (Session 247): Claude edited main.py for 2 hours without realizing menu.py was the actual implementation.
+
+**Requirements:**
+- Unit tests for menu.py functions: test `pick_action()`, `_output_submenu()`, `_highlights_submenu()`, option rendering, state handling
+- Mock questionary to simulate arrow-key navigation and selections
+- No actual video file creation needed - test with minimal folder fixtures
+- Test data: temp folders with mock .mp4 + .txt files (no real video data)
+- Coverage: all menu branches, state transitions, error cases
+- Goal: Claude can verify menu changes are correct WITHOUT human testing step
+
+**Out of scope:** Don't test the actual questionary library behavior (that's their responsibility). Test RVM's menu logic, choice routing, state updates.
+
+**Why this matters:** Menu is the gateway to all features. A broken menu is worse than a broken KO detector. As of Session 247, KO detection has ~50 dedicated tests; menu has ~0 tests. Invert this.
+
+---
+
 **Show upload speed and ETA while uploading (MB/s, not MB/min)**
 
 Currently shows percent + cumulative MB during upload progress. Should also show live speed estimate in MB/s and estimated time to completion (ETA) so user can gauge whether upload will complete in reasonable time. Final summary should show speed in MB/s not MB/min. Example progress line: `100% (2399.0 / 2399 MB) - 150 MB/s - ETA 2m 15s`
