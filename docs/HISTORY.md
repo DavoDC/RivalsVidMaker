@@ -7,6 +7,22 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Upload speed (MB/s) and ETA display during YouTube upload (2026-05-10)
+
+Added real-time speed and time-remaining display to the upload progress line. Previously showed only percent + cumulative MB. Now shows live upload speed and ETA calculated from bytes sent and elapsed time. Format: `50% (1200.5 / 2399 MB) - 3.2 MB/s - ETA 5m 23s`. Final summary after upload completes shows overall speed and total time: `Speed: 3.2 MB/s | Time: 10m 45s`.
+
+Implementation:
+- Track start time in `upload_video()` function
+- Calculate elapsed time and speed (bytes_sent / elapsed_time / 1024 / 1024)
+- Calculate seconds remaining and convert to m:s format
+- Update progress line each frame
+- Print final summary after upload succeeds
+- Verified working on real 2.4GB video upload at 5.3 MB/s with accurate ETA display
+
+Addresses user request for transparency during long uploads (10-15 min uploads need progress feedback).
+
+---
+
 ### Generalise cleanup menu: "Manage output folder" with retry upload (2026-05-10)
 
 Refactored post-upload cleanup workflow. Previously: `python src/main.py --cleanup` → pick folder → auto-cleanup (archive Quad+ clips, delete rest). Now: pick folder → show sub-menu with two options: **Retry YouTube upload** or **Clean up**. Retry upload re-uploads the compiled .mp4 without re-encoding (uses existing description file for title/description). Solves real workflow pain: if the initial upload failed or was set to private, user can now retry from the output folder menu instead of recompiling. Implementation includes:
