@@ -116,7 +116,7 @@ def _build_level1_choices(char_folders, summaries, output_rows, state, target_ba
     return [
         questionary.Choice(f"Compile a new highlights video  ({h_detail})", value="highlights"),
         questionary.Choice("Preprocess all clips (warm KO cache)", value="preprocess"),
-        questionary.Choice(f"Clean up a completed output folder  ({o_detail})", value="output"),
+        questionary.Choice(f"Manage output folder  ({o_detail})", value="output"),
         questionary.Choice("Browse the archive", value="archive"),
         questionary.Choice("Quit", value="quit"),
     ]
@@ -213,13 +213,10 @@ def _output_submenu(output_rows, state, output_path):
 
     # Second submenu: choose action for this output folder
     action_choices = [
+        questionary.Choice("Retry YouTube upload", value="retry_youtube"),
         questionary.Choice("Clean up (archive Quad+, delete rest)", value="cleanup"),
         questionary.Choice("Uncompile (restore clips to Highlights, discard output)", value="uncompile"),
     ]
-
-    # Offer retry if upload failed (has video + description but not in state.json)
-    if _has_failed_upload(folder, state):
-        action_choices.insert(0, questionary.Choice("Retry YouTube upload", value="retry_youtube"))
 
     action_choices.append(questionary.Choice("Back", value="back"))
 
