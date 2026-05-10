@@ -66,6 +66,12 @@ During OAuth flow, user is asked to "Select the account that owns: UC4xPDj5h-MRm
 
 ---
 
+**Auto-set Marvel Rivals playlist on upload**
+
+When uploading a video via RVM, automatically assign it to the Marvel Rivals playlist: https://www.youtube.com/playlist?list=PLMGEiDlepOBXeW6gsniLnAcg1OaCZmy_W. This saves a manual step in the YouTube UI each time a video is uploaded. Feature integrates with the YouTube upload pipeline - set playlist ID during upload request or immediately after video processes.
+
+---
+
 **Code duplication analysis**
 
 Scan codebase for: duplicate/similar logic, files over 300 lines, modularity improvements. Do in a dedicated session after the main items above are done and the codebase has stabilised.
