@@ -72,6 +72,12 @@ When uploading a video via RVM, automatically assign it to the Marvel Rivals pla
 
 ---
 
+**Auto-set category to Gaming and game title to Marvel Rivals**
+
+When uploading a video via RVM, automatically set the YouTube video metadata: Category = "Gaming", Game title = "Marvel Rivals" (selected from dropdown). Saves two manual clicks per upload. Uses YouTube Data API v3 during video creation or via separate metadata PATCH call after upload completes. See `docs/YOUTUBE_API.md` for API reference.
+
+---
+
 **Code duplication analysis**
 
 Scan codebase for: duplicate/similar logic, files over 300 lines, modularity improvements. Do in a dedicated session after the main items above are done and the codebase has stabilised.
