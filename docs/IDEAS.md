@@ -28,6 +28,24 @@ CRITICAL: Menu system (questionary-based interactive flows) is the most importan
 
 ---
 
+**Validate upload speed/ETA accuracy - log actual vs predicted times**
+
+The upload speed (MB/s) and ETA display (added Session 247) should be validated for correctness. Currently no verification that the ETA matches actual upload time or that speed calculations are accurate over the full upload duration.
+
+**Requirements:**
+- Add internal logging: record start_time when upload begins, record end_time when upload completes
+- Log format: "Upload started: {start_time}" and "Upload completed: {end_time}" with millisecond precision
+- Calculate actual_duration = end_time - start_time and actual_speed = file_size_bytes / actual_duration
+- Compare actual_speed against displayed speed from progress line (should be close to final speed shown)
+- Test: Run upload, capture log, verify ETA was within 10% of actual time (e.g. predicted 10m, actual 9-11m)
+- Flag any uploads where ETA was wildly off (>20% error) - indicates speed calculation bug or YouTube throttle variability
+
+**Why this matters:** ETAs that are consistently wrong (too optimistic or pessimistic) destroy user trust in the feature. YouTube throttles uploads (~3-4 MB/s) but varies; ETA should adapt as speeds change. This validates the calculation is working.
+
+**Out of scope:** Don't try to improve ETA accuracy itself (Session 247); just verify it's correct/valid.
+
+---
+
 ## POLISH / NICE-TO-HAVE
 
 Visual improvements and quality-of-life features. Non-blocking.
