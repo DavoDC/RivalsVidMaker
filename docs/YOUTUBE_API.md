@@ -177,6 +177,18 @@ This is NOT a client-side bug. Evidence:
 **No known workaround** that brings API speed to browser speed. The gap appears to be intentional
 server-side differentiation between browser and API clients.
 
+**VPS investigation - CLOSED (2026-05-10):** A GCP VPS does not help. The YouTube API throttle
+applies to any OAuth API client regardless of source IP or network proximity to Google. A GCP VM
+calling `videos.insert` lands in the same throttled bucket as a home PC. Home upload is 47.71 Mbps
+(~6 MB/s) - already above the API ceiling, so home bandwidth is not the constraint.
+
+The only genuine bypass would have been the old YouTube Studio "Import from Google Drive" feature,
+which triggered a server-side Drive->YouTube copy that never touched the upload API. Google removed
+this feature (present in classic Studio, gone in 2026 modern Studio). No equivalent exists.
+
+**Correct response to the throttle:** schedule uploads to run unattended (overnight). The
+10-15 minute window is fixed; make it invisible rather than trying to eliminate it.
+
 ### 2.4 Current implementation (uploader.py)
 
 Uses `httpx` with HTTP/2 and a streaming generator for single-chunk upload:
