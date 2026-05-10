@@ -2,7 +2,8 @@
 encoder.py - Concatenate a batch of clips into a single MP4 via FFmpeg stream copy.
 
 Uses -c copy (no re-encode) since all Marvel Rivals clips are uniform:
-H.264 1920x1080 120fps AAC audio. Stream copy is ~100x faster than NVENC/libx264.
+H.264 1920x1080 120fps AAC audio. Stream copy completes 15-min videos in ~10 seconds,
+vs 5-10 minutes for GPU re-encoding (50-100x faster depending on baseline).
 DTS non-monotonic warnings from ffmpeg concat are cosmetic - ffmpeg auto-corrects them.
 """
 

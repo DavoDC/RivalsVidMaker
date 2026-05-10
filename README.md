@@ -2,7 +2,7 @@
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/G2G31WKOCN)
 
-Automates building ~15-minute YouTube compilation videos from short [Marvel Rivals](https://www.marvelrivals.com/) gameplay clips. **Batchs, scans, merges, and uploads in seconds using stream copy muxing (100x faster than re-encoding).**
+Automates building ~15-minute YouTube compilation videos from short [Marvel Rivals](https://www.marvelrivals.com/) gameplay clips. **Completes 15-minute videos in ~10 seconds using stream copy muxing - 50-100x faster than re-encoding.**
 
 ## What it does
 
@@ -16,7 +16,7 @@ Automates building ~15-minute YouTube compilation videos from short [Marvel Riva
 ## Features
 
 ### Speed & Performance
-- **Lightning-fast encoding**: Stream copy concatenation completes 15-min videos in ~10 seconds (100x faster than GPU re-encoding). Works because Marvel Rivals clips are uniform H.264 1920x1080 120fps AAC.
+- **Lightning-fast encoding**: Stream copy concatenation completes 15-min videos in ~10 seconds. GPU re-encoding takes 5-10 minutes - that's **50-100x faster**. Works because Marvel Rivals clips are uniform H.264 1920x1080 120fps AAC (no codec negotiation needed).
 - **Parallel multi-threaded scanning**: OCR detection runs on multiple clips simultaneously - real concurrency from external FFmpeg + Tesseract processes
 - **Instant re-runs**: File-change aware caching means re-running on the same clips takes ~1 second
 
