@@ -61,6 +61,103 @@ def _confirm(prompt: str, dry_run: bool = False) -> bool:
     return raw in ("y", "yes")
 
 
+def locate_video_and_description(output_folder: Path) -> tuple[Path, Path]:
+    """Locate .mp4 and _description.txt files in output folder.
+
+    Returns (mp4_path, description_path) tuple.
+    Raises FileNotFoundError if either file is missing.
+    """
+    mp4_files = list(output_folder.glob("*.mp4"))
+    if not mp4_files:
+        raise FileNotFoundError(f"No .mp4 video found in {output_folder}")
+
+    if len(mp4_files) > 1:
+        logging.warning(f"Multiple .mp4 files found; using the first: {mp4_files[0].name}")
+
+    mp4_path = mp4_files[0]
+
+    desc_files = list(output_folder.glob("*_description.txt"))
+    if not desc_files:
+        raise FileNotFoundError(f"No _description.txt found in {output_folder}")
+
+    if len(desc_files) > 1:
+        logging.warning(f"Multiple description files found; using the first: {desc_files[0].name}")
+
+    desc_path = desc_files[0]
+
+    return mp4_path, desc_path
+
+
+def retry_upload(
+    output_folder: Path,
+    state_path: Path | None = None,
+) -> None:
+    """Retry uploading a compiled video to YouTube.
+
+    Finds the .mp4 and _description.txt in the output folder,
+    parses metadata, and uploads using YouTube API.
+
+    Parameters
+    ----------
+    output_folder : path to the output folder (e.g. Output/THOR_FEB-MAR_2026/)
+    state_path    : path to state.json; if provided, saves YouTube confirmation status
+    """
+    from uploader import get_authenticated_service, upload_and_save_state, parse_description_file
+
+    print(f"\n📤 Retry YouTube Upload: {output_folder.name}")
+    print("=" * 56)
+
+    if not output_folder.exists():
+        logging.error("Output folder not found: %s", output_folder)
+        print("Output folder not found.")
+        return
+
+    try:
+        mp4_path, desc_path = locate_video_and_description(output_folder)
+    except FileNotFoundError as e:
+        logging.error("Cannot retry upload: %s", e)
+        print(f"Error: {e}")
+        return
+
+    print(f"Video file: {mp4_path.name}")
+    print(f"Description: {desc_path.name}")
+    print()
+
+    try:
+        title, description = parse_description_file(desc_path)
+        print(f"Title: {title[:50]}..." if len(title) > 50 else f"Title: {title}")
+        print()
+    except Exception as e:
+        logging.error("Failed to parse description file: %s", e)
+        print(f"Error parsing description: {e}")
+        return
+
+    if not _confirm("Upload this video to YouTube?", dry_run=False):
+        print("Upload cancelled.")
+        return
+
+    try:
+        youtube = get_authenticated_service()
+        slug = output_folder.name
+
+        upload_and_save_state(
+            youtube,
+            mp4_path,
+            title,
+            description,
+            slug,
+            state_path
+        )
+
+        print()
+        print("✅ Upload complete! Video is now on YouTube (private).")
+        print()
+    except Exception as e:
+        logging.error("Upload failed: %s", e)
+        print(f"Upload failed: {e}")
+        return
+
+
 def run_cleanup(
     output_folder: Path,
     archive_path: Path,

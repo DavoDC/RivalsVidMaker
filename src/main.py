@@ -93,9 +93,10 @@ def main() -> None:
 
 
 def _run_cleanup_mode(config, dry_run: bool = False) -> None:
-    """Interactive cleanup: pick an output folder and run cleanup on it."""
+    """Interactive output folder management: pick a folder, then choose action."""
     from pipeline import _scan_output_folder
     from state import is_youtube_confirmed, load as load_state
+    from cleanup import retry_upload
 
     output_rows = _scan_output_folder(config.output_path)
     if not output_rows:
@@ -112,7 +113,7 @@ def _run_cleanup_mode(config, dry_run: bool = False) -> None:
 
     while True:
         try:
-            raw = input(f"Pick a folder to clean up (1-{len(output_rows)}), or Q to quit: ").strip().lower()
+            raw = input(f"Pick a folder to manage (1-{len(output_rows)}), or Q to quit: ").strip().lower()
             if raw in ("q", "quit", ""):
                 return
             choice = int(raw)
@@ -124,7 +125,29 @@ def _run_cleanup_mode(config, dry_run: bool = False) -> None:
 
     selected = output_rows[choice - 1]
     out_folder = config.output_path / selected["name"]
-    run_cleanup(out_folder, config.archive_path, state_path=config.state_path, dry_run=dry_run)
+
+    # Show sub-menu: what action to take on this folder
+    print()
+    print("What would you like to do?")
+    print("[1] Retry YouTube upload")
+    print("[2] Clean up (archive Quad+ clips, delete video)")
+    print("[Q] Back")
+    print()
+
+    while True:
+        try:
+            action = input("Choose action (1-2) or Q: ").strip().lower()
+            if action in ("q", "quit", ""):
+                return
+            if action == "1":
+                retry_upload(out_folder, state_path=config.state_path)
+                return
+            elif action == "2":
+                run_cleanup(out_folder, config.archive_path, state_path=config.state_path, dry_run=dry_run)
+                return
+        except (ValueError, EOFError):
+            pass
+        print("Invalid - enter 1, 2, or Q.")
 
 
 if __name__ == "__main__":
