@@ -255,6 +255,7 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
         # vs browser uploads. Eliminates resumability on failure but avoids ~75 round-trips.
         read_buf = 256 * 1024  # 256KB read buffer - small reads, continuous stream
         bytes_sent = [0]
+        start_time = time.time()
 
         def _stream():
             with open(mp4_path, "rb") as f:
@@ -265,7 +266,20 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
                     bytes_sent[0] += len(buf)
                     pct = int(bytes_sent[0] / file_size_bytes * 100)
                     mb = bytes_sent[0] / (1024 * 1024)
-                    print(f"\r  {pct}%  ({mb:.1f} / {file_size_mb:.0f} MB)", end="", flush=True)
+
+                    elapsed = time.time() - start_time
+                    if elapsed > 0:
+                        speed_mbs = bytes_sent[0] / elapsed / (1024 * 1024)
+                        bytes_remaining = file_size_bytes - bytes_sent[0]
+                        if speed_mbs > 0:
+                            seconds_remaining = int(bytes_remaining / (speed_mbs * 1024 * 1024))
+                            eta_min = seconds_remaining // 60
+                            eta_sec = seconds_remaining % 60
+                            print(f"\r  {pct}%  ({mb:.1f} / {file_size_mb:.0f} MB) - {speed_mbs:.1f} MB/s - ETA {eta_min}m {eta_sec}s", end="", flush=True)
+                        else:
+                            print(f"\r  {pct}%  ({mb:.1f} / {file_size_mb:.0f} MB)", end="", flush=True)
+                    else:
+                        print(f"\r  {pct}%  ({mb:.1f} / {file_size_mb:.0f} MB)", end="", flush=True)
                     yield buf
 
         response = client.put(
@@ -280,7 +294,13 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
         raise ValueError(f"Upload failed: {response.status_code}\n{response.text}")
 
     video_id = response.json()["id"]
+    total_elapsed = time.time() - start_time
+    final_speed_mbs = file_size_bytes / total_elapsed / (1024 * 1024) if total_elapsed > 0 else 0
+    total_min = int(total_elapsed // 60)
+    total_sec = int(total_elapsed % 60)
+
     logging.info("Upload successful! Video ID: %s", video_id)
+    print(f"Speed: {final_speed_mbs:.1f} MB/s  |  Time: {total_min}m {total_sec}s")
     return video_id
 
 
