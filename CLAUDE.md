@@ -241,4 +241,4 @@ See `docs/IDEAS.md` for all pending ideas and next actions, ordered by priority.
 - `pip install pytesseract Pillow`
 - Tesseract OCR binary: `winget install UB-Mannheim.TesseractOCR`
   → installs to `C:\Program Files\Tesseract-OCR\tesseract.exe` (matches config.json default)
-- FFmpeg: place `ffmpeg.exe` + `ffprobe.exe` in `dependencies/ffmpeg/`
+- FFmpeg: place `ffmpeg.exe` + `ffprobe.exe` in `dependencies/ffmpeg/` - OR clone ffkit as a sibling repo; config.py overrides `ffmpeg_path` from config.json with `../ffkit/dependencies/ffmpeg/` when that folder exists
