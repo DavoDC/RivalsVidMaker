@@ -45,6 +45,9 @@ def load(path: Path = Path("config/config.json")) -> Config:
 
     clips_path = Path(raw["clips_path"])
     ffmpeg_dir = Path(raw["ffmpeg_path"])
+    _ffkit = Path(__file__).resolve().parent.parent.parent / "ffkit"
+    if _ffkit.exists():
+        ffmpeg_dir = _ffkit / "dependencies" / "ffmpeg"
     return Config(
         clips_path=clips_path,
         output_path=Path(raw["output_path"]),
