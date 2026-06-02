@@ -7,6 +7,10 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Menu testing framework - pick_action + label helpers (2026-06-02)
+
+`tests/test_menu.py` covers all critical menu paths with questionary mocked. Tests: quit, compile (highlights -> character), preprocess, back-then-loop, output+cleanup, output+uncompile, Ctrl+C, _has_failed_upload (all 5 cases), and all label helpers. Claude can now verify menu changes non-interactively. Stale CORE WORKFLOW item removed from IDEAS.md.
+
 ### Upload speed (MB/s) and ETA display during YouTube upload (2026-05-10)
 
 Added real-time speed and time-remaining display to the upload progress line. Previously showed only percent + cumulative MB. Now shows live upload speed and ETA calculated from bytes sent and elapsed time. Format: `50% (1200.5 / 2399 MB) - 3.2 MB/s - ETA 5m 23s`. Final summary after upload completes shows overall speed and total time: `Speed: 3.2 MB/s | Time: 10m 45s`.
