@@ -7,6 +7,10 @@ Active work stays in `docs/IDEAS.md`.
 
 ## Completed Features
 
+### Thin bat: explicit dry-run via run_dry.sh (2026-06-02)
+
+`run_dry.bat` previously set `DRY_RUN=--dry-run` as a Windows env var and relied on bash inheriting it into `run.sh` (which used `$DRY_RUN`). The coupling was invisible - run.sh looked like it took no args. Fixed by creating `scripts/run_dry.sh` that explicitly calls `python src/main.py --dry-run`; `run_dry.bat` now points to it. `run.sh` reverted to plain `python src/main.py`. Each bat points to its own sh file with no hidden coupling.
+
 ### Menu testing framework - pick_action + label helpers (2026-06-02)
 
 `tests/test_menu.py` covers all critical menu paths with questionary mocked. Tests: quit, compile (highlights -> character), preprocess, back-then-loop, output+cleanup, output+uncompile, Ctrl+C, _has_failed_upload (all 5 cases), and all label helpers. Claude can now verify menu changes non-interactively. Stale CORE WORKFLOW item removed from IDEAS.md.
