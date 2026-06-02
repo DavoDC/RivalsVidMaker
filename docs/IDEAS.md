@@ -30,9 +30,6 @@ The upload speed (MB/s) and ETA display (added Session 247) should be validated 
 
 ## POLISH / NICE-TO-HAVE
 
-**run_dry.bat uses implicit env var coupling for dry-run mode**
-
-`scripts/run_dry.bat` sets `DRY_RUN=--dry-run` as a Windows env var and relies on bash inheriting it when launching `run.sh`. Works today (run.sh uses `$DRY_RUN`), but the coupling is invisible - run.sh looks like it takes no args, the mechanism is hidden in the bat. Cleaner design: run.sh accepts `--dry-run` as `$1`; `run_dry.bat` passes it explicitly in the wt.exe invocation (as a positional arg to the script). Thin-bat principle: the bat knows what mode it wants, so it should say so explicitly rather than smuggling it via env.
 
 ---
 
