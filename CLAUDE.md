@@ -236,6 +236,13 @@ See `docs/IDEAS.md` for all pending ideas and next actions, ordered by priority.
 
 **Keep IDEAS.md clean:** when a feature is implemented or a task is done, move its entry from `docs/IDEAS.md` to `docs/HISTORY.md`. Never leave completed items in IDEAS.md. Look for items marked DONE, with checkmarks, or fully implemented before ending a session.
 
+## Launcher scripts
+
+`scripts/run.bat` -> `scripts/run.sh` -> `python src/main.py` (normal run)
+`scripts/run_dry.bat` -> `scripts/run_dry.sh` -> `python src/main.py --dry-run`
+
+Each bat points to its own .sh file. Dry-run is explicit in run_dry.sh - no env var coupling. If adding a new run mode, add a new `run_<mode>.sh` + `run_<mode>.bat` pair.
+
 ## Dependencies
 - Python 3.10+
 - `pip install pytesseract Pillow`
