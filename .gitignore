@@ -19,6 +19,7 @@ dependencies/*.exe
 .claude/
 !.claude/hooks/
 !.claude/hooks/guard.sh
+!.claude/hooks/guard.py
 !.claude/settings.json
 
 # Local state log (machine-specific, not committed)
