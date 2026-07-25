@@ -296,7 +296,7 @@ Full audit of correctness across repeated pipeline runs. 4 issues found and fixe
 3. **state.py** - `save()` now writes atomically via `.tmp` + rename so a crash mid-write cannot corrupt `state.json`.
 4. **dedup.py** - default temp path changed from CWD-relative `data/dedup_tmp` to `Path(__file__)`-relative `data/dedup_tmp` (absolute, stays within repo).
 
-Audit doc archived in PRIVATE_NOTES repo: `PRIVATE_NOTES/RivalsVidMaker_MultiRunAudit_20260405.md`.
+Audit doc archived privately.
 
 ---
 
