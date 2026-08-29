@@ -4,6 +4,14 @@ Single source of truth for all pending work.
 
 ---
 
+## ROOT DISCIPLINE CLEANUP
+
+**Move test file from root**
+
+Move `test_upload_isolated.py` from root to `tests/` directory. Root should contain only `.gitignore`, `README.md`, `CLAUDE.md`.
+
+---
+
 ## CORE WORKFLOW
 
 Features needed for smooth operation but with workarounds.
