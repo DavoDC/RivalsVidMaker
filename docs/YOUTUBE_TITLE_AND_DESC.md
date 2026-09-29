@@ -41,7 +41,7 @@ HIGHLIGHTS:
 2. CLIP_FILENAME_QUAD.mp4
 3. CLIP_FILENAME_HEXA.mp4
 ...
-(ideally clip filenames have KO tier appended — see IDEAS.md)
+(ideally clip filenames have KO tier appended)
 ```
 
 ---

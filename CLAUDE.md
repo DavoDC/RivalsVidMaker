@@ -37,7 +37,7 @@ data/
   logs/                 — runtime logs (gitignored)
   output/               — description.txt files per batch
   examples/             — ground_truth/ labelled frames, ko_frames/ reference screenshots
-docs/                   MULTIKILL_DETECTION.md, YOUTUBE_API.md, IDEAS.md
+docs/                   MULTIKILL_DETECTION.md, YOUTUBE_API.md, YOUTUBE_TITLE_AND_DESC.md
 dependencies/
   ffmpeg/               ffmpeg.exe + ffprobe.exe + ffplay.exe (gitignored, user provides)
   yt-dlp.exe            used by scripts/download_playlist.py (gitignored)
@@ -232,9 +232,7 @@ Validated clips and known limitations: `docs/MULTIKILL_DETECTION.md`.
 
 ## Pending work
 
-See `docs/IDEAS.md` for all pending ideas and next actions, ordered by priority.
-
-**Keep IDEAS.md clean:** when a feature is implemented or a task is done, move its entry from `docs/IDEAS.md` to `docs/HISTORY.md`. Never leave completed items in IDEAS.md. Look for items marked DONE, with checkmarks, or fully implemented before ending a session.
+Project planning (ideas and next actions) is kept privately by the maintainer; this repo carries no backlog files.
 
 ## Launcher scripts
 
