@@ -120,7 +120,7 @@ def _check_port(port: int) -> Check:
     return Check("port", True, f"{port} is free")
 
 
-def preflight(port: int, *, repo_root: Path = REPO_ROOT, loader=None) -> list[Check]:
+def preflight(port: int, *, repo_root: Path = REPO_ROOT, loader=None, label: str = "config/config.json") -> list[Check]:
     """Every check, in order. loader returns the engine Config (default: config/config.json under repo_root)."""
     root = Path(repo_root)
     load = loader or (lambda: engine_config.load(root / "config" / "config.json"))
@@ -128,9 +128,9 @@ def preflight(port: int, *, repo_root: Path = REPO_ROOT, loader=None) -> list[Ch
     try:
         cfg = load()
     except Exception as e:
-        checks.append(Check("config", False, f"config/config.json could not be loaded: {e}"))
+        checks.append(Check("config", False, f"{label} could not be loaded: {e}"))
     else:
-        checks.append(Check("config", True, "config/config.json loads"))
+        checks.append(Check("config", True, f"{label} loads"))
         checks.extend(_check_tools(cfg))
     checks.append(_check_logs(root))
     checks.append(_check_port(port))
@@ -141,7 +141,7 @@ def run_preflight(port: int, config_path: str | None = None) -> int:
     """--preflight: print every check. Exit 0 only when all pass, blocking or not. config_path (from
     --config) is the file the config check loads; None keeps config/config.json."""
     loader = None if config_path is None else (lambda: engine_config.load(Path(config_path)))
-    results = preflight(port, loader=loader)
+    results = preflight(port, loader=loader) if config_path is None else preflight(port, loader=loader, label=config_path)
     for r in results:
         _say(f"  {'ok  ' if r.ok else 'FAIL'} {r.name}: {r.detail}")
     bad = [r for r in results if not r.ok]

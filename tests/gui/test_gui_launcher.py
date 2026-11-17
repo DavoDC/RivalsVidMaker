@@ -67,6 +67,16 @@ def test_preflight_config_failure_is_blocking(tmp_path):
     assert "config.json not found" in cfg.detail
 
 
+def test_preflight_config_check_names_the_file_it_loaded(tmp_path):
+    def broken():
+        raise FileNotFoundError("missing")
+
+    checks = launcher.preflight(0, repo_root=tmp_path, loader=broken, label="scratch/config.json")
+    assert named(checks, "config").detail.startswith("scratch/config.json could not be loaded")
+    ok = launcher.preflight(0, repo_root=tmp_path, loader=lambda: (_ for _ in ()).throw(OSError("x")))
+    assert named(ok, "config").detail.startswith("config/config.json could not be loaded")
+
+
 def test_preflight_healthy_tree_passes(tmp_path):
     cfg = make_config(tmp_path)
     checks = launcher.preflight(0, repo_root=tmp_path, loader=lambda: cfg)

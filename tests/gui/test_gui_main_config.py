@@ -71,7 +71,7 @@ def test_preflight_with_config_checks_that_file(tmp_path, monkeypatch, capsys):
     paths = []
     monkeypatch.setattr(launcher.engine_config, "load", lambda path: paths.append(Path(path)) or object())
 
-    def fake_preflight(port, loader=None):
+    def fake_preflight(port, loader=None, label="config/config.json"):
         loader()  # the real checks would read the repo logs folder; only the loader is under test
         return []
 
