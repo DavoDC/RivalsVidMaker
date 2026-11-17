@@ -108,7 +108,7 @@ Desktop only, minimum width 1024 px, base text 16 px so it reads at browser 100%
 
 ## 12. Timestamps and numbers
 
-Dates `DD/MM/YYYY`, times `h:mmam/pm`, durations `m:ss` (or `h:mm:ss` past an hour), sizes in MB or GB with one decimal past 10 GB. Relative times ("3m ago") only in the footer and Activity, with the absolute time on hover.
+Dates `DD/MM/YYYY`, times `h:mmam/pm`, durations `m:ss` (or `h:mm:ss` past an hour), sizes in KB under 1 MB, MB with one decimal, GB with one decimal from 1 GB. Relative times ("3m ago") only in the footer and Activity, with the absolute time on hover.
 
 ## 13. Driving the UI as Claude
 

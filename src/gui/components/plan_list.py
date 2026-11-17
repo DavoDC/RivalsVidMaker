@@ -25,10 +25,13 @@ _FADED = "opacity:0.45;"
 
 
 def size_text(mb) -> str:
-    """Megabytes as MB with one decimal, or GB with one decimal from one gigabyte up."""
+    """Megabytes as whole KB under 1 MB, MB with one decimal, or GB with one decimal from one gigabyte up."""
     value = float(mb or 0)
-    if value >= GB_MB:
+    if round(value, 1) >= GB_MB:
         return f"{value / GB_MB:.1f} GB"
+    kilobytes = round(value * 1024)
+    if kilobytes < 1024:
+        return f"{kilobytes} KB"
     return f"{value:.1f} MB"
 
 
@@ -78,7 +81,8 @@ def build(plan: dict, actions=None, busy: bool = False) -> None:
     actions = actions or {}
     totals = plan.get("totals") or {}
     ui.label(f"{HEADING_PREFIX} {plan.get('slug') or 'this video'}").style(
-        f"font-size:{tokens.SIZE_SECTION}px;font-weight:600;font-stretch:87.5%;margin-top:{tokens.SPACE_24}px;")
+        f"font-size:{tokens.SIZE_SECTION}px;font-weight:600;font-stretch:87.5%;margin-top:{tokens.SPACE_24}px;"
+        f"margin-bottom:{tokens.SPACE_8}px;")
     for group in groups(plan.get("items") or []):
         with ui.column().style("gap:4px;width:100%;"):
             with ui.row().style("gap:16px;align-items:baseline;width:100%;flex-wrap:wrap;"):
@@ -91,7 +95,8 @@ def build(plan: dict, actions=None, busy: bool = False) -> None:
     nonce = plan.get("nonce")
     removes = int(totals.get("remove_count") or 0)
     with ui.row().style("align-items:center;justify-content:space-between;gap:16px;width:100%;flex-wrap:wrap;"):
-        recycle = ui.checkbox(RECYCLE_LABEL, value=False).mark("cleanup-recycle")
+        recycle = ui.checkbox(RECYCLE_LABEL, value=False).props("dense") \
+            .style("padding-left:0;").mark("cleanup-recycle")
         apply = ui.button(totals_text(totals),
                           on_click=lambda: _call(actions, "apply_cleanup", nonce, bool(recycle.value))) \
             .props("no-caps outline").classes("rvm-button").mark("apply-cleanup")

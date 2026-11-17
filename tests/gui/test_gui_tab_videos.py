@@ -13,7 +13,7 @@ from nicegui import ui
 from nicegui.element_filter import ElementFilter
 from nicegui.testing.user_simulation import user_simulation
 
-from gui import fixtures, view_model
+from gui import fixtures, tokens, view_model
 from gui.components import plan_list
 from gui.sources import FixtureSource
 from gui.tabs import videos as videos_tab
@@ -201,6 +201,15 @@ def test_numbers_are_separate_labels_with_clips_and_quad_or_better():
     assert not any(BAD_CHARS[0] in text for text in labels)
 
 
+def test_character_label_uses_the_same_font_size_token_as_the_counts():
+    source = _with_folders([fixtures.folder("zed_vid1", 1, character="ZED", clips=2)])
+    elements = _session(source)
+    character = next(e for e in elements if isinstance(e, ui.label) and e.text == "ZED")
+    counts = next(e for e in elements if isinstance(e, ui.label) and e.text == "2 clips")
+    assert character._style.get("font-size") == counts._style.get("font-size") == f"{tokens.SIZE_UI}px"
+    assert character._style.get("color") == tokens.TEXT_DIM
+
+
 def test_numbers_use_tabular_figures_and_a_16_px_gap():
     elements = _session(_no_job("cleanup_plan"))
     counts = [e for e in elements if isinstance(e, ui.label) and e.text == "3 clips"]
@@ -255,6 +264,18 @@ def test_recycle_checkbox_is_labelled_and_off_by_default():
     assert not boxes[0].value
 
 
+def test_recycle_checkbox_is_dense_with_no_left_padding_so_its_box_meets_the_content_edge():
+    box = _by_marker(_session(_no_job("cleanup_plan")), "cleanup-recycle")[0]
+    assert "dense" in box._props
+    assert box._style.get("padding-left") == "0"
+
+
+def test_plan_heading_has_8_px_space_below_it_before_the_first_fate_group():
+    elements = _session(_no_job("cleanup_plan"))
+    heading = next(e for e in elements if isinstance(e, ui.label) and e.text.startswith(plan_list.HEADING_PREFIX))
+    assert heading._style.get("margin-bottom") == f"{tokens.SPACE_8}px"
+
+
 def test_fate_groups_show_counts_and_sizes():
     items = fixtures.SCENARIOS["cleanup_plan"]["cleanup_plan"]["items"]
     groups = plan_list.groups(items)
@@ -279,12 +300,25 @@ def test_no_plan_section_without_a_cleanup_plan():
 
 
 @pytest.mark.parametrize("mb, text", [
+    (0, "0 KB"),
+    (None, "0 KB"),
+    (0.01, "10 KB"),
+    (0.01171875, "12 KB"),
+    (0.5, "512 KB"),
+    (1.0, "1.0 MB"),
+    (0.9999, "1.0 MB"),
     (812.4, "812.4 MB"),
-    (0.01, "0.0 MB"),
+    (1023.94, "1023.9 MB"),
+    (1024, "1.0 GB"),
     (1602.5, "1.6 GB"),
 ])
-def test_size_text_shows_mb_then_gb_with_one_decimal(mb, text):
+def test_size_text_shows_kb_then_mb_then_gb_by_band(mb, text):
     assert plan_list.size_text(mb) == text
+
+
+def test_size_text_never_shows_a_kilobyte_size_as_zero_point_zero_mb():
+    for mb in (0.0001, 0.01, 0.5, 0.9):
+        assert "MB" not in plan_list.size_text(mb)
 
 
 def test_totals_text_names_the_count_and_the_size():
