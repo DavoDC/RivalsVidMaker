@@ -1,5 +1,10 @@
 """
 pipeline.py - Main orchestrator: sort → scan → batch → detect → encode → describe.
+
+A compile is split in two:
+  plan_compile  - reads the folder, scans KO tiers and duplicates. No renames, no moves.
+  apply_compile - carries out a plan from a decisions dict. Never prompts.
+run() is the terminal wrapper: it asks the questions and builds the decisions.
 """
 
 import logging
@@ -8,14 +13,15 @@ import shutil
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
 import ko_detect
 from send2trash import send2trash
-from batcher import make_batches
+from batcher import Batch, make_batches
 from dedup import find_duplicates, print_dup_table
-from clip_scanner import VIDEO_EXTS, scan_folder, summarize_folder
+from clip_scanner import VIDEO_EXTS, Clip, scan_folder, summarize_folder
 from clip_sorter import sort_clips
 from config import Config
 from description_writer import fmt_ts, write_description
@@ -43,15 +49,15 @@ def _ko_scan_one(clip_path: str, clip_name: str) -> tuple[str, dict | None, floa
     return clip_name, result, elapsed, was_cached
 
 
-def _collect_highlights(
+def _scan_batch(
     batch, config: Config
-) -> tuple[list[tuple[float, float, str, str]], dict[str, str]]:
+) -> tuple[dict[str, tuple[dict | None, float, bool]], dict[str, float]]:
     """
-    Scan each clip for KO events in parallel.
+    Scan each clip for KO events in parallel. Writes KO cache files only, never renames.
 
     Returns:
-      highlights  - Quad+ kills with compilation timestamps, for the description.
-      clip_tiers  - {clip.name: tier} for every clip where any kill was detected.
+      scan_results - {clip.name: (result, elapsed, was_cached)}
+      offsets      - {clip.name: start offset in the compiled video, seconds}
     """
     ko_detect.configure(
         ffmpeg=str(config.ffmpeg),
@@ -94,8 +100,11 @@ def _collect_highlights(
                     video_max = offsets[clip_name] + result["max_ts"]
                     logging.debug("%s @ %s-%s", tier_found, fmt_ts(video_start), fmt_ts(video_max))
 
-    # Rename clips in-place now that tiers are known (e.g. THOR_..._QUAD.mp4).
-    # This embeds the tier in the filename before description/archiving use it.
+    return scan_results, offsets
+
+
+def _rename_tiered(batch, scan_results: dict, offsets: dict) -> None:
+    """Rename clips in-place to embed their KO tier (e.g. THOR_..._QUAD.mp4). Writes files."""
     _tier_set = set(ko_detect.TIERS)
     for clip in batch.clips:
         result, _e, _c = scan_results.get(clip.name, (None, 0.0, False))
@@ -122,7 +131,17 @@ def _collect_highlights(
         except OSError as e:
             logging.warning("Could not rename %s: %s", old_path.name, e)
 
-    # Build ordered highlights + clip_tiers using original clip order
+
+def _highlights_from_scan(
+    batch, scan_results: dict, offsets: dict
+) -> tuple[list[tuple[float, float, str, str]], dict[str, str]]:
+    """
+    Build ordered highlights and clip_tiers from scan results.
+
+    Returns:
+      highlights  - Quad+ kills with compilation timestamps, for the description.
+      clip_tiers  - {clip.name: tier} for every clip where any kill was detected.
+    """
     highlights: list[tuple[float, float, str, str]] = []
     clip_tiers: dict[str, str] = {}
 
@@ -140,6 +159,15 @@ def _collect_highlights(
     return highlights, clip_tiers
 
 
+def _collect_highlights(
+    batch, config: Config
+) -> tuple[list[tuple[float, float, str, str]], dict[str, str]]:
+    """Scan, rename clips to embed their tier, and build highlights and clip_tiers."""
+    scan_results, offsets = _scan_batch(batch, config)
+    _rename_tiered(batch, scan_results, offsets)
+    return _highlights_from_scan(batch, scan_results, offsets)
+
+
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
 def _fmt_duration(seconds: float) -> str:
@@ -149,6 +177,12 @@ def _fmt_duration(seconds: float) -> str:
     if h:
         return f"{h}h {m}m"
     return f"{m}m {s}s"
+
+
+def _mmss(seconds: float) -> str:
+    """Duration in the Batch.duration_str format, e.g. 1m 05s."""
+    s = int(seconds)
+    return f"{s // 60}m {s % 60:02d}s"
 
 
 _MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -496,6 +530,391 @@ def _print_multizone_status(config: Config) -> None:
     print()
 
 
+# ── Compile plan and apply ────────────────────────────────────────────────────
+
+@dataclass
+class PlanClip:
+    name: str
+    path: Path
+    duration_s: float
+    start_s: float        # offset inside its batch
+    tier: str | None      # KO tier from the scan; None when no KO found, or the batch was not scanned
+    low_value: bool       # stem ends _KO or _UNKNOWN
+
+
+@dataclass
+class PlanBatch:
+    number: int
+    duration_s: float
+    clips: list[PlanClip]
+
+
+@dataclass
+class PlanDuplicate:
+    a: str
+    b: str
+    score: float
+
+
+@dataclass
+class CompilePlan:
+    character: str
+    folder: Path
+    target_s: float
+    batches: list[PlanBatch]
+    duplicates: list[PlanDuplicate]   # suspected pairs among batch 1 clips
+    low_value: list[str]              # batch 1 clip names with a low-value tier
+    _clips: dict[str, Clip] = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class CompileResult:
+    compiled: bool
+    out_dir: Path | None = None
+    slug: str = ""
+    video_path: Path | None = None
+    desc_path: Path | None = None
+    title: str = ""
+    description: str = ""
+    duration_s: float = 0.0
+    clip_count: int = 0
+    uploaded: bool = False
+    upload_speed: float | None = None   # MB/min
+    upload_failed: bool = False         # the upload call itself raised; the terminal may retry
+    needs_sign_in: bool = False         # auth or channel check failed; the token was kept
+    error: str = ""
+
+
+_CLIP_DECISIONS = ("keep", "archive", "recycle", "drop")
+
+
+def _resolve_folder(config: Config, character: Path | str) -> Path:
+    """character is the Highlights folder itself, or a folder name under clips_path."""
+    if isinstance(character, Path):
+        return character
+    return config.clips_path / character
+
+
+def _duplicate_pairs(config: Config, char_name: str, clips: list[Clip]) -> list[tuple[Clip, Clip, float]]:
+    logging.info("")
+    logging.info("--- Checking for duplicates ---")
+    t_fp = time.perf_counter()
+    pairs = find_duplicates(
+        clips, str(config.ffmpeg),
+        tmp_dir=config.cache_dir.parent / "dedup_tmp",
+        cache_dir=config.cache_dir / char_name,
+    )
+    logging.info("Fingerprint took %.1fs total (%.1fs/clip)",
+                 time.perf_counter() - t_fp, (time.perf_counter() - t_fp) / max(len(clips), 1))
+    return pairs
+
+
+def _clone(plan: CompilePlan, name: str) -> Clip:
+    """A fresh Clip for apply, so a plan can be applied more than once."""
+    src = plan._clips[name]
+    return Clip(path=src.path, duration=src.duration)
+
+
+def plan_compile(config: Config, character: Path | str, target_s: float) -> CompilePlan:
+    """
+    Plan a compile without renaming, moving, encoding or prompting.
+
+    KO scanning and duplicate fingerprinting still run and fill their caches under
+    config.cache_dir, as the old dry run did. Batch 1 gets KO tiers and duplicate
+    pairs. Later batches list their clips with tier None.
+    """
+    folder = _resolve_folder(config, character)
+    char_name = folder.name
+    clips = scan_folder(folder, config.ffprobe, protect_recent=0,
+                        cache_dir=config.cache_dir / char_name)
+    plan = CompilePlan(character=char_name, folder=folder, target_s=target_s,
+                       batches=[], duplicates=[], low_value=[])
+    batches = make_batches(clips, target_s)
+    if not batches:
+        return plan
+
+    first = batches[0]
+    scan_results, _offsets = _scan_batch(first, config)
+    tiers = {name: (res["tier"] if res else None) for name, (res, _e, _c) in scan_results.items()}
+    low_names = {c.name for c in _find_ko_none_clips(first.clips)}
+
+    for batch in batches:
+        plan_clips: list[PlanClip] = []
+        start = 0.0
+        for clip in batch.clips:
+            plan._clips[clip.name] = clip
+            plan_clips.append(PlanClip(
+                name=clip.name,
+                path=clip.path,
+                duration_s=clip.duration,
+                start_s=start,
+                tier=tiers.get(clip.name) if batch is first else None,
+                low_value=clip.name in low_names if batch is first else False,
+            ))
+            start += clip.duration
+        plan.batches.append(PlanBatch(number=batch.number, duration_s=batch.total_duration, clips=plan_clips))
+
+    plan.low_value = [c.name for c in first.clips if c.name in low_names]
+    plan.duplicates = [
+        PlanDuplicate(a=a.name, b=b.name, score=score)
+        for a, b, score in _duplicate_pairs(config, char_name, first.clips)
+    ]
+    return plan
+
+
+def _upload_compiled(config: Config, result: CompileResult) -> None:
+    """One non-interactive YouTube upload attempt. Fills the upload fields on result."""
+    logging.info("")
+    logging.info("--- YouTube Upload ---")
+    try:
+        youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
+        uploader.validate_channel_id(youtube, config.youtube_channel_id)
+        result.title, result.description = uploader.parse_description_file(result.desc_path)
+    except FileNotFoundError as e:
+        logging.warning("YouTube credentials not set up: %s", e)
+        logging.warning("ACTION: Download OAuth credentials from Google Cloud Console and save to config/client_secret_*.json")
+        result.error = str(e)
+        return
+    except ValueError as e:
+        # Auth or channel mismatch: keep the token, the user signs in again deliberately.
+        logging.warning("YouTube channel validation failed: %s", e)
+        logging.warning("Token kept. Sign in again with the correct account, or verify youtube_channel_id in config.json.")
+        logging.warning("If the channel ID mismatch persists, verify youtube_channel_id in config.json.")
+        result.needs_sign_in = True
+        result.error = str(e)
+        return
+    try:
+        result.upload_speed = _attempt_upload(youtube, result.video_path, result.title,
+                                              result.description, result.slug, config.state_path)
+        result.uploaded = True
+        logging.info("Video uploaded successfully!")
+    except Exception as e:
+        logging.warning("YouTube upload failed: %s", e)
+        result.upload_failed = True
+        result.error = str(e)
+
+
+def _attempt_upload(youtube, video_path: Path, title: str, description: str, slug: str, state_path: Path) -> float:
+    """Upload once. Returns the speed in MB/min. Raises on failure."""
+    t0 = time.perf_counter()
+    size_mb = video_path.stat().st_size / (1024 * 1024)
+    uploader.upload_and_save_state(youtube, video_path, title, description, slug, state_path)
+    duration = max(time.perf_counter() - t0, 1e-6)
+    return size_mb / (duration / 60)
+
+
+def apply_compile(
+    config: Config,
+    plan: CompilePlan,
+    decisions: dict,
+    force: bool = False,
+    on_progress=None,
+) -> CompileResult:
+    """
+    Carry out a compile plan. Never prompts.
+
+    decisions:
+      "clips": {clip name: "keep" | "archive" | "recycle" | "drop"}, default "keep".
+          archive and recycle apply to low-value clips: ClipArchive or Recycle Bin.
+          drop leaves the clip in Highlights and out of this video (one side of a duplicate).
+      "extra": how many leftover clips from plan.batches[1:] to append, in plan order.
+
+    Renames the kept clips to embed their KO tier, encodes, writes the description,
+    makes one upload attempt, then moves the clips into the output folder.
+    """
+    if not plan.batches:
+        return CompileResult(compiled=False)
+
+    choices = decisions.get("clips", {})
+    for name, choice in choices.items():
+        if choice not in _CLIP_DECISIONS:
+            raise ValueError(f"unknown decision {choice!r} for {name}")
+
+    char_name = plan.character
+    first = plan.batches[0]
+    kept: list[Clip] = []
+    archive: list[Clip] = []
+    recycle: list[Clip] = []
+    for pc in first.clips:
+        choice = choices.get(pc.name, "keep")
+        if choice == "archive":
+            archive.append(_clone(plan, pc.name))
+        elif choice == "recycle":
+            recycle.append(_clone(plan, pc.name))
+        elif choice == "keep":
+            kept.append(_clone(plan, pc.name))
+
+    if archive:
+        _archive_clips(archive, char_name, config)
+    for clip in recycle:
+        send2trash(str(clip.path))
+        logging.info("Sent to Recycle Bin: %s", clip.name)
+
+    leftover = [pc for b in plan.batches[1:] for pc in b.clips]
+    for pc in leftover[:int(decisions.get("extra", 0))]:
+        kept.append(_clone(plan, pc.name))
+
+    if not kept:
+        logging.info("No clips remaining after reviewing low-value clips. Nothing to compile.")
+        return CompileResult(compiled=False)
+
+    batch = Batch(number=first.number, clips=kept)
+    slug = _batch_slug(char_name, batch)
+    out_dir = config.output_path / slug
+
+    logging.info("")
+    logging.info("--- Scanning for KO events ---")
+    t_ko = time.perf_counter()
+    highlights, clip_tiers = _collect_highlights(batch, config)
+    logging.info("KO scan took %.1fs total (%.1fs/clip)",
+                 time.perf_counter() - t_ko, (time.perf_counter() - t_ko) / max(len(batch.clips), 1))
+
+    logging.info("")
+    logging.info("--- Encoding ---")
+    t_enc = time.perf_counter()
+    encode(batch, char_name, out_dir, config.ffmpeg, out_stem=slug, force=force, on_progress=on_progress)
+    logging.info("Mux took %.1fs", time.perf_counter() - t_enc)
+
+    logging.info("")
+    logging.info("--- Metadata ---")
+    ko_tier_counts: dict[str, int] = {}
+    for tier in clip_tiers.values():
+        ko_tier_counts[tier] = ko_tier_counts.get(tier, 0) + 1
+    desc_path = write_description(
+        batch, char_name, highlights, out_dir, out_stem=slug,
+        title=slug,
+        clip_tiers=clip_tiers,
+        date_range=_date_range(plan.folder),
+        ko_tiers=ko_tier_counts,
+        clip_count=len(batch.clips),
+    )
+
+    result = CompileResult(
+        compiled=True,
+        out_dir=out_dir,
+        slug=slug,
+        video_path=out_dir / f"{slug}.mp4",
+        desc_path=desc_path,
+        duration_s=batch.total_duration,
+        clip_count=len(batch.clips),
+    )
+    _upload_compiled(config, result)
+
+    logging.info("")
+    logging.info("--- Cleanup ---")
+    _move_clips(batch, out_dir / "clips")
+    _write_manifest(out_dir, slug, char_name, batch, clip_tiers)
+    return result
+
+
+# ── Terminal prompts ──────────────────────────────────────────────────────────
+
+def _review_low_value(config: Config, low_tier: list[PlanClip]) -> dict[str, str]:
+    """Ask about each low-value clip. Returns {name: 'keep' | 'archive' | 'recycle'}."""
+    choices: dict[str, str] = {}
+    for pc in low_tier:
+        logging.info("")
+        logging.info("  📹 %s", pc.name)
+        logging.info("  Path: %s", pc.path)
+        vlc_hint = "  [v] view in VLC" if config.vlc_path else ""
+        while True:
+            raw = input(f"  [y] include  [a] archive to ClipArchive  [d] delete{vlc_hint}: ").strip().lower()
+            if raw == "v" and config.vlc_path:
+                subprocess.Popen([str(config.vlc_path), str(pc.path)],
+                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                continue
+            break
+        if raw in ("y", "yes"):
+            choices[pc.name] = "keep"
+            logging.info("  -> Included in compilation.")
+        elif raw in ("a", "archive"):
+            choices[pc.name] = "archive"
+            logging.info("  -> Will be archived to ClipArchive.")
+        else:
+            choices[pc.name] = "recycle"
+            logging.info("  -> Will be deleted.")
+    logging.info("")
+    return choices
+
+
+def _review_length(kept: list[PlanClip], leftover: list[PlanClip]) -> int:
+    """Ask whether the length is right. Each 'n' moves one leftover clip into kept. Returns how many."""
+    added = 0
+    while True:
+        logging.info("")
+        logging.info("Video:    %d clip(s), %s", len(kept), _mmss(sum(c.duration_s for c in kept)))
+        if leftover:
+            leftover_dur = sum(c.duration_s for c in leftover)
+            logging.info("Leftover: %d clip(s), %s", len(leftover), _fmt_duration(leftover_dur))
+        logging.info("")
+        raw = input("Happy with this video length? [Y/n]: ").strip().lower()
+        if raw not in ("n", "no"):
+            break
+        if not leftover:
+            logging.info("No more clips to add.")
+            break
+        clip = leftover.pop(0)
+        kept.append(clip)
+        added += 1
+        logging.info("  Added: %s", clip.name)
+    return added
+
+
+def _review_duplicates(config: Config, plan: CompilePlan, names: list[str], recompute: bool) -> bool:
+    """Show suspected duplicates among the kept clips. Returns False if the user cancels.
+
+    recompute is True when clips were added after planning, so the plan's pairs do not cover them.
+    """
+    if recompute:
+        pairs = _duplicate_pairs(config, plan.character, [_clone(plan, n) for n in names])
+    else:
+        keep = set(names)
+        pairs = [
+            (plan._clips[d.a], plan._clips[d.b], d.score)
+            for d in plan.duplicates if d.a in keep and d.b in keep
+        ]
+    if pairs:
+        print_dup_table(pairs)
+        raw = input("Suspected duplicates found. Continue anyway? [y/N]: ").strip().lower()
+        if raw not in ("y", "yes"):
+            logging.info("Cancelled -- remove duplicates and re-run.")
+            return False
+    else:
+        logging.info("No duplicates found.")
+    return True
+
+
+def _prompt_upload_retry(config: Config, result: CompileResult) -> None:
+    """After a failed upload, offer to delete the token and try again. Updates result in place."""
+    while True:
+        logging.warning("")
+        confirm = input("Delete token.json and re-authenticate? [y/N]: ").strip().lower()
+        if confirm not in ('y', 'yes'):
+            logging.warning("Upload cancelled by user. Falling back to manual upload.")
+            return
+        # User agreed: delete token to force re-auth on next attempt
+        token_path = Path(__file__).parent.parent / "config" / "token.json"
+        if token_path.exists():
+            token_path.unlink()
+            logging.info("Token deleted. Re-authenticating...")
+        try:
+            youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
+            uploader.validate_channel_id(youtube, config.youtube_channel_id)
+        except Exception as auth_err:
+            logging.warning("Re-authentication failed: %s", auth_err)
+            return
+        try:
+            result.upload_speed = _attempt_upload(youtube, result.video_path, result.title,
+                                                  result.description, result.slug, config.state_path)
+        except Exception as e:
+            logging.warning("YouTube upload failed: %s", e)
+            continue
+        result.uploaded = True
+        result.upload_failed = False
+        logging.info("Video uploaded successfully!")
+        return
+
+
 # ── Main pipeline ─────────────────────────────────────────────────────────────
 
 def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> None:
@@ -593,87 +1012,40 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
             _retry_youtube_upload(action["folder"], config)
             return
 
-    # --- Step 6: process selected character ---
+    # --- Step 6: plan the selected character, then ask the questions ---
     char_name = char_path.name
     logging.info("=" * 50)
     logging.info("Character: %s", char_name)
     logging.info("=" * 50)
     logging.info("")
 
-    # Scan and batch before showing the estimate so it reflects batch 1 only
-    clips = scan_folder(char_path, config.ffprobe, protect_recent=0,
-                        cache_dir=config.cache_dir / char_name)
-    if not clips:
+    plan = plan_compile(config, char_path, config.target_batch_seconds)
+    if not plan.batches:
         logging.info("No clips found - nothing to process.")
         return
 
-    batches = make_batches(clips, config.target_batch_seconds)
+    first = plan.batches[0]
 
-    # Compile-time low-value guard: warn before encoding if KO/UNKNOWN clips slipped through
-    low_tier = _find_ko_none_clips(batches[0].clips)
+    # Compile-time low-value guard: ask about each KO/UNKNOWN clip before encoding
+    choices: dict[str, str] = {}
+    low_tier = [pc for pc in first.clips if pc.low_value]
     if low_tier:
         logging.info("⚠️  %d low-value clip(s) detected - review each:", len(low_tier))
         if dry_run:
-            for clip in low_tier:
-                logging.info("  [DRY RUN] Would review: %s", clip.name)
+            for pc in low_tier:
+                logging.info("  [DRY RUN] Would review: %s", pc.name)
         else:
-            to_remove = []
-            to_archive = []
-            to_delete = []
-            for clip in low_tier:
-                logging.info("")
-                logging.info("  📹 %s", clip.name)
-                logging.info("  Path: %s", clip.path)
-                vlc_hint = "  [v] view in VLC" if config.vlc_path else ""
-                while True:
-                    raw = input(f"  [y] include  [a] archive to ClipArchive  [d] delete{vlc_hint}: ").strip().lower()
-                    if raw == "v" and config.vlc_path:
-                        subprocess.Popen([str(config.vlc_path), str(clip.path)])
-                        continue
-                    break
-                if raw in ("y", "yes"):
-                    logging.info("  -> Included in compilation.")
-                elif raw in ("a", "archive"):
-                    to_archive.append(clip)
-                    to_remove.append(clip)
-                    logging.info("  -> Will be archived to ClipArchive.")
-                else:
-                    to_delete.append(clip)
-                    to_remove.append(clip)
-                    logging.info("  -> Will be deleted.")
-            logging.info("")
-            if to_archive:
-                _archive_clips(to_archive, char_name, config)
-            if to_delete:
-                for clip in to_delete:
-                    send2trash(str(clip.path))
-                    logging.info("Sent to Recycle Bin: %s", clip.name)
-            if to_remove:
-                keep = [c for c in batches[0].clips if c not in to_remove]
-                batches[0].clips = keep
-                if not batches[0].clips:
-                    logging.info("No clips remaining after reviewing low-value clips. Nothing to compile.")
-                    return
-            logging.info("Batch now has %d clip(s).", len(batches[0].clips))
+            choices = _review_low_value(config, low_tier)
+            remaining = [pc for pc in first.clips if choices.get(pc.name, "keep") == "keep"]
+            if not remaining:
+                apply_compile(config, plan, {"clips": choices})
+                return
+            logging.info("Batch now has %d clip(s).", len(remaining))
+    kept = [pc for pc in first.clips if choices.get(pc.name, "keep") == "keep"]
 
     # Batch length adjustment loop - user can keep adding leftover clips one at a time
-    leftover = [c for b in batches[1:] for c in b.clips]
-    while True:
-        logging.info("")
-        logging.info("Video:    %d clip(s), %s", len(batches[0].clips), batches[0].duration_str)
-        if leftover:
-            leftover_dur = sum(c.duration for c in leftover)
-            logging.info("Leftover: %d clip(s), %s", len(leftover), _fmt_duration(leftover_dur))
-        logging.info("")
-        raw = input("Happy with this video length? [Y/n]: ").strip().lower()
-        if raw not in ("n", "no"):
-            break
-        if not leftover:
-            logging.info("No more clips to add.")
-            break
-        clip = leftover.pop(0)
-        batches[0].clips.append(clip)
-        logging.info("  Added: %s", clip.name)
+    leftover = [pc for b in plan.batches[1:] for pc in b.clips]
+    extra = _review_length(kept, leftover)
 
     raw = input("Make this video? [y/N]: ").strip().lower()
     if raw not in ("y", "yes"):
@@ -682,134 +1054,36 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
 
     # Always compile one batch at a time. Re-run the program for subsequent batches.
     # (Remaining clips stay in Highlights until next run.)
-    batches_to_run = [batches[0]]
+    names = [pc.name for pc in kept]
+    if not _review_duplicates(config, plan, names, recompute=extra > 0):
+        return
 
-    total_batches = 0
-
-    for batch in batches_to_run:
-        logging.info("")
-        logging.info("--- %s  (%s) ---", char_name, batch.duration_str)
-
-        # --- Duplicate detection ---
-        logging.info("")
-        logging.info("--- Checking for duplicates ---")
-        t_fp = time.perf_counter()
-        dup_pairs = find_duplicates(
-            batch.clips, str(config.ffmpeg),
-            tmp_dir=config.cache_dir.parent / "dedup_tmp",
-            cache_dir=config.cache_dir / char_name,
-        )
-        logging.info("Fingerprint took %.1fs total (%.1fs/clip)",
-                     time.perf_counter() - t_fp, (time.perf_counter() - t_fp) / max(len(batch.clips), 1))
-        if dup_pairs:
-            print_dup_table(dup_pairs)
-            raw = input("Suspected duplicates found. Continue anyway? [y/N]: ").strip().lower()
-            if raw not in ("y", "yes"):
-                logging.info("Cancelled -- remove duplicates and re-run.")
-                return
-        else:
-            logging.info("No duplicates found.")
-
-        logging.info("")
-        logging.info("--- Scanning for KO events ---")
-        t_ko = time.perf_counter()
-        highlights, clip_tiers = _collect_highlights(batch, config)
-        logging.info("KO scan took %.1fs total (%.1fs/clip)",
-                     time.perf_counter() - t_ko, (time.perf_counter() - t_ko) / max(len(batch.clips), 1))
-
+    if dry_run:
+        batch = Batch(number=first.number, clips=[_clone(plan, n) for n in names])
         slug = _batch_slug(char_name, batch)
         out_dir = config.output_path / slug
-
         logging.info("")
         logging.info("--- Encoding ---")
-        if dry_run:
-            logging.info("[DRY RUN] Would encode %d clips (%s) -> %s.mp4",
-                         len(batch.clips), batch.duration_str, out_dir / slug)
-        else:
-            t_enc = time.perf_counter()
-            encode(batch, char_name, out_dir, config.ffmpeg, out_stem=slug, force=force_encode)
-            logging.info("Mux took %.1fs", time.perf_counter() - t_enc)
-
+        logging.info("[DRY RUN] Would encode %d clips (%s) -> %s.mp4",
+                     len(batch.clips), batch.duration_str, out_dir / slug)
         logging.info("")
         logging.info("--- Metadata ---")
-        ko_tier_counts: dict[str, int] = {}
-        for tier in clip_tiers.values():
-            ko_tier_counts[tier] = ko_tier_counts.get(tier, 0) + 1
-        if dry_run:
-            logging.info("[DRY RUN] Would write %s_description.txt", out_dir / slug)
-            desc_path = None
-        else:
-            desc_path = write_description(
-                batch, char_name, highlights, out_dir, out_stem=slug,
-                title=slug,
-                clip_tiers=clip_tiers,
-                date_range=_date_range(char_path),
-                ko_tiers=ko_tier_counts,
-                clip_count=len(batch.clips),
-            )
-
-        # --- YouTube upload (optional, graceful if credentials unavailable) ---
-        yt_uploaded = False
-        yt_upload_speed = None
-        if not dry_run and desc_path:
-            try:
-                logging.info("")
-                logging.info("--- YouTube Upload ---")
-                youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
-                uploader.validate_channel_id(youtube, config.youtube_channel_id)
-                video_path = out_dir / f"{slug}.mp4"
-                title, description = uploader.parse_description_file(desc_path)
-            except FileNotFoundError as e:
-                logging.warning("YouTube credentials not set up: %s", e)
-                logging.warning("ACTION: Download OAuth credentials from Google Cloud Console and save to config/client_secret_*.json")
-            except ValueError as e:
-                logging.warning("YouTube channel validation failed: %s", e)
-                logging.warning("Auto-deleting token to force re-authentication with correct account...")
-                if uploader.TOKEN_PATH.exists():
-                    uploader.TOKEN_PATH.unlink()
-                logging.warning("Token deleted. Re-run to authenticate with the correct account.")
-                logging.warning("If the channel ID mismatch persists, verify youtube_channel_id in config.json.")
-            else:
-                # Auth and validation succeeded. Now attempt upload with retry loop.
-                while True:
-                    try:
-                        t_upload_start = time.perf_counter()
-                        file_size_mb = video_path.stat().st_size / (1024 * 1024)
-                        uploader.upload_and_save_state(youtube, video_path, title, description, slug, config.state_path)
-                        upload_duration = time.perf_counter() - t_upload_start
-                        yt_upload_speed = file_size_mb / (upload_duration / 60)  # MB/min
-                        yt_uploaded = True
-                        logging.info("Video uploaded successfully!")
-                        break
-                    except Exception as e:
-                        logging.warning("YouTube upload failed: %s", e)
-                        logging.warning("")
-                        confirm = input("Delete token.json and re-authenticate? [y/N]: ").strip().lower()
-                        if confirm not in ('y', 'yes'):
-                            logging.warning("Upload cancelled by user. Falling back to manual upload.")
-                            break
-                        # User agreed: delete token to force re-auth on next attempt
-                        token_path = Path(__file__).parent.parent / "config" / "token.json"
-                        if token_path.exists():
-                            token_path.unlink()
-                            logging.info("Token deleted. Re-authenticating...")
-                        # Retry: get fresh authenticated service and loop back
-                        try:
-                            youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
-                            uploader.validate_channel_id(youtube, config.youtube_channel_id)
-                        except Exception as auth_err:
-                            logging.warning("Re-authentication failed: %s", auth_err)
-                            break
-
+        logging.info("[DRY RUN] Would write %s_description.txt", out_dir / slug)
         logging.info("")
         logging.info("--- Cleanup ---")
-        if dry_run:
-            logging.info("[DRY RUN] Would move %d clips -> %s/clips/", len(batch.clips), out_dir)
-        else:
-            _move_clips(batch, out_dir / "clips")
-            _write_manifest(out_dir, slug, char_name, batch, clip_tiers)
-
-        total_batches += 1
+        logging.info("[DRY RUN] Would move %d clips -> %s/clips/", len(batch.clips), out_dir)
+        yt_uploaded = False
+        yt_upload_speed = None
+        last_out_dir = out_dir
+    else:
+        result = apply_compile(config, plan, {"clips": choices, "extra": extra}, force=force_encode)
+        if not result.compiled:
+            return
+        if result.upload_failed:
+            _prompt_upload_retry(config, result)
+        yt_uploaded = result.uploaded
+        yt_upload_speed = result.upload_speed
+        last_out_dir = result.out_dir
 
     elapsed = time.perf_counter() - t0
     elapsed_mins = int(elapsed) // 60
@@ -824,10 +1098,6 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     print("\a", end="", flush=True)
 
     # Next steps - shown in both real runs and dry runs
-    last_batch = batches_to_run[-1]
-    last_slug = _batch_slug(char_name, last_batch)
-    last_out_dir = config.output_path / last_slug
-
     if not dry_run and last_out_dir.exists():
         import os as _os
         _os.startfile(str(last_out_dir))
