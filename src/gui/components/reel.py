@@ -85,9 +85,12 @@ def motion() -> None:
     ui.add_css(MOTION_CSS)
 
 
-def render_bar(batch: dict) -> None:
-    """Paint one planned video: its number, its total length at 40 px, then the bar."""
-    total = batch.get("duration_s")
+def render_bar(batch: dict, total=None) -> None:
+    """Paint one planned video: its number, its total length at 40 px, then the bar.
+
+    total, when given, is the length shown (the compile tab passes the kept clips' sum); otherwise the batch's."""
+    if total is None:
+        total = batch.get("duration_s")
     if total is None:
         total = sum(float(c.get("duration_s") or 0) for c in batch.get("clips") or [])
     with ui.row().style("align-items:baseline;gap:16px;width:100%;flex-wrap:wrap;"):

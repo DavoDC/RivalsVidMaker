@@ -493,6 +493,51 @@ def test_reel_strip_fills_its_column():
     assert "width:100%" in html
 
 
+# ---- plan length and count leave out dropped clips -----------------------------------------------
+
+def _deciding(name, clip_name, decision, only_first_batch=False):
+    """A fixture source whose named clip carries the decision; optionally the plan keeps only batch one."""
+    def change(data):
+        plan = data["compile_plan"]
+        if only_first_batch:
+            plan["batches"] = plan["batches"][:1]
+        for batch in plan["batches"]:
+            for clip in batch["clips"]:
+                if clip["name"] == clip_name:
+                    clip["decision"] = decision
+    return _Source(name, change)
+
+
+def test_kept_clips_leaves_out_drop_and_recycle_and_keeps_missing_decisions():
+    clips = [{"name": "a", "decision": "keep"}, {"name": "b", "decision": "drop"},
+             {"name": "c", "decision": "recycle"}, {"name": "d"}]
+    assert [c["name"] for c in compile_tab.kept_clips({"clips": clips})] == ["a", "d"]
+
+
+def test_plan_line_counts_only_the_kept_clips():
+    plan = _plan("plan")
+    batch = plan["batches"][0]
+    source = _deciding("plan", batch["clips"][0]["name"], "drop", only_first_batch=True)
+    _html, _props, labels, _buttons = _render(compile_tab.build, source)
+    assert f"Plan for {plan['character']}: 1 video, 2 clips." in labels
+
+
+def test_render_bar_total_wins_over_the_batch_duration():
+    batch = {"number": 1, "duration_s": 130, "clips": []}
+    _html, _props, labels, _buttons = _render(lambda s, a: reel.render_bar(batch, 100), FixtureSource("plan"))
+    assert timefmt.duration(100) in labels
+    assert timefmt.duration(130) not in labels
+
+
+def test_batch_length_label_sums_only_the_kept_clips():
+    batch = _plan("plan")["batches"][0]
+    dropped = batch["clips"][0]
+    kept = sum(c["duration_s"] for c in batch["clips"] if c["name"] != dropped["name"])
+    _html, _props, labels, _buttons = _render(compile_tab.build, _deciding("plan", dropped["name"], "drop"))
+    assert timefmt.duration(kept) in labels
+    assert timefmt.duration(batch["duration_s"]) not in labels
+
+
 # ---- stamps at the right edge (task 27c) ---------------------------------------------------------
 
 def _batch_with_lit_clip_at(percent):

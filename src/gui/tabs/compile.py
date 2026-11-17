@@ -26,6 +26,7 @@ NO_CHARACTER_COPY = (f"Compile needs {READY_MINUTES} minutes of clips for one ch
 DUPLICATE_HEADING = "Possible duplicates"
 REENCODE_LABEL = "Re-encode even if it exists"
 UPLOAD_LABEL = "Upload after compiling"
+LEFT_OUT = ("drop", "recycle")  # decisions that keep a clip out of the video
 
 _BODY = f"font-size:{tokens.SIZE_BODY}px;color:{tokens.TEXT_DIM};"
 _UI = f"font-size:{tokens.SIZE_UI}px;"
@@ -72,6 +73,11 @@ def _decisions(plan: dict) -> dict:
     """Every planned clip's decision, keyed by clip name: the dict the compile action receives."""
     return {clip["name"]: clip.get("decision") or "keep"
             for batch in plan.get("batches") or [] for clip in batch.get("clips") or []}
+
+
+def kept_clips(batch: dict) -> list[dict]:
+    """The batch's clips that stay in the video: a missing decision counts as keep."""
+    return [clip for clip in batch.get("clips") or [] if (clip.get("decision") or "keep") not in LEFT_OUT]
 
 
 def _match_text(score) -> str:
@@ -173,7 +179,7 @@ def build(source, actions=None) -> None:
         return
 
     batches = plan.get("batches") or []
-    clip_count = sum(len(batch.get("clips") or []) for batch in batches)
+    clip_count = sum(len(kept_clips(batch)) for batch in batches)
     with ui.row().style("justify-content:space-between;align-items:center;width:100%;gap:16px;flex-wrap:wrap;"):
         ui.label(f"Plan for {plan.get('character') or 'no character'}: {_plural(len(batches), 'video')}, "
                  f"{_plural(clip_count, 'clip')}.").style(_BODY)
@@ -185,8 +191,9 @@ def build(source, actions=None) -> None:
                     lambda: _call(actions, "compile", plan.get("nonce"), _decisions(plan), bool(upload.value)), busy)
 
     reel.motion()
+    # shortcut: bar still draws left-out clips, dim them if it confuses
     for batch in batches:
-        reel.render_bar(batch)
+        reel.render_bar(batch, sum(float(c.get("duration_s") or 0) for c in kept_clips(batch)))
         for clip in batch.get("clips") or []:
             _clip_row(clip, actions, busy)
 
