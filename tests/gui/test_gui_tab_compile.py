@@ -403,3 +403,74 @@ def test_idle_buttons_are_enabled_and_not_faded():
 def test_reel_strip_fills_its_column():
     html, _props, _labels, _buttons = _render(compile_tab.build, FixtureSource("plan"))
     assert "width:100%" in html
+
+
+# ---- stamps at the right edge (task 27c) ---------------------------------------------------------
+
+def _batch_with_lit_clip_at(percent):
+    """Two clips: a KO of percent seconds, then a HEXA that starts at percent of the bar."""
+    return {"number": 1, "clips": [
+        {"name": "THOR_a.mp4", "start_s": 0, "duration_s": percent, "tier": "KO"},
+        {"name": "THOR_b.mp4", "start_s": percent, "duration_s": 100 - percent, "tier": "HEXA"},
+    ]}
+
+
+def _stamp_style(html, text):
+    match = re.search(r'<span style="([^"]*)">%s</span>' % re.escape(text), html)
+    assert match, f"no stamp {text} in the bar"
+    return match.group(1)
+
+
+def test_stamp_past_ninety_percent_anchors_to_the_right_edge():
+    html = reel.bar_html(_batch_with_lit_clip_at(95))
+    style = _stamp_style(html, timefmt.duration(95))
+    assert "right:0;" in style
+    assert "left:" not in style
+
+
+def test_stamp_at_or_under_ninety_percent_keeps_its_left_offset():
+    for percent in (50, 90):
+        html = reel.bar_html(_batch_with_lit_clip_at(percent))
+        style = _stamp_style(html, timefmt.duration(percent))
+        assert f"left:{percent:.4f}%;" in style
+        assert "right:0;" not in style
+
+
+# ---- decision word and pressed buttons (task 27c) ------------------------------------------------
+
+def _decide(name, decision):
+    def change(data):
+        for batch in data["compile_plan"]["batches"]:
+            for clip in batch["clips"]:
+                if clip["name"] == name:
+                    clip["decision"] = decision
+    return _Source("plan", change)
+
+
+def _low_clip(plan):
+    return next(c for b in plan["batches"] for c in b["clips"] if c["tier"] not in LIT)
+
+
+def _marked_button(elements, marker):
+    return next(e for e in _marked(elements, marker) if isinstance(e, ui.button))
+
+
+def test_rows_with_keep_and_recycle_buttons_drop_the_decision_word():
+    labels = _render(compile_tab.build, FixtureSource("plan"))[2]
+    lit = sum(1 for b in _plan("plan")["batches"] for c in b["clips"] if c["tier"] in LIT)
+    assert labels.count("Keep") == lit
+    assert "Recycle" not in labels
+
+
+@pytest.mark.parametrize("decision", ("keep", "recycle"))
+def test_chosen_button_is_filled_and_pressed_and_the_other_stays_outlined(decision):
+    low = _low_clip(_plan("plan"))
+    tid = view_model.testid("plan-clip", low["name"])
+    elements = _page_elements(compile_tab.build, _decide(low["name"], decision))
+    keep = _marked_button(elements, f"keep-{tid}")
+    recycle = _marked_button(elements, f"recycle-{tid}")
+    chosen, other = (keep, recycle) if decision == "keep" else (recycle, keep)
+    assert "unelevated" in chosen._props and "outline" not in chosen._props
+    assert str(chosen._props.get("aria-pressed")).lower() == "true"
+    assert "outline" in other._props and "unelevated" not in other._props
+    assert str(other._props.get("aria-pressed")).lower() == "false"

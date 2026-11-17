@@ -248,7 +248,7 @@ def test_table_best_is_none_when_no_quad_or_better():
     row = {"testid": "clip-char-x-000002", "name": "SQUIRREL GIRL", "clips": 12, "minutes": 7.0833,
            "scanned": 10, "unscanned": 2, "tiers": {"KO": 9, "DOUBLE": 2}}
     html = clips.table_html([row])
-    assert ">07:05</td>" in html
+    assert ">7:05</td>" in html
     assert ">10 of 12</td>" in html
     assert "None" in html and "data-tier" not in html
 

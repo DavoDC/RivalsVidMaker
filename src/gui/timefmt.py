@@ -26,7 +26,7 @@ def stamp(value) -> str:
 
 
 def duration(seconds) -> str:
-    """Elapsed seconds as mm:ss under an hour, h:mm:ss from an hour up. None is a dash."""
+    """Elapsed seconds as m:ss under an hour (0:00, 5:00, 7:05), h:mm:ss from an hour up. None is a dash."""
     if seconds is None:
         return "-"
     total = max(0, int(seconds))
@@ -34,7 +34,7 @@ def duration(seconds) -> str:
     minutes, secs = divmod(rest, 60)
     if hours:
         return f"{hours}:{minutes:02d}:{secs:02d}"
-    return f"{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
 
 
 def ago(seconds) -> str:

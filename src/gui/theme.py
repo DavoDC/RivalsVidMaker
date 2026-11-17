@@ -12,6 +12,7 @@ _CSS = """
   body{font-family:@@FONT_STACK@@;font-size:@@SIZE_BODY@@px;line-height:1.4;}
   .num{font-variant-numeric: tabular-nums;}
   .rvm-dim{color:@@TEXT_DIM@@;}
+  .q-btn.disabled,.q-btn[disabled]{opacity:0.45 !important;}
   :focus{outline:none;}
   :focus-visible{outline:2px solid @@TEXT@@;outline-offset:2px;}
   .rvm-header{display:flex;align-items:center;justify-content:space-between;gap:@@SPACE_16@@px;

@@ -58,7 +58,9 @@ def bar_html(batch: dict) -> str:
             background = tier_chip.FILL[tier]
             klass = "rvm-reel-seg rvm-reel-lit"
             timing = f"animation-delay:{delay}ms;"
-            stamps.append(f'<span style="{_STAMP}left:{left:.4f}%;">{stamp}</span>')
+            # past 90% a left offset would push the text out of the bar, so it hangs from the right edge
+            place = "right:0;" if left > 90.0 else f"left:{left:.4f}%;"
+            stamps.append(f'<span style="{_STAMP}{place}">{stamp}</span>')
         else:
             background = _QUIET
             klass = "rvm-reel-seg"

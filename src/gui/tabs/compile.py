@@ -63,27 +63,41 @@ def _call(actions: dict, key: str, *args) -> None:
         action(*args)
 
 
-def _button(label: str, marker: str, handler, busy: bool):
-    button = ui.button(label, on_click=handler).props("no-caps outline").classes("rvm-button").mark(marker)
+_OUTLINED = "no-caps outline"
+_FILLED = "no-caps unelevated"
+
+
+def _button(label: str, marker: str, handler, busy: bool, props: str = _OUTLINED):
+    button = ui.button(label, on_click=handler).props(props).classes("rvm-button").mark(marker)
     if busy:
         button.props("disable")
     return button.style(_FADED if busy else "")
 
 
+def _choice_button(label: str, marker: str, handler, busy: bool, chosen: bool):
+    """A Keep or Recycle button: the chosen one is filled and pressed, the other outlined and not pressed."""
+    props = f'{_FILLED if chosen else _OUTLINED} aria-pressed="{str(chosen).lower()}"'
+    return _button(label, marker, handler, busy, props)
+
+
 def _clip_row(clip: dict, actions: dict, busy: bool) -> None:
-    """One planned clip: name, start, length, tier word and decision; Keep and Recycle only for low-value clips."""
+    """One planned clip: name, start, length and tier word; Keep and Recycle (low-value clips) show the decision."""
     tier = clip.get("tier")
     name = str(clip.get("name") or "")
+    decision = str(clip.get("decision") or "keep")
     with ui.row().props(f'data-testid={clip["testid"]}').style(
             _ROW + "gap:16px;align-items:center;width:100%;flex-wrap:wrap;"):
         ui.label(name).style(_UI + "font-weight:600;" + _NUM)
         ui.label(f"Starts {timefmt.duration(clip.get('start_s'))}").style(_UI + _NUM + f"color:{tokens.TEXT_DIM};")
         ui.label(f"Length {timefmt.duration(clip.get('duration_s'))}").style(_UI + _NUM + f"color:{tokens.TEXT_DIM};")
         ui.label(str(tier) if tier else "No kill").style(_UI + f"color:{tokens.TEXT};")
-        ui.label(str(clip.get("decision") or "keep").capitalize()).style(_UI + f"color:{tokens.TEXT_DIM};")
-        if tier not in tier_chip.FILL:
-            _button("Keep", f"keep-{clip['testid']}", lambda n=name: _call(actions, "keep", n), busy)
-            _button("Recycle", f"recycle-{clip['testid']}", lambda n=name: _call(actions, "recycle", n), busy)
+        if tier in tier_chip.FILL:
+            ui.label(decision.capitalize()).style(_UI + f"color:{tokens.TEXT_DIM};")
+        else:
+            _choice_button("Keep", f"keep-{clip['testid']}", lambda n=name: _call(actions, "keep", n),
+                           busy, decision != "recycle")
+            _choice_button("Recycle", f"recycle-{clip['testid']}", lambda n=name: _call(actions, "recycle", n),
+                           busy, decision == "recycle")
 
 
 def _duplicate_row(dup: dict, actions: dict, busy: bool) -> None:

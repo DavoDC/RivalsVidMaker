@@ -25,6 +25,10 @@ def test_head_html_uses_bahnschrift_stack():
     assert 'Bahnschrift, "Segoe UI Variable", "Segoe UI", sans-serif' in theme.HEAD_HTML
 
 
+def test_head_html_dims_disabled_buttons_past_quasar_opacity():
+    assert ".q-btn.disabled,.q-btn[disabled]{opacity:0.45 !important;}" in theme.HEAD_HTML
+
+
 def test_head_html_has_visible_focus_ring():
     assert ":focus-visible" in theme.HEAD_HTML
     assert "outline" in theme.HEAD_HTML

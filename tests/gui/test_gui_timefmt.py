@@ -21,18 +21,21 @@ def test_stamp_none_is_a_dash_and_bad_text_comes_back_unchanged():
     assert timefmt.stamp("not a time") == "not a time"
 
 
-def test_duration_is_minutes_and_seconds_under_an_hour():
+def test_duration_is_minutes_and_seconds_under_an_hour_without_zero_padded_minutes():
     assert timefmt.duration(905) == "15:05"
-    assert timefmt.duration(0) == "00:00"
+    assert timefmt.duration(0) == "0:00"
+    assert timefmt.duration(300) == "5:00"
+    assert timefmt.duration(425) == "7:05"
 
 
 def test_duration_adds_hours_from_one_hour_up():
     assert timefmt.duration(3725) == "1:02:05"
+    assert timefmt.duration(3600) == "1:00:00"
 
 
 def test_duration_none_is_a_dash_and_negative_clamps_to_zero():
     assert timefmt.duration(None) == "-"
-    assert timefmt.duration(-5) == "00:00"
+    assert timefmt.duration(-5) == "0:00"
 
 
 def test_ago_seconds_minutes_hours_days():
