@@ -16,6 +16,49 @@ from pathlib import Path
 from batcher import Batch
 from progress import AnimatedTicker
 
+# ffmpeg writes machine-readable progress (key=value lines) to stdout.
+PROGRESS_FLAGS = ["-progress", "pipe:1", "-nostats"]
+
+
+def _parse_out_time_seconds(line: str) -> float | None:
+    """Return encoded seconds from a '-progress' line, or None if not a usable value.
+
+    ffmpeg's out_time_ms key is actually microseconds, so divide by 1e6.
+    Lines such as 'out_time_ms=N/A' (emitted at startup) return None.
+    """
+    if not line.startswith("out_time_ms="):
+        return None
+    try:
+        return float(line.split("=", 1)[1]) / 1_000_000
+    except ValueError:
+        return None
+
+
+def _run_with_progress(cmd: list, total: float, on_progress) -> tuple[int, str]:
+    """Run ffmpeg, streaming stdout progress to on_progress(encoded, total).
+
+    stderr goes to a temp file rather than a PIPE: an unread stderr PIPE can
+    fill and deadlock ffmpeg while we are blocked reading stdout.
+    Returns (returncode, stderr_text).
+    """
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as err_f:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=err_f,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        for line in proc.stdout:
+            encoded = _parse_out_time_seconds(line.strip())
+            if encoded is not None:
+                on_progress(encoded, total)
+        proc.stdout.close()
+        returncode = proc.wait()
+        err_f.seek(0)
+        return returncode, err_f.read()
+
 
 def encode(
     batch: Batch,
@@ -24,6 +67,7 @@ def encode(
     ffmpeg: Path,
     out_stem: str | None = None,
     force: bool = False,
+    on_progress=None,
 ) -> Path:
     """
     Concatenate all clips in the batch into a single MP4 via stream copy.
@@ -33,6 +77,9 @@ def encode(
 
     If the output file already exists and force=False, encoding is skipped and
     the existing file path is returned.  Pass force=True to re-encode anyway.
+
+    on_progress, if given, is called as on_progress(encoded_seconds, total_seconds)
+    while ffmpeg runs, where total_seconds is the batch duration.
     """
     if out_stem is None:
         out_stem = f"{char_name}_batch{batch.number}"
@@ -65,6 +112,7 @@ def encode(
         "-f", "concat", "-safe", "0", "-i", concat_list,
         "-c", "copy",
         "-movflags", "+faststart",
+        *PROGRESS_FLAGS,
         str(out_path),
     ]
     logging.debug("  FFmpeg cmd: %s", " ".join(cmd))
@@ -72,12 +120,17 @@ def encode(
     t0 = time.perf_counter()
     try:
         with AnimatedTicker("Muxing"):
-            result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.stderr:
-            logging.debug("  FFmpeg stderr:\n%s", result.stderr.strip())
-        if result.returncode != 0:
-            logging.error("FFmpeg failed (exit %d):\n%s", result.returncode, result.stderr.strip())
-            raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+            if on_progress is None:
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                returncode, stdout, stderr = result.returncode, result.stdout, result.stderr
+            else:
+                returncode, stderr = _run_with_progress(cmd, batch.total_duration, on_progress)
+                stdout = ""
+        if stderr:
+            logging.debug("  FFmpeg stderr:\n%s", stderr.strip())
+        if returncode != 0:
+            logging.error("FFmpeg failed (exit %d):\n%s", returncode, stderr.strip())
+            raise subprocess.CalledProcessError(returncode, cmd, stdout, stderr)
     finally:
         Path(concat_list).unlink(missing_ok=True)
 
