@@ -11,7 +11,7 @@ from html import escape
 
 from nicegui import ui
 
-from gui import timefmt, tokens, view_model
+from gui import avatars, timefmt, tokens, view_model
 from gui.components import tier_chip
 from gui.tabs import heading
 
@@ -19,7 +19,7 @@ PAINTS_ROWS = True
 
 NO_NEW_COPY = "No new clips. Save highlights in game, then press Sort clips."
 NO_CHARACTERS_COPY = "No characters yet. Scan for KOs to count the clips in each character folder."
-ROOT_NOTE = "kept: in the game's recent list"
+ROOT_NOTE = "Kept in place: the game lists these as recent clips."
 UNREADABLE_NOTE = "Sort cannot read this name."
 DECISION_HEADING = "Needs a decision"
 ROOT_HEADING = "In Highlights root"
@@ -90,7 +90,7 @@ def _best(tiers: dict) -> str | None:
 def _best_cell(tiers: dict) -> str:
     tier = _best(tiers)
     if tier is None:
-        return f'<span style="color:{tokens.TEXT_DIM};">None</span>'
+        return f'<span style="color:{tokens.TEXT_DIM};">-</span>'
     return tier_chip.chip_html(tier)
 
 
@@ -100,9 +100,12 @@ def table_html(rows: list[dict]) -> str:
     for row in rows:
         clips = int(row.get("clips") or 0)
         scanned = int(row.get("scanned") or 0)
+        folder = str(row.get("name") or "")
+        name_cell = (f'<div style="display:flex;align-items:center;gap:{tokens.SPACE_8}px;">'
+                     f'{avatars.avatar_html(folder)}{escape(avatars.display_name(folder))}</div>')
         body.append(
             f'<tr data-testid="{row["testid"]}">'
-            f'<td style="{_TD}">{escape(str(row.get("name") or ""))}</td>'
+            f'<td style="{_TD}">{name_cell}</td>'
             f'<td style="{_TD_NUM}">{clips}</td>'
             f'<td style="{_TD_NUM}">{_duration(row)}</td>'
             f'<td style="{_TD_NUM}">{scanned} of {clips}</td>'
@@ -118,17 +121,16 @@ def table_html(rows: list[dict]) -> str:
 
 
 def _root_html(rows: list[dict]) -> str:
+    """The root list: one dim kept line above the rows when any row is protected, then each name (no quotes)
+    with its own unreadable note."""
     items = []
     for row in rows:
-        notes = []
-        if not row.get("recognised", True):
-            notes.append(UNREADABLE_NOTE)
-        if row.get("protected"):
-            notes.append(ROOT_NOTE)
-        note = "".join(f'<div style="color:{tokens.TEXT_DIM};">{text}</div>' for text in notes)
+        unreadable = "" if row.get("recognised", True) else f'<div style="color:{tokens.TEXT_DIM};">{UNREADABLE_NOTE}</div>'
         items.append(f'<div data-testid="{row["testid"]}" style="{_ROW}">'
-                     f'<div>"{escape(str(row.get("name") or ""))}"</div>{note}</div>')
-    return '<div style="width:100%;">' + "".join(items) + "</div>"
+                     f'<div>{escape(str(row.get("name") or ""))}</div>{unreadable}</div>')
+    kept = (f'<div style="color:{tokens.TEXT_DIM};padding-bottom:{tokens.SPACE_8}px;">{ROOT_NOTE}</div>'
+            if any(row.get("protected") for row in rows) else "")
+    return '<div style="width:100%;">' + kept + "".join(items) + "</div>"
 
 
 def _call(actions: dict, key: str, *args) -> None:

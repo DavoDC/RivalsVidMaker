@@ -13,7 +13,7 @@ from nicegui import ui
 from nicegui.element_filter import ElementFilter
 from nicegui.testing.user_simulation import user_simulation
 
-from gui import fixtures, view_model
+from gui import avatars, fixtures, tokens, view_model
 from gui.sources import FixtureSource
 from gui.tabs import clips
 
@@ -258,13 +258,25 @@ def test_table_and_root_list_fill_their_column():
     assert "width:100%" in clips._root_html(view_model.snapshot(FixtureSource("fresh_intake"))["clips"]["unsorted"])
 
 
-def test_table_best_is_none_when_no_quad_or_better():
+def test_table_best_is_a_dim_dash_when_no_quad_or_better():
     row = {"testid": "clip-char-x-000002", "name": "SQUIRREL GIRL", "clips": 12, "minutes": 7.0833,
            "scanned": 10, "unscanned": 2, "tiers": {"KO": 9, "DOUBLE": 2}}
     html = clips.table_html([row])
     assert ">7:05</td>" in html
     assert ">10 of 12</td>" in html
-    assert "None" in html and "data-tier" not in html
+    assert "None" not in html and "data-tier" not in html
+    assert f'color:{tokens.TEXT_DIM};">-</span>' in html
+
+
+def test_table_shows_display_names_not_folder_names(monkeypatch, tmp_path):
+    monkeypatch.setattr(avatars, "ASSET_DIR", tmp_path)  # no local portraits: the initials badge shows
+    row = {"testid": "clip-char-x-000010", "name": "DOCTOR_STRANGE", "clips": 3, "minutes": 1.0,
+           "scanned": 3, "unscanned": 0, "tiers": {}}
+    html = clips.table_html([row])
+    assert "Doctor Strange" in html
+    assert "DOCTOR_STRANGE" not in html
+    assert ">DS</span>" in html  # no portrait file in the repo, so the initials badge
+    assert 'display:flex;align-items:center;gap:8px;' in html
 
 
 def test_table_numeric_cells_are_right_aligned_with_12px_padding_and_regular_weight():
@@ -286,10 +298,28 @@ def test_table_names_from_data_are_escaped():
 
 # ---- root list and decision panel ------------------------------------------------------------
 
-def test_root_list_marks_protected_rows_as_kept_in_recent_list():
+def test_root_list_marks_protected_rows_with_one_kept_line_above_the_rows():
     html, _props, _labels, _buttons = _render(clips.build, FixtureSource("fresh_intake"))
-    assert "kept: in the game's recent list" in html
-    assert html.count("kept: in the game's recent list") == 1
+    assert "Kept in place: the game lists these as recent clips." in html
+    assert html.count(clips.ROOT_NOTE) == 1
+    assert "kept: in the game's recent list" not in html
+
+
+def test_root_list_kept_line_appears_once_for_two_protected_rows():
+    rows = [
+        {"testid": "clip-root-a", "name": "THOR_a.mp4", "protected": True, "recognised": True},
+        {"testid": "clip-root-b", "name": "THOR_b.mp4", "protected": True, "recognised": True},
+    ]
+    html = clips._root_html(rows)
+    assert html.count(clips.ROOT_NOTE) == 1
+    assert html.index(clips.ROOT_NOTE) < html.index('data-testid="clip-root-a"')
+
+
+def test_root_list_names_have_no_quotes_around_them():
+    rows = [{"testid": "clip-root-a", "name": "THOR_a.mp4", "protected": False, "recognised": True}]
+    html = clips._root_html(rows)
+    assert "THOR_a.mp4</div>" in html
+    assert '"THOR_a.mp4"' not in html and "&quot;THOR_a.mp4" not in html
 
 
 def test_decision_panel_is_absent_when_low_value_is_empty():
@@ -404,7 +434,8 @@ def test_root_list_marks_unrecognised_rows_with_the_unreadable_note():
     assert html.count(clips.UNREADABLE_NOTE) == 2
     assert "Sort cannot read this name." in html
     assert html.count(clips.ROOT_NOTE) == 1
+    assert html.index(clips.ROOT_NOTE) < html.index('data-testid="clip-root-x"')  # the kept line leads the list
     junk = html.split('data-testid="clip-root-y"')[1].split('data-testid="clip-root-z"')[0]
-    assert junk.index(clips.UNREADABLE_NOTE) < junk.index(clips.ROOT_NOTE)
+    assert clips.UNREADABLE_NOTE in junk
     recognised = html.split('data-testid="clip-root-z"')[1]
-    assert clips.UNREADABLE_NOTE not in recognised and clips.ROOT_NOTE not in recognised
+    assert clips.UNREADABLE_NOTE not in recognised

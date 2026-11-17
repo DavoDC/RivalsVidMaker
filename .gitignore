@@ -20,6 +20,9 @@ data/captures/
 data/gui/
 data/.cache/
 
+# character portraits are game art, fetched locally, never committed
+assets/characters/
+
 # Claude Code - local only. The guard hook is registered at machine (user) level,
 # not per-repo - never commit anything under .claude/ in this repo.
 .claude/

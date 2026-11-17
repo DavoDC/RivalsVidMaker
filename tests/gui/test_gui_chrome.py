@@ -29,7 +29,13 @@ def test_head_html_dims_disabled_buttons_past_quasar_opacity():
     # NiceGUI imports Quasar's .q-btn.disabled{opacity:.7 !important} into the quasar_importants layer. A layered
     # !important beats any unlayered one whatever its specificity, and for !important the EARLIEST declared layer
     # wins, so the rule lives in the first layer, theme (live probe: computed 0.7 when unlayered).
-    assert "@layer theme{.q-btn.disabled,.q-btn[disabled]{opacity:0.45 !important;}}" in theme.HEAD_HTML
+    assert "@layer theme{.q-btn.disabled,.q-btn[disabled]{opacity:0.6 !important;}}" in theme.HEAD_HTML
+    assert "opacity:0.45" not in theme.HEAD_HTML
+
+
+def test_head_html_app_title_is_the_tab_heading_size_and_tabs_the_section_size():
+    assert ".rvm-title{font-size:26px;" in theme.HEAD_HTML
+    assert ".rvm-tab{font:inherit;font-size:20px;" in theme.HEAD_HTML
 
 
 def test_head_html_has_visible_focus_ring():

@@ -12,12 +12,12 @@ _CSS = """
   body{font-family:@@FONT_STACK@@;font-size:@@SIZE_BODY@@px;line-height:1.4;}
   .num{font-variant-numeric: tabular-nums;}
   .rvm-dim{color:@@TEXT_DIM@@;}
-  @layer theme{.q-btn.disabled,.q-btn[disabled]{opacity:0.45 !important;}}
+  @layer theme{.q-btn.disabled,.q-btn[disabled]{opacity:0.6 !important;}}
   :focus{outline:none;}
   :focus-visible{outline:2px solid @@TEXT@@;outline-offset:2px;}
   .rvm-header{display:flex;align-items:center;justify-content:space-between;gap:@@SPACE_16@@px;
     padding:@@SPACE_12@@px @@SPACE_24@@px;border-bottom:1px solid @@LINE@@;}
-  .rvm-title{font-size:@@SIZE_SECTION@@px;font-weight:600;font-stretch:87.5%;margin:0;}
+  .rvm-title{font-size:@@SIZE_TAB@@px;font-weight:600;font-stretch:87.5%;margin:0;}
   .rvm-state{display:flex;align-items:center;gap:@@SPACE_8@@px;font-size:@@SIZE_UI@@px;}
   .rvm-dot{display:inline-block;width:@@SPACE_8@@px;height:@@SPACE_8@@px;border-radius:50%;background:@@TEXT_DIM@@;}
   .rvm-dot[data-kind=working]{background:@@WORKING@@;}
@@ -25,7 +25,7 @@ _CSS = """
   .rvm-button{font:inherit;font-size:@@SIZE_UI@@px;color:@@TEXT@@;background:@@PANEL@@;
     border:1px solid @@LINE@@;border-radius:@@RADIUS_PANEL@@px;padding:@@SPACE_4@@px @@SPACE_12@@px;cursor:pointer;}
   .rvm-tabs{display:flex;gap:@@SPACE_24@@px;padding:0 @@SPACE_24@@px;border-bottom:1px solid @@LINE@@;}
-  .rvm-tab{font:inherit;font-size:@@SIZE_BODY@@px;font-weight:600;font-stretch:87.5%;color:@@TEXT_DIM@@;
+  .rvm-tab{font:inherit;font-size:@@SIZE_SECTION@@px;font-weight:600;font-stretch:87.5%;color:@@TEXT_DIM@@;
     background:none;border:none;border-bottom:@@SPACE_4@@px solid transparent;padding:@@SPACE_12@@px 0;cursor:pointer;}
   .rvm-tab:hover{color:@@TEXT@@;}
   .rvm-tab[aria-selected=true]{color:@@TEXT@@;border-bottom-color:@@TEXT@@;}

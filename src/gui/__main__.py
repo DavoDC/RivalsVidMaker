@@ -138,11 +138,12 @@ def serve(args: argparse.Namespace) -> int:
     port = args.port
 
     from nicegui import app, ui
-    from gui import state_api
+    from gui import avatars, state_api
 
     app.add_middleware(security.LoopbackGuard, port_fn=lambda: port)
     state_api.register(app, wired)
     state_api.register_quit(app, runner, app.shutdown)
+    avatars.register(app)
     handler = make_page_handler(wired, runner, actions=actions)
 
     @ui.page("/")
@@ -157,7 +158,8 @@ def serve(args: argparse.Namespace) -> int:
         hot_reload.BUSY_CHECK = lambda: runner.busy
         hot_reload.start_watcher(str(root / "src"))
     launcher.log_line("serve", f"serving on port {port} (fixture={args.fixture or 'none'})", repo_root=root)
-    ui.run(host=security.BIND_HOST, port=port, show=False, reload=False, title="RivalsVidMaker")
+    icon = root / "assets" / "favicon.svg"
+    ui.run(host=security.BIND_HOST, port=port, show=False, reload=False, title="RivalsVidMaker", favicon=str(icon))
     return 0
 
 
