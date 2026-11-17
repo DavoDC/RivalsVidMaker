@@ -5,6 +5,7 @@ reaches the page (spec section 7): a row links the log file and shows only the j
 """
 from __future__ import annotations
 
+import re
 from html import escape
 from pathlib import Path
 
@@ -29,6 +30,29 @@ _TH = (f"text-align:left;color:{tokens.TEXT_DIM};font-weight:600;padding:{tokens
        f"border-bottom:1px solid {tokens.LINE};")
 _TD = (f"vertical-align:top;padding:{tokens.SPACE_8}px {tokens.SPACE_8}px {tokens.SPACE_8}px 0;"
        f"border-bottom:1px solid {tokens.LINE};")
+_TD_NOWRAP = _TD + "white-space:nowrap;"
+
+DELETED_CLIENT_WORDS = ("YouTube sign-in failed: the Google OAuth client was deleted. Make a new client secret "
+                        "in Google Cloud, then sign in again.")
+EXPIRED_WORDS = "YouTube sign-in expired. Sign in again."
+ERROR_MAX = 200
+_REPR_ERROR = re.compile(r"^(\w+): \(\s*(['\"])(.*?)\2\s*[,)]")
+
+
+def error_words(error) -> str:
+    """A job error as plain words: known sign-in failures get a sentence, a Python tuple repr keeps its
+    name and first message, anything else keeps its first line. Cut to ERROR_MAX characters."""
+    text = str(error)
+    if "deleted_client" in text:
+        return DELETED_CLIENT_WORDS
+    if "invalid_grant" in text:
+        return EXPIRED_WORDS
+    lines = text.strip().splitlines()
+    first = lines[0] if lines else ""
+    match = _REPR_ERROR.match(first)
+    if match:
+        first = f"{match.group(1)}: {match.group(3)}"
+    return first[:ERROR_MAX]
 
 
 def _result_cell(job: dict) -> str:
@@ -54,23 +78,30 @@ def _log_cell(log_path) -> str:
     return f'<a href="{escape(href, quote=True)}" style="color:{tokens.TEXT};">Open log</a>'
 
 
+def _time_cell(value) -> str:
+    """A short time that never wraps; hovering shows the full stamp."""
+    full = timefmt.stamp(value)
+    return (f'<td style="{_TD_NOWRAP}" title="{escape(full, quote=True)}">'
+            f"{escape(timefmt.short(value))}</td>")
+
+
 def table_html(jobs: list[dict]) -> str:
     """The recent jobs table: one row per job with its view_model testid, newest first as given."""
     body = []
     for job in jobs:
         title = escape(str(job.get("title") or job.get("kind") or "-"))
         error = job.get("error")
-        error_line = (f'<div style="color:{tokens.ERROR};">{escape(str(error))}</div>' if error else "")
+        error_line = (f'<div style="color:{tokens.ERROR};">{escape(error_words(error))}</div>' if error else "")
         body.append(
             f'<tr data-testid="{job["testid"]}">'
-            f'<td style="{_TD}">{title}{error_line}</td>'
+            f'<td style="{_TD}width:40%;">{title}{error_line}</td>'
             f'<td style="{_TD}">{_result_cell(job)}</td>'
-            f'<td style="{_TD}">{escape(timefmt.stamp(job.get("started_at")))}</td>'
-            f'<td style="{_TD}">{escape(timefmt.stamp(job.get("ended_at")))}</td>'
-            f'<td style="{_TD}">{_log_cell(job.get("log_path"))}</td>'
+            f'{_time_cell(job.get("started_at"))}'
+            f'{_time_cell(job.get("ended_at"))}'
+            f'<td style="{_TD_NOWRAP}">{_log_cell(job.get("log_path"))}</td>'
             "</tr>")
     return (f'<table style="{_TABLE}"><thead><tr>'
-            f'<th style="{_TH}">Job</th><th style="{_TH}">Result</th>'
+            f'<th style="{_TH}width:40%;">Job</th><th style="{_TH}">Result</th>'
             f'<th style="{_TH}">Started</th><th style="{_TH}">Ended</th><th style="{_TH}">Log</th>'
             "</tr></thead><tbody>" + "".join(body) + "</tbody></table>")
 
