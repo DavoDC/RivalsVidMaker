@@ -5,12 +5,15 @@ tests. The pytest-asyncio plugin is not installed, so the async simulator is dri
 asyncio.run instead of the user fixture; the simulated page is the same.
 """
 import asyncio
+import re
 
 import pytest
+from nicegui import ui
 from nicegui.element_filter import ElementFilter
 from nicegui.testing.user_simulation import user_simulation
 
-from gui import shell, tabdefs, theme, ui_check
+from gui import __main__ as gui_main
+from gui import jobs, shell, tabdefs, theme, ui_check
 from gui.sources import FixtureSource
 
 KEYS = ("clips", "compile", "videos", "archive", "activity")
@@ -227,3 +230,82 @@ def test_ui_check_ignores_shell_testids_that_are_not_rows():
 def test_ui_check_exit_code_follows_failures():
     assert ui_check.exit_code([]) == 0
     assert ui_check.exit_code(["missing row"]) == 1
+
+
+# ---- header state word: from the running job, Error after a failure (docs/DESIGN.md section 4) ----
+
+def test_header_state_is_idle_without_a_job():
+    assert shell.header_state(None, False) == ("Idle", "idle")
+
+
+def test_header_state_shows_the_phase_word_and_integer_percent_when_total_is_known():
+    assert shell.header_state({"phase": "encoding", "done": 3, "total": 9}, False) == ("Encoding 33%", "working")
+    assert shell.header_state({"phase": "encoding", "done": 9, "total": 9}, False) == ("Encoding 100%", "working")
+
+
+def test_header_state_has_the_phase_word_alone_when_total_is_unknown_or_zero():
+    assert shell.header_state({"phase": "encoding", "done": 3, "total": None}, False) == ("Encoding", "working")
+    assert shell.header_state({"phase": "encoding", "done": 0, "total": 0}, False) == ("Encoding", "working")
+
+
+def test_header_state_says_working_when_the_job_has_no_phase():
+    assert shell.header_state({"phase": None, "done": None, "total": None}, False) == ("Working", "working")
+
+
+def test_header_state_is_error_after_a_failed_job():
+    assert shell.header_state(None, True) == ("Error", "error")
+
+
+def test_a_running_job_outranks_an_earlier_failure():
+    assert shell.header_state({"phase": "encoding", "done": 3, "total": 9}, True) == ("Encoding 33%", "working")
+
+
+_HEADER_STATE_SPAN = re.compile(r'<span id="rvm-state"[^>]*data-kind="([^"]*)">([^<]*)</span>')
+
+
+def _default_page_header(source, runner):
+    """Paint the page builder that python -m gui serves; return the header (word, kind) it painted."""
+    def root():
+        gui_main._default_builder(source, runner, None)
+
+    async def action(user):
+        with user.client:
+            for el in ElementFilter(kind=ui.html, only_visible=False):
+                match = _HEADER_STATE_SPAN.search(el.content or "")
+                if match:
+                    return match.group(2), match.group(1)
+        return None
+
+    async def run():
+        async with user_simulation(root) as user:
+            await user.open("/")
+            return await action(user)
+
+    return asyncio.run(run())
+
+
+def test_default_page_header_says_idle_with_no_job(tmp_path):
+    runner = jobs.JobRunner(tmp_path / "jobs.json")
+    assert _default_page_header(gui_main.WiredSource(FixtureSource("empty"), runner), runner) == ("Idle", "idle")
+
+
+def test_default_page_header_shows_the_encoding_fixture_job_as_working(tmp_path):
+    runner = jobs.JobRunner(tmp_path / "jobs.json")
+    header = _default_page_header(gui_main.WiredSource(FixtureSource("encoding"), runner), runner)
+    assert header == ("Encoding 33%", "working")
+
+
+def test_default_page_header_says_error_after_a_failed_job_then_idle_after_a_clean_one(tmp_path):
+    runner = jobs.JobRunner(tmp_path / "jobs.json")
+
+    def boom(ctx):
+        raise RuntimeError("disk gone")
+
+    runner.start("scan", "Scan Clips", boom)
+    assert runner.wait(5)
+    source = gui_main.WiredSource(FixtureSource("empty"), runner)
+    assert _default_page_header(source, runner) == ("Error", "error")
+
+    runner.start("scan", "Scan Clips", lambda ctx: None)
+    assert runner.wait(5)
+    assert _default_page_header(gui_main.WiredSource(FixtureSource("empty"), runner), runner) == ("Idle", "idle")

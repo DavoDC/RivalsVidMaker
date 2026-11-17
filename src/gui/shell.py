@@ -15,13 +15,43 @@ from collections.abc import Callable
 
 from nicegui import ui
 
-from gui import build_info, chrome, tabdefs, tokens
+from gui import build_info, chrome, jobs, tabdefs, tokens, view_model
 
 _log = logging.getLogger("rvm.gui")
 
 
 def _default_builder(key: str) -> Callable:
     return importlib.import_module(f"gui.tabs.{key}").build
+
+
+def _phase_word(phase) -> str:
+    text = str(phase or "").strip()
+    return text[:1].upper() + text[1:] if text else "Working"
+
+
+def header_state(job: dict | None, last_failed: bool) -> tuple[str, str]:
+    """The header state word and dot kind (docs/DESIGN.md section 4).
+
+    job: the snapshot's running job (view_model._job) or None. A running job wins; a failed last
+    job reads Error until the next start; otherwise Idle. A job reads its capitalised phase word,
+    plus the integer percent when the total is known and above zero.
+    """
+    if job:
+        word = _phase_word(job.get("phase"))
+        done, total = job.get("done"), job.get("total")
+        if done is not None and total:
+            word += f" {min(100, int(100 * done / total))}%"
+        return word, "working"
+    if last_failed:
+        return "Error", "error"
+    return "Idle", "idle"
+
+
+def _header_from_source(source) -> tuple[str, str]:
+    snap = view_model.snapshot(source)
+    history = snap["activity"]["jobs"]
+    last_failed = bool(history) and history[0]["result"] == jobs.FAILED
+    return header_state(snap["job"], last_failed)
 
 
 def _sync_url(key: str) -> None:
@@ -31,19 +61,23 @@ def _sync_url(key: str) -> None:
         pass
 
 
-def build_page(source, *, initial_tab: str | None = None, state_word: str = "Idle",
-               state_kind: str = "idle", updated_seconds: float | None = None,
+def build_page(source, *, initial_tab: str | None = None, state_word: str | None = None,
+               state_kind: str | None = None, updated_seconds: float | None = None,
                builders: dict[str, Callable] | None = None) -> None:
     """Paint the whole page for one source.
 
-    source: a Source (fixture or real); only .fixture and each tab's build(source) are read.
+    source: a Source (fixture or real); .fixture, the snapshot's job and activity, and each tab's build(source) are read.
     initial_tab: the ?tab= value; anything not in tabdefs.KEYS opens the default tab.
-    state_word, state_kind: the header state word and dot kind (chrome.header_html).
+    state_word, state_kind: the header state word and dot kind (chrome.header_html). Left None, both come
+    from header_state() on the same snapshot the page paints: the running job, else a failed last job.
     updated_seconds: seconds since the last state update for the footer; None shows "not updated yet".
     builders: optional {key: build(source)} overriding tabs/<key>.py; used by tests.
     """
     active = initial_tab if initial_tab in tabdefs.KEYS else tabdefs.DEFAULT
     overrides = builders or {}
+    if state_word is None:
+        state_word, state_kind = _header_from_source(source)
+    state_kind = state_kind or "idle"
     panels: dict[str, ui.element] = {}
     buttons: dict[str, ui.element] = {}
     built: set[str] = set()
