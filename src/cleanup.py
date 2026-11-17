@@ -475,12 +475,18 @@ def run_cleanup(
     else:
         print("\n(no compiled .mp4 found in output folder)")
 
-    # Description and clips.json always go with the plan, as they always have.
+    # Description and clips.json go only when every clip leaves clips/: the description
+    # is what a later upload retry reads, so it stays while any clip stays.
+    all_clips_go = (
+        (approve_archive or not archive_actions)
+        and (approve_clips or not clip_actions)
+        and not plan.skipped
+    )
     selected = restrict_plan(plan, keep=lambda a: (
         (a.fate == FATE_ARCHIVE and approve_archive)
         or (a.fate == FATE_RECYCLE and a.group == GROUP_CLIPS and approve_clips)
         or (a.fate == FATE_RECYCLE_VIDEO and a.path in approved_videos)
-        or a.group == GROUP_METADATA
+        or (a.group == GROUP_METADATA and all_clips_go)
     ))
 
     try:

@@ -535,6 +535,25 @@ class TestDryRunAndPlanBugs:
         assert clips_json.exists()
         fake_trash.assert_not_called()
 
+    def test_declining_clip_removal_keeps_description_and_clips_json(self, tmp_path, fake_trash):
+        """The description is needed to retry an upload; it goes only when every clip goes."""
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        answers = iter(["y", "n", "n", "n"])  # live yes, archive no, recycle no, video no
+        with patch("builtins.input", side_effect=lambda *_: next(answers, "n")):
+            run_cleanup(out, archive, state_path=tmp_path / "state.json")
+        assert desc.exists()
+        assert clips_json.exists()
+        fake_trash.assert_not_called()
+
+    def test_partial_approval_keeps_description_and_clips_json(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        answers = iter(["y", "y", "n", "n"])  # archive yes, recycle no: PLAIN clip stays
+        with patch("builtins.input", side_effect=lambda *_: next(answers, "n")):
+            run_cleanup(out, archive, state_path=tmp_path / "state.json")
+        assert (clips_dir / PLAIN).exists()
+        assert desc.exists()
+        assert clips_json.exists()
+
     def test_prompts_no_longer_say_permanently(self, tmp_path):
         """send2trash is recoverable, so no prompt may claim the deletion is permanent."""
         out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
