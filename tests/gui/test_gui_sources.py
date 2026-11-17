@@ -186,8 +186,8 @@ def test_real_source_lists_characters_unsorted_and_output_folders(tmp_path):
     assert REQUIRED_KEYS <= set(data)
 
     assert data["unsorted"] == [
-        {"name": "IRON_MAN_2026-07-03_12-00-00.mp4", "protected": False},
-        {"name": "THOR_2026-07-04_12-00-00.mp4", "protected": True},
+        {"name": "IRON_MAN_2026-07-03_12-00-00.mp4", "protected": False, "recognised": True},
+        {"name": "THOR_2026-07-04_12-00-00.mp4", "protected": True, "recognised": True},
     ]
 
     chars = {c["name"]: c for c in data["characters"]}
@@ -419,3 +419,14 @@ def test_sources_only_uses_read_only_helpers():
             assert node.attr not in WRITE_NAMES, node.attr
         if isinstance(node, ast.Name):
             assert node.id not in WRITE_NAMES, node.id
+
+
+# -- Loose clips: recognised flag ──────────────────────────────────────────────
+
+def test_unsorted_rows_flag_names_clip_sorter_can_read(tmp_path):
+    cfg = _make_config(tmp_path)
+    _clip(cfg.clips_path / "THOR_2026-11-01_10-00-00.mp4")
+    _clip(cfg.clips_path / "random.mp4")
+    rows = {r["name"]: r for r in sources._unsorted(cfg)}
+    assert rows["THOR_2026-11-01_10-00-00.mp4"]["recognised"] is True
+    assert rows["random.mp4"]["recognised"] is False

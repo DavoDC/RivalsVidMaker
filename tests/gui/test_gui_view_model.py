@@ -443,3 +443,33 @@ def test_view_model_imports_no_mutating_or_source_modules():
             names.add(node.module.split(".")[0])
             names.update(alias.name for alias in node.names)
     assert not (names & FORBIDDEN_IMPORTS), names & FORBIDDEN_IMPORTS
+
+
+# ---- loose clips Sort cannot read -----------------------------------------------------------
+
+def test_summary_new_clips_excludes_unrecognised_and_protected_rows():
+    unsorted = [
+        {"name": "THOR_a.mp4", "protected": False, "recognised": True},
+        {"name": "THOR_b.mp4", "protected": True, "recognised": True},
+        {"name": "random.mp4", "protected": False, "recognised": False},
+        {"name": "junk.mp4", "protected": True, "recognised": False},
+    ]
+    summary = view_model.snapshot(_Stub(_data(unsorted=unsorted)))["summary"]
+    assert summary["unsorted"] == 4
+    assert summary["protected"] == 2
+    assert summary["new_clips"] == 1
+    assert summary["unrecognised"] == 2
+
+
+def test_row_without_recognised_key_counts_as_recognised():
+    unsorted = [{"name": "old.mp4", "protected": False}]
+    snap = view_model.snapshot(_Stub(_data(unsorted=unsorted)))
+    assert snap["summary"]["new_clips"] == 1
+    assert snap["summary"]["unrecognised"] == 0
+    assert snap["clips"]["unsorted"][0]["recognised"] is True
+
+
+def test_unsorted_row_copy_carries_recognised_through():
+    unsorted = [{"name": "random.mp4", "protected": False, "recognised": False}]
+    snap = view_model.snapshot(_Stub(_data(unsorted=unsorted)))
+    assert snap["clips"]["unsorted"][0]["recognised"] is False

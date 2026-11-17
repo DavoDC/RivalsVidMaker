@@ -378,3 +378,33 @@ def test_no_max_width_1439_media_query_remains():
     source = inspect.getsource(clips)
     assert "max-width:1439px" not in source
     assert "1439" not in source
+
+
+# ---- loose clips Sort cannot read -----------------------------------------------------------
+
+def test_summary_names_unrecognised_clips_singular_and_plural():
+    one = {"new_clips": 1, "protected": 0, "low_value_pending": 0, "unrecognised": 1}
+    two = {"new_clips": 1, "protected": 0, "low_value_pending": 0, "unrecognised": 2}
+    assert clips.summary_text(one) == "1 new in Highlights. 1 has a name Sort cannot read."
+    assert clips.summary_text(two) == "1 new in Highlights. 2 have a name Sort cannot read."
+
+
+def test_summary_with_only_unrecognised_clips_is_just_that_sentence():
+    only = {"new_clips": 0, "protected": 0, "low_value_pending": 0, "unrecognised": 2}
+    assert clips.summary_text(only) == "2 have a name Sort cannot read."
+
+
+def test_root_list_marks_unrecognised_rows_with_the_unreadable_note():
+    rows = [
+        {"testid": "clip-root-x", "name": "random.mp4", "protected": False, "recognised": False},
+        {"testid": "clip-root-y", "name": "junk.mp4", "protected": True, "recognised": False},
+        {"testid": "clip-root-z", "name": "THOR_a.mp4", "protected": False, "recognised": True},
+    ]
+    html = clips._root_html(rows)
+    assert html.count(clips.UNREADABLE_NOTE) == 2
+    assert "Sort cannot read this name." in html
+    assert html.count(clips.ROOT_NOTE) == 1
+    junk = html.split('data-testid="clip-root-y"')[1].split('data-testid="clip-root-z"')[0]
+    assert junk.index(clips.UNREADABLE_NOTE) < junk.index(clips.ROOT_NOTE)
+    recognised = html.split('data-testid="clip-root-z"')[1]
+    assert clips.UNREADABLE_NOTE not in recognised and clips.ROOT_NOTE not in recognised

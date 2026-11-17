@@ -20,6 +20,7 @@ PAINTS_ROWS = True
 NO_NEW_COPY = "No new clips. Save highlights in game, then press Sort clips."
 NO_CHARACTERS_COPY = "No characters yet. Scan for KOs to count the clips in each character folder."
 ROOT_NOTE = "kept: in the game's recent list"
+UNREADABLE_NOTE = "Sort cannot read this name."
 DECISION_HEADING = "Needs a decision"
 ROOT_HEADING = "In Highlights root"
 
@@ -46,10 +47,15 @@ def _decision_sentence(count: int) -> str:
     return "1 clip needs a decision." if count == 1 else f"{count} clips need a decision."
 
 
+def _unreadable_sentence(count: int) -> str:
+    return "1 has a name Sort cannot read." if count == 1 else f"{count} have a name Sort cannot read."
+
+
 def summary_text(summary: dict) -> str:
-    """The summary line: new and kept counts in one sentence, the decision count after it, zeros omitted."""
+    """The summary line: new and kept counts in one sentence, then unreadable and decision counts, zeros omitted."""
     new = int(summary.get("new_clips") or 0)
     kept = int(summary.get("protected") or 0)
+    unreadable = int(summary.get("unrecognised") or 0)
     decide = int(summary.get("low_value_pending") or 0)
     lead = []
     if new:
@@ -59,6 +65,8 @@ def summary_text(summary: dict) -> str:
     sentences = []
     if lead:
         sentences.append(", ".join(lead) + ".")
+    if unreadable:
+        sentences.append(_unreadable_sentence(unreadable))
     if decide:
         sentences.append(_decision_sentence(decide))
     return " ".join(sentences) if sentences else NO_NEW_COPY
@@ -112,7 +120,12 @@ def table_html(rows: list[dict]) -> str:
 def _root_html(rows: list[dict]) -> str:
     items = []
     for row in rows:
-        note = (f'<div style="color:{tokens.TEXT_DIM};">{ROOT_NOTE}</div>' if row.get("protected") else "")
+        notes = []
+        if not row.get("recognised", True):
+            notes.append(UNREADABLE_NOTE)
+        if row.get("protected"):
+            notes.append(ROOT_NOTE)
+        note = "".join(f'<div style="color:{tokens.TEXT_DIM};">{text}</div>' for text in notes)
         items.append(f'<div data-testid="{row["testid"]}" style="{_ROW}">'
                      f'<div>"{escape(str(row.get("name") or ""))}"</div>{note}</div>')
     return '<div style="width:100%;">' + "".join(items) + "</div>"

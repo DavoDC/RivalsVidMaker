@@ -54,14 +54,22 @@ def _job(job: dict | None) -> dict | None:
     }
 
 
+def _recognised(clip: dict) -> bool:
+    """A loose clip Sort can file. A row without the key (older fixtures) counts as recognised."""
+    return bool(clip.get("recognised", True))
+
+
 def _summary(data: dict, rows: list[dict]) -> dict:
     unsorted = data.get("unsorted") or []
     protected = sum(1 for clip in unsorted if clip.get("protected"))
+    unrecognised = sum(1 for clip in unsorted if not _recognised(clip))
+    new = sum(1 for clip in unsorted if _recognised(clip) and not clip.get("protected"))
     stages = [(stage_of(r), bool(r.get("has_video")), bool(r.get("has_clips_dir"))) for r in rows]
     return {
-        "new_clips": len(unsorted) - protected,
+        "new_clips": new,
         "unsorted": len(unsorted),
         "protected": protected,
+        "unrecognised": unrecognised,
         "low_value_pending": len(data.get("low_value") or []),
         "ready_characters": sum(1 for c in data.get("characters") or [] if c.get("ready")),
         "videos_to_upload": sum(1 for s, video, _ in stages if s == "encoded" and video),
@@ -182,6 +190,7 @@ def snapshot(source, job: dict | None = None, plans: dict | None = None, history
                 "testid": testid("clip-root", c.get("name")),
                 "name": c.get("name"),
                 "protected": bool(c.get("protected")),
+                "recognised": _recognised(c),
             } for c in data.get("unsorted") or []],
             "low_value": [{
                 "testid": testid("lowvalue", c.get("name")),

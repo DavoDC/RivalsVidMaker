@@ -21,36 +21,11 @@ Safety rules:
 """
 
 import logging
-import re
+from clip_names import extract_character  # noqa: F401  (re-exported for callers)
 import shutil
 from pathlib import Path
 
 VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
-
-# Lazily match everything up to the first _YYYY-MM-DD_ date stamp.
-# The character name must start with a letter.
-_CHAR_RE = re.compile(r"^([A-Za-z][A-Za-z0-9 _]*)_(\d{4}-\d{2}-\d{2}_)")
-
-
-def extract_character(stem: str) -> str | None:
-    """
-    Parse and normalise the character name from a clip filename stem.
-
-    Returns the folder-safe character name (spaces → underscores),
-    or None if the filename doesn't match the expected convention.
-
-    Examples:
-        "THOR_2026-02-06_22-38-56"           → "THOR"
-        "SQUIRREL GIRL_2026-03-13_21-51-02"  → "SQUIRREL_GIRL"
-        "just_a_random_file"                 → None
-    """
-    m = _CHAR_RE.match(stem)
-    if not m:
-        return None
-    char_raw = m.group(1).strip()
-    if not char_raw:
-        return None
-    return re.sub(r"\s+", "_", char_raw)
 
 
 def sort_clips(clips_path: Path, protect_recent: int = 0) -> int:

@@ -19,6 +19,7 @@ from typing import Protocol, runtime_checkable
 
 import batcher
 import clip_cache
+import clip_names
 import state
 from clip_scanner import VIDEO_EXTS, Clip
 from config import Config
@@ -75,7 +76,9 @@ def _tool_problems(cfg: Config) -> list[str]:
 def _unsorted(cfg: Config) -> list[dict]:
     paths = _video_files(cfg.clips_path)
     cut = len(paths) - max(0, cfg.protect_recent_clips)
-    return [{"name": p.name, "protected": i >= cut} for i, p in enumerate(paths)]
+    return [{"name": p.name, "protected": i >= cut,
+             "recognised": clip_names.extract_character(p.stem) is not None}
+            for i, p in enumerate(paths)]
 
 
 def _character(folder: Path, cfg: Config) -> dict:
