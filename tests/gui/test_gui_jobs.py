@@ -3,7 +3,9 @@
 Every test writes its history under tmp_path, never under data/gui/. Threads are joined with
 a timeout, and the test clock is a fake that only moves when a test advances it.
 """
+import io
 import json
+import logging
 import threading
 
 import pytest
@@ -131,6 +133,60 @@ def test_successful_job_is_recorded_done_with_timestamps(tmp_path):
     assert job["title"] == "Quick"
     assert job["started_at"] and job["finished_at"]
     assert job["error"] is None
+
+
+def test_summary_set_during_a_job_is_on_the_finished_record(tmp_path):
+    runner = make_runner(tmp_path)
+    run_to_end(runner, "Sort clips", lambda ctx: ctx.summary("Sorted 3 clips. Skipped 1."))
+    job = runner.history()[0]
+    assert job["summary"] == "Sorted 3 clips. Skipped 1."
+
+
+def test_summary_is_none_when_the_job_never_sets_one(tmp_path):
+    runner = make_runner(tmp_path)
+    run_to_end(runner, "Quick", lambda ctx: None)
+    assert runner.history()[0]["summary"] is None
+
+
+def test_summary_after_the_job_ended_is_ignored(tmp_path):
+    runner = make_runner(tmp_path)
+    held = []
+    run_to_end(runner, "Quick", lambda ctx: held.append(ctx))
+    held[0].summary("too late")
+    assert runner.history()[0]["summary"] is None
+
+
+def test_summary_keeps_the_first_line_and_cuts_it_to_200_characters(tmp_path):
+    runner = make_runner(tmp_path)
+    run_to_end(runner, "Long", lambda ctx: ctx.summary("Sorted 2 clips.\nSecond line"))
+    assert runner.history()[0]["summary"] == "Sorted 2 clips."
+    runner2 = make_runner(tmp_path / "second")
+    run_to_end(runner2, "Long", lambda ctx: ctx.summary("a" * 300))
+    assert runner2.history()[0]["summary"] == "a" * 200
+
+
+@pytest.fixture
+def rvm_logger():
+    logger = logging.getLogger("rvm")
+    saved_handlers, saved_level, saved_propagate = list(logger.handlers), logger.level, logger.propagate
+    yield logger
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+    for handler in saved_handlers:
+        logger.addHandler(handler)
+    logger.setLevel(saved_level)
+    logger.propagate = saved_propagate
+
+
+def test_configure_logging_twice_leaves_one_handler_and_info_reaches_the_stream(rvm_logger):
+    stream = io.StringIO()
+    jobs.configure_logging(stream)
+    jobs.configure_logging(stream)
+    marked = [h for h in rvm_logger.handlers if getattr(h, "_rvm_handler", False)]
+    assert len(marked) == 1
+    assert rvm_logger.propagate is False
+    logging.getLogger("rvm.gui.jobs").info("hello info")
+    assert "INFO:rvm.gui.jobs:hello info" in stream.getvalue()
 
 
 def test_kwargs_reach_the_job_function(tmp_path):

@@ -23,6 +23,7 @@ from gui import timefmt
 
 HISTORY_LIMIT = 50   # finished and running jobs kept in the history file
 ETA_SAMPLES = 20     # progress signals kept for the rate behind the ETA
+SUMMARY_LIMIT = 200  # characters kept from a job's result line
 LOG = logging.getLogger("rvm.gui.jobs")
 
 RUNNING = "running"
@@ -40,6 +41,20 @@ class Busy(Exception):
         super().__init__(f"'{running_title}' is still running")
 
 
+def configure_logging(stream) -> None:
+    """Send rvm.* INFO and up to stream. A second call adds nothing."""
+    logger = logging.getLogger("rvm")
+    if any(getattr(h, "_rvm_handler", False) for h in logger.handlers):
+        return
+    handler = logging.StreamHandler(stream)
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    handler._rvm_handler = True
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+
 def _now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
@@ -55,6 +70,10 @@ class JobContext:
 
     def progress(self, done, total, unit: str = "", phase: str | None = None) -> None:
         self._runner._progress(self.job_id, done, total, unit, phase)
+
+    def summary(self, text: str) -> None:
+        """One line shown under the result word on Activity. First line only, cut to SUMMARY_LIMIT."""
+        self._runner._summary(self.job_id, text)
 
     def cancelled(self) -> bool:
         return self._cancel.is_set()
@@ -138,7 +157,7 @@ class JobRunner:
                 "id": uuid.uuid4().hex[:12], "kind": kind, "title": title, "state": RUNNING,
                 "started_at": _now_iso(), "finished_at": None, "elapsed": None,
                 "done": 0, "total": None, "unit": "", "phase": "Starting",
-                "error": None, "log_path": self._log_path,
+                "error": None, "log_path": self._log_path, "summary": None,
             }
             cancel = threading.Event()
             active = {"record": record, "ctx": JobContext(self, record["id"], cancel),
@@ -215,6 +234,14 @@ class JobRunner:
             if phase is not None:
                 record["phase"] = phase
             active["samples"].append((self._clock(), done))
+
+    def _summary(self, job_id: str, text: str) -> None:
+        with self._lock:
+            active = self._active
+            if active is None or active["record"]["id"] != job_id:
+                return
+            lines = str(text).strip().splitlines()
+            active["record"]["summary"] = (lines[0] if lines else "")[:SUMMARY_LIMIT]
 
     def _view(self, active: dict[str, Any]) -> dict[str, Any]:
         record = dict(active["record"])

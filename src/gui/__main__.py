@@ -128,6 +128,7 @@ def serve(args: argparse.Namespace) -> int:
     if sys.stdout is None or sys.stderr is None:  # pythonw: route output to today's log
         log = open(launcher.log_path(root), "a", encoding="utf-8", buffering=1)
         sys.stdout = sys.stderr = log
+    jobs.configure_logging(sys.stderr)
     config, source = load_source(args, root)
     state_dir = root / "data" / "gui"
     state_dir.mkdir(parents=True, exist_ok=True)

@@ -140,6 +140,22 @@ def test_sort_log_names_each_skipped_clip_and_counts_them(config, runner, monkey
     assert "Sorted 1 clip(s), skipped 1" in caplog.text
 
 
+def test_sort_summary_counts_the_moved_and_skipped_clips(config, runner, monkeypatch):
+    def fake_sort(path, protect_recent=0, on_skip=None):
+        on_skip("a.mp4", "name not recognised")
+        return 3
+
+    monkeypatch.setattr(clip_sorter, "sort_clips", fake_sort)
+    bridge.sort(runner, config)
+    assert finish(runner)["summary"] == "Sorted 3 clips. Skipped 1."
+
+
+def test_sort_summary_is_singular_for_one_clip_with_no_skip_part(config, runner, monkeypatch):
+    monkeypatch.setattr(clip_sorter, "sort_clips", lambda path, protect_recent=0, on_skip=None: 1)
+    bridge.sort(runner, config)
+    assert finish(runner)["summary"] == "Sorted 1 clip."
+
+
 def test_scan_starts_a_scan_job_and_passes_the_low_value_collector(config, runner, monkeypatch):
     seen = {}
 

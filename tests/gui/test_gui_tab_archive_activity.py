@@ -186,6 +186,26 @@ def test_activity_failed_row_shows_the_error_as_escaped_text():
     assert "<auth>" not in html
 
 
+def test_activity_summary_shows_under_the_result_word_escaped():
+    def change(data):
+        data["activity"] = [{**fixtures.activity("sort", "Sort clips", "done"),
+                             "summary": "Sorted <b>3</b> clips."}]
+    jobs = view_model.snapshot(_Source("empty", change))["activity"]["jobs"]
+    html = activity.table_html(jobs)
+    assert "Sorted &lt;b&gt;3&lt;/b&gt; clips." in html
+    assert "<b>3</b>" not in html
+    assert html.index("Done") < html.index("Sorted &lt;b&gt;")
+
+
+@pytest.mark.parametrize("summary", [None, ""])
+def test_activity_without_a_summary_renders_no_summary_line(summary):
+    def change(data):
+        data["activity"] = [{**fixtures.activity("sort", "Sort clips", "done"), "summary": summary}]
+    jobs = view_model.snapshot(_Source("empty", change))["activity"]["jobs"]
+    html = activity.table_html(jobs)
+    assert f'<div style="color:{tokens.TEXT_DIM};">' not in html
+
+
 def test_activity_log_path_becomes_a_file_link(tmp_path):
     log = tmp_path / "gui_2026-11-17.log"
     log.write_text("", encoding="utf-8")

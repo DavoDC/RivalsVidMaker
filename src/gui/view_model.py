@@ -110,6 +110,7 @@ def _activity(rec: dict) -> dict:
         "ended_at": rec.get("ended_at", rec.get("finished_at")),
         "error": rec.get("error"),
         "log_path": rec.get("log_path"),
+        "summary": rec.get("summary"),
     }
 
 

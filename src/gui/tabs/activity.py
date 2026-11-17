@@ -38,6 +38,9 @@ def _result_cell(job: dict) -> str:
     parts = [f'<span style="color:{colour};font-weight:600;">{escape(word)}</span>']
     if result == "interrupted":
         parts.append(f'<div style="color:{tokens.TEXT_DIM};">{escape(INTERRUPTED_NOTE)}</div>')
+    summary = str(job.get("summary") or "").strip()
+    if summary:
+        parts.append(f'<div style="color:{tokens.TEXT_DIM};">{escape(summary)}</div>')
     return "".join(parts)
 
 

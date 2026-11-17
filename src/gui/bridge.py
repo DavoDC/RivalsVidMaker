@@ -85,6 +85,13 @@ def _report_errors(ctx: jobs.JobContext, result) -> None:
     ctx.log.info("%d item(s) done", len(result.done))
 
 
+def _sorted_summary(moved: int, skipped: int) -> str:
+    text = f"Sorted {moved} clip{'' if moved == 1 else 's'}."
+    if skipped:
+        text += f" Skipped {skipped}."
+    return text
+
+
 def sort(runner: jobs.JobRunner, config) -> dict:
     def job(ctx: jobs.JobContext) -> None:
         skipped: list[tuple[str, str]] = []
@@ -96,6 +103,7 @@ def sort(runner: jobs.JobRunner, config) -> dict:
             ctx.log.info("Sorted %d clip(s), skipped %d", moved, len(skipped))
         else:
             ctx.log.info("Sorted %d clip(s)", moved)
+        ctx.summary(_sorted_summary(moved, len(skipped)))
 
     _require_idle(runner)
     return runner.start("sort", "Sort clips", job)

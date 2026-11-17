@@ -357,6 +357,14 @@ def test_history_records_map_state_and_finish_time_to_activity_rows():
     assert rows[0]["error"] == "auth expired"
 
 
+def test_history_summary_is_copied_onto_the_activity_row():
+    history = [{"id": "h3", "kind": "sort", "title": "Sort clips", "state": "done",
+                "started_at": "2026-11-17T08:00:00+00:00", "finished_at": "2026-11-17T08:01:00+00:00",
+                "error": None, "log_path": None, "summary": "Sorted 3 clips. Skipped 1."}]
+    rows = view_model.snapshot(_Stub(_data()), history=history)["activity"]["jobs"]
+    assert rows[0]["summary"] == "Sorted 3 clips. Skipped 1."
+
+
 def test_plans_argument_overrides_the_source_plans():
     fixture_plan = fixtures.SCENARIOS["plan"]["compile_plan"]
     snap = view_model.snapshot(_Stub(_data()), plans={"compile_plan": fixture_plan})
