@@ -1,4 +1,4 @@
-"""Scenario catalogue (DESIGN-PLAN section 11): every fixture state as plain data.
+"""Scenario catalogue (design plan section 11): every fixture state as plain data.
 
 Each scenario has the same keys as the RealSource payload (see sources.py).
 Names are invented: in-game character names, made-up dates, no paths,
@@ -60,10 +60,20 @@ def activity(kind, title, result, error=None) -> dict:
     }
 
 
-def folder(slug, video_count, youtube_confirmed=False, confirmed_at=None) -> dict:
+def folder(slug, video_count, youtube_confirmed=False, confirmed_at=None, *, character=None,
+           has_desc=False, clips=0, quad_plus=0, has_clips_dir=False, video_url=None) -> dict:
+    """One output-folder row. Defaults match RealSource on an empty folder."""
     return {
         "slug": slug,
+        "character": character if character is not None else slug.split("_", 1)[0].upper(),
+        "months": None,
         "video_count": video_count,
+        "has_video": video_count > 0,
+        "has_desc": has_desc,
+        "clips": clips,
+        "quad_plus": quad_plus,
+        "has_clips_dir": has_clips_dir,
+        "video_url": video_url,
         "youtube_confirmed": youtube_confirmed,
         "confirmed_at": confirmed_at,
     }
@@ -162,30 +172,45 @@ _LONG = (
 
 SCENARIOS = {
     "empty": _scenario("empty"),
-    "fresh_intake": _scenario("fresh_intake", unsorted=_UNSORTED),
+    "fresh_intake": _scenario("fresh_intake", unsorted=_UNSORTED,
+                              activity=[activity("sort", "Sort unsorted clips", "done")]),
     "needs_decision": _scenario("needs_decision", unsorted=_UNSORTED[:1], low_value=_LOW_VALUE,
-                                characters=[_THOR, _IRON]),
+                                characters=[_THOR, _IRON],
+                                job=job("recycle_clip", "Recycle a low-value clip", "recycling", 1, 2, "clips"),
+                                activity=[activity("recycle_clip", "Recycle SQUIRREL GIRL clip", "done")]),
     "ready": _scenario("ready", characters=[_THOR, _IRON, _SQUIRREL],
-                       output_folders=[folder("thor_vid2", 0)]),
+                       output_folders=[folder("thor_vid2", 0, character="THOR", has_desc=True,
+                                              clips=2, quad_plus=1, has_clips_dir=True)],
+                       job=job("uncompile", "Uncompile thor_vid2", "restoring", 2, 5, "clips")),
     "plan": _scenario("plan", characters=[_THOR, _IRON], compile_plan=_PLAN),
     "scanning": _scenario("scanning", characters=[_THOR, _WIDOW],
-                          job=job("scan", "Scan BLACK WIDOW clips", "scanning", 3, 6, "clips")),
+                          job=job("scan", "Scan BLACK WIDOW clips", "scanning", 3, 6, "clips"),
+                          activity=[activity("scan", "Scan THOR clips", "done")]),
     "encoding": _scenario("encoding", characters=[_THOR], compile_plan=_PLAN,
                           job=job("compile", "Encode THOR batch 1", "encoding", 3, 9, "steps", eta_s=240)),
     "upload_failed": _scenario(
         "upload_failed",
-        output_folders=[folder("thor_vid1", 1)],
+        output_folders=[folder("thor_vid1", 1, character="THOR", has_desc=True, clips=3,
+                               quad_plus=1, has_clips_dir=True)],
+        job=job("upload", "Retry upload thor_vid1", "uploading", 0, 1, "videos"),
         notices=[{"kind": "auth_error",
                   "text": "Sign-in for the video host expired. Sign in again, then retry the upload."}],
         activity=[activity("upload", "Upload thor_vid1", "failed", error="auth expired")],
     ),
     "awaiting_live": _scenario(
         "awaiting_live",
-        output_folders=[folder("thor_vid1", 1, youtube_confirmed=False)],
+        output_folders=[folder("thor_vid1", 1, youtube_confirmed=False, character="THOR", has_desc=True,
+                               clips=3, quad_plus=1, has_clips_dir=True,
+                               video_url="fixture.test/watch?v=up1")],
         activity=[activity("upload", "Upload thor_vid1", "uploaded")],
     ),
     "cleanup_plan": _scenario("cleanup_plan", cleanup_plan=_CLEANUP,
-                              output_folders=[folder("thor_vid1", 2, True, "2026-07-05T10:00:00+00:00")]),
+                              output_folders=[folder("thor_vid1", 2, True, "2026-07-05T10:00:00+00:00",
+                                                     character="THOR", has_desc=True, clips=3, quad_plus=1,
+                                                     has_clips_dir=True,
+                                                     video_url="fixture.test/watch?v=live1")],
+                              job=job("cleanup", "Clean up thor_vid1", "removing", 0, 2, "files"),
+                              activity=[activity("cleanup", "Clean up thor_vid1", "done")]),
     "huge_archive": _scenario("huge_archive", characters=[_THOR],
                               archive={"total": 4200, "by_character": _HUGE_ARCHIVE}),
     "long_names": _scenario(
@@ -207,7 +232,8 @@ SCENARIOS = {
     "interrupted": _scenario(
         "interrupted",
         characters=[_THOR],
-        activity=[activity("compile", "Encode THOR batch 1", "interrupted")],
+        activity=[activity("compile", "Encode THOR batch 1", "interrupted"),
+                  activity("uncompile", "Uncompile thor_vid2", "interrupted")],
     ),
 }
 

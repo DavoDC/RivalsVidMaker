@@ -1,4 +1,4 @@
-"""Data-source seam (DESIGN-PLAN section 6 and 11): src/gui/sources.py and src/gui/fixtures.py.
+"""Data-source seam (design plan section 6 and 11): src/gui/sources.py and src/gui/fixtures.py.
 
 RealSource is read-only: these tests prove it by fingerprinting a tmp tree
 (relative path, kind, size and mtime of every entry) before and after a read.
@@ -251,7 +251,126 @@ def test_real_source_reports_missing_tools(tmp_path):
     assert any("ffmpeg" in p for p in problems)
 
 
-# ── Read-only import boundary ─────────────────────────────────────────────────
+# -- Output-folder rows (task 13b) -----------------------------------------------
+
+FOLDER_KEYS = {
+    "slug", "character", "months", "video_count", "has_video", "has_desc", "clips",
+    "quad_plus", "has_clips_dir", "video_url", "youtube_confirmed", "confirmed_at",
+}
+JOB_KINDS = ("sort", "scan", "compile", "upload", "cleanup", "uncompile", "recycle_clip")
+
+
+def _build_folder_tree(root: Path) -> config.Config:
+    cfg = _make_config(root)
+    out = cfg.output_path
+    _clip(out / "thor_enc" / "thor_enc.mp4")
+    (out / "thor_enc" / "thor_enc_description.txt").write_text("text", encoding="utf-8")
+    (out / "thor_enc" / "clips.json").write_text(json.dumps({
+        "slug": "thor_enc",
+        "char": "THOR",
+        "clips": [
+            {"name": "THOR_a.mp4", "tier": "QUAD"},
+            {"name": "THOR_b.mp4", "tier": "PENTA"},
+            {"name": "THOR_c.mp4", "tier": "KO"},
+        ],
+    }), encoding="utf-8")
+    _clip(out / "thor_enc" / "clips" / "THOR_a.mp4")
+    _clip(out / "iron_bad" / "clips" / "IRON_a.mp4")
+    _clip(out / "iron_bad" / "clips" / "IRON_b.mp4")
+    (out / "iron_bad" / "clips.json").write_text("{not json", encoding="utf-8")
+    _clip(out / "thor_up" / "thor_up.mp4")
+    (out / "squirrel_odd").mkdir(parents=True)
+    (out / "squirrel_odd" / "clips.json").write_text(
+        json.dumps({"char": 3, "clips": "none"}), encoding="utf-8")
+    cfg.state_path.write_text(json.dumps({
+        "videos": {
+            "thor_up": {"url": "https://example.test/watch?v=up1"},
+            "squirrel_odd": {"url": 7},
+        },
+    }), encoding="utf-8")
+    return cfg
+
+
+def test_real_source_folder_rows_carry_the_full_shape(tmp_path):
+    cfg = _build_folder_tree(tmp_path)
+    rows = {r["slug"]: r for r in RealSource(cfg).read()["output_folders"]}
+    assert set(rows) == {"thor_enc", "iron_bad", "thor_up", "squirrel_odd"}
+    for row in rows.values():
+        assert set(row) == FOLDER_KEYS
+    assert rows["thor_enc"] == {
+        "slug": "thor_enc", "character": "THOR", "months": None,
+        "video_count": 1, "has_video": True, "has_desc": True, "clips": 3,
+        "quad_plus": 2, "has_clips_dir": True, "video_url": None,
+        "youtube_confirmed": False, "confirmed_at": None,
+    }
+    assert rows["iron_bad"] == {
+        "slug": "iron_bad", "character": "IRON", "months": None,
+        "video_count": 0, "has_video": False, "has_desc": False, "clips": 2,
+        "quad_plus": 0, "has_clips_dir": True, "video_url": None,
+        "youtube_confirmed": False, "confirmed_at": None,
+    }
+    assert rows["thor_up"] == {
+        "slug": "thor_up", "character": "THOR", "months": None,
+        "video_count": 1, "has_video": True, "has_desc": False, "clips": 0,
+        "quad_plus": 0, "has_clips_dir": False,
+        "video_url": "https://example.test/watch?v=up1",
+        "youtube_confirmed": False, "confirmed_at": None,
+    }
+    assert rows["squirrel_odd"] == {
+        "slug": "squirrel_odd", "character": "SQUIRREL", "months": None,
+        "video_count": 0, "has_video": False, "has_desc": False, "clips": 0,
+        "quad_plus": 0, "has_clips_dir": False, "video_url": None,
+        "youtube_confirmed": False, "confirmed_at": None,
+    }
+
+
+def test_fixture_folder_defaults_match_an_empty_real_folder(tmp_path):
+    cfg = _make_config(tmp_path)
+    (cfg.output_path / "thor_vid9").mkdir(parents=True)
+    real = RealSource(cfg).read()["output_folders"]
+    assert real == [fixtures.folder("thor_vid9", 0)]
+
+
+def test_every_folder_row_in_every_scenario_has_the_real_source_keys():
+    for name in SECTION_11:
+        for row in FixtureSource(name).read()["output_folders"]:
+            assert set(row) == FOLDER_KEYS, (name, row)
+
+
+def test_every_job_kind_is_a_job_and_an_activity_somewhere():
+    jobs, acts = set(), set()
+    for name in SECTION_11:
+        data = FixtureSource(name).read()
+        if data["job"] is not None:
+            jobs.add(data["job"]["kind"])
+        acts.update(a["kind"] for a in data["activity"])
+    assert set(JOB_KINDS) <= jobs
+    assert set(JOB_KINDS) <= acts
+
+
+def _stage_flags(row: dict) -> set:
+    flags = set()
+    if (row["has_video"] and row["has_desc"] and row["has_clips_dir"]
+            and row["video_url"] is None and not row["youtube_confirmed"]):
+        flags.add("encoded")
+    if isinstance(row["video_url"], str) and not row["youtube_confirmed"]:
+        flags.add("uploaded")
+    if row["youtube_confirmed"] is True:
+        flags.add("live")
+    if not row["has_video"] and row["has_clips_dir"]:
+        flags.add("cleaned")
+    return flags
+
+
+def test_the_four_stage_spread_exists_in_some_scenario():
+    seen = set()
+    for name in SECTION_11:
+        for row in FixtureSource(name).read()["output_folders"]:
+            seen |= _stage_flags(row)
+    assert seen == {"encoded", "uploaded", "live", "cleaned"}
+
+
+# -- Read-only import boundary ─────────────────────────────────────────────────
 
 def _parsed_sources():
     return ast.parse(SRC_FILE.read_text(encoding="utf-8"), filename=str(SRC_FILE))

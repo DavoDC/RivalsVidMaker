@@ -1,4 +1,4 @@
-"""Data sources for the GUI (DESIGN-PLAN sections 5 and 6).
+"""Data sources for the GUI (design plan sections 5 and 6).
 
 A Source returns the raw inputs for one snapshot as plain dicts. view_model
 turns them into the /state.json contract; nothing here shapes UI rows.
@@ -11,6 +11,7 @@ tests/gui/test_gui_sources.py parses this file and fails on anything else.
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -101,6 +102,46 @@ def _characters(cfg: Config) -> list[dict]:
     return [_character(d, cfg) for d in _visible_dirs(cfg.clips_path)]
 
 
+QUAD_PLUS_TIERS = ("QUAD", "PENTA", "HEXA")  # the cleanup.ARCHIVE_MIN_TIERS set, as a tuple
+
+
+def _clips_manifest(folder: Path) -> dict | None:
+    """clips.json as a dict when readable JSON object, else None. Never raises."""
+    try:
+        data = json.loads((folder / "clips.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _manifest_clips(manifest: dict | None) -> list | None:
+    clips = manifest.get("clips") if manifest else None
+    return clips if isinstance(clips, list) else None
+
+
+def _folder_character(folder: Path, manifest: dict | None) -> str:
+    char = manifest.get("char") if manifest else None
+    if isinstance(char, str):
+        return char
+    return folder.name.split("_", 1)[0].upper()
+
+
+def _clip_counts(folder: Path, manifest: dict | None) -> tuple[int, int]:
+    """(clips, quad_plus): clips.json entries when readable, else the clips/ folder count."""
+    clips = _manifest_clips(manifest)
+    if clips is None:
+        return len(_video_files(folder / "clips")), 0
+    quad_plus = sum(1 for c in clips if isinstance(c, dict) and c.get("tier") in QUAD_PLUS_TIERS)
+    return len(clips), quad_plus
+
+
+def _video_url(state_data: dict, slug: str) -> str | None:
+    videos = state_data.get("videos")
+    entry = videos.get(slug) if isinstance(videos, dict) else None
+    url = entry.get("url") if isinstance(entry, dict) else None
+    return url if isinstance(url, str) else None
+
+
 def _output_folders(cfg: Config, state_data: dict) -> list[dict]:
     folders = state_data.get("output_folders")
     safe_state = {"output_folders": folders if isinstance(folders, dict) else {}}
@@ -108,9 +149,20 @@ def _output_folders(cfg: Config, state_data: dict) -> list[dict]:
     for folder in _visible_dirs(cfg.output_path):
         info = safe_state["output_folders"].get(folder.name)
         info = info if isinstance(info, dict) else {}
+        manifest = _clips_manifest(folder)
+        videos = _video_files(folder)
+        clips, quad_plus = _clip_counts(folder, manifest)
         rows.append({
             "slug": folder.name,
-            "video_count": len(_video_files(folder)),
+            "character": _folder_character(folder, manifest),
+            "months": None,  # no source yet; the key stays so the contract shape holds
+            "video_count": len(videos),
+            "has_video": len(videos) > 0,
+            "has_desc": any(p.is_file() for p in folder.glob("*_description.txt")),
+            "clips": clips,
+            "quad_plus": quad_plus,
+            "has_clips_dir": (folder / "clips").is_dir(),
+            "video_url": _video_url(state_data, folder.name),
             "youtube_confirmed": state.is_youtube_confirmed(safe_state, folder.name),
             "confirmed_at": info.get("confirmed_at"),
         })
