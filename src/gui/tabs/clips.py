@@ -11,7 +11,7 @@ from html import escape
 
 from nicegui import ui
 
-from gui import tokens, view_model
+from gui import timefmt, tokens, view_model
 from gui.components import tier_chip
 from gui.tabs import heading
 
@@ -37,10 +37,10 @@ _ROW = f"padding:{tokens.SPACE_8}px 0;border-bottom:1px solid {tokens.LINE};"
 _LAYOUT_CSS = (
     "<style>"
     ".rvm-clips{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;width:100%;}"
-    ".rvm-clips-main{flex:1 1 640px;min-width:0;}"
-    ".rvm-clips-panel{flex:0 1 360px;min-width:320px;}"
-    "@media (max-width:1439px){.rvm-clips-panel{flex:1 1 100%;}}"
+    ".rvm-clips-main{flex:2 1 560px;min-width:0;}"
+    ".rvm-clips-panel{flex:1 1 320px;min-width:320px;}"
     "</style>")
+_FADED = "opacity:0.45;"
 
 
 def _decision_sentence(count: int) -> str:
@@ -65,9 +65,9 @@ def summary_text(summary: dict) -> str:
     return " ".join(sentences) if sentences else NO_NEW_COPY
 
 
-def _mss(minutes) -> str:
-    total = round(float(minutes or 0) * 60)
-    return f"{total // 60}:{total % 60:02d}"
+def _duration(minutes) -> str:
+    """Minutes as m:ss, or h:mm:ss past an hour (DESIGN 12)."""
+    return timefmt.duration(round(float(minutes or 0) * 60))
 
 
 def _best(tiers: dict) -> str | None:
@@ -94,7 +94,7 @@ def table_html(rows: list[dict]) -> str:
             f'<tr data-testid="{row["testid"]}">'
             f'<td style="{_TD}">{escape(str(row.get("name") or ""))}</td>'
             f'<td style="{_TD_NUM}">{clips}</td>'
-            f'<td style="{_TD_NUM}">{_mss(row.get("minutes"))}</td>'
+            f'<td style="{_TD_NUM}">{_duration(row.get("minutes"))}</td>'
             f'<td style="{_TD_NUM}">{scanned} of {clips}</td>'
             f'<td style="{_TD}">{_best_cell(row.get("tiers") or {})}</td>'
             "</tr>")
@@ -113,7 +113,7 @@ def _root_html(rows: list[dict]) -> str:
         note = (f'<div style="color:{tokens.TEXT_DIM};">{ROOT_NOTE}</div>' if row.get("protected") else "")
         items.append(f'<div data-testid="{row["testid"]}" style="{_ROW}">'
                      f'<div>"{escape(str(row.get("name") or ""))}"</div>{note}</div>')
-    return "".join(items)
+    return '<div style="width:100%;">' + "".join(items) + "</div>"
 
 
 def _call(actions: dict, key: str, *args) -> None:
@@ -122,17 +122,23 @@ def _call(actions: dict, key: str, *args) -> None:
         action(*args)
 
 
-def _decision_row(row: dict, actions: dict) -> None:
+def _decision_row(row: dict, actions: dict, busy: bool) -> None:
+    """Two lines: the quoted name, then character, tier and the Keep and Recycle buttons in one row."""
     tier = row.get("tier_or_none")
+    faded = _FADED if busy else ""
     with ui.column().props(f'data-testid={row["testid"]}').style(_ROW + "gap:4px;width:100%;"):
         ui.label(f'"{row.get("name") or ""}"').style(f"font-size:{tokens.SIZE_UI}px;font-weight:600;")
-        ui.label(str(row.get("character") or "")).style(_BODY)
-        ui.label(str(tier) if tier else "No kill").style(f"font-size:{tokens.SIZE_UI}px;color:{tokens.TEXT};")
-        with ui.row().style("gap:8px;"):
-            ui.button("Keep", on_click=lambda n=row.get("name"): _call(actions, "keep", n)) \
+        with ui.row().style("gap:16px;align-items:center;width:100%;flex-wrap:wrap;"):
+            ui.label(str(row.get("character") or "")).style(_BODY)
+            ui.label(str(tier) if tier else "No kill").style(f"font-size:{tokens.SIZE_UI}px;color:{tokens.TEXT};")
+            keep = ui.button("Keep", on_click=lambda n=row.get("name"): _call(actions, "keep", n)) \
                 .props("no-caps outline").classes("rvm-button").mark(f"keep-{row['testid']}")
-            ui.button("Recycle", on_click=lambda n=row.get("name"): _call(actions, "recycle", n)) \
+            recycle = ui.button("Recycle", on_click=lambda n=row.get("name"): _call(actions, "recycle", n)) \
                 .props("no-caps outline").classes("rvm-button").mark(f"recycle-{row['testid']}")
+            for button in (keep, recycle):
+                if busy:
+                    button.props("disable")
+                button.style(faded)
 
 
 def build(source, actions=None) -> None:
@@ -141,31 +147,33 @@ def build(source, actions=None) -> None:
     clips_state = state["clips"]
     job = state["job"]
     heading("Clips")
-    ui.label(summary_text(state["summary"])).style(_BODY)
-    with ui.row().style("align-items:center;justify-content:flex-end;gap:8px;width:100%;flex-wrap:wrap;"):
-        if job is not None:
-            ui.label(f'Busy: "{job.get("title") or "a job"}"').style(
-                f"font-size:{tokens.SIZE_UI}px;color:{tokens.TEXT_DIM};margin-right:auto;")
-        busy = job is not None
-        sort = ui.button("Sort clips", on_click=lambda: _call(actions, "sort")).props("no-caps outline")
-        scan = ui.button("Scan for KOs", on_click=lambda: _call(actions, "scan")).props("no-caps outline")
-        for button, marker in ((sort, "sort-clips"), (scan, "scan-kos")):
-            button.mark(marker).classes("rvm-button")
+    busy = job is not None
+    with ui.row().style("justify-content:space-between;align-items:flex-start;width:100%;gap:16px;flex-wrap:wrap;"):
+        with ui.column().style("gap:4px;"):
+            ui.label(summary_text(state["summary"])).style(_BODY)
             if busy:
-                button.props("disable")
+                ui.label(f'Busy: "{job.get("title") or "a job"}"').style(
+                    f"font-size:{tokens.SIZE_UI}px;color:{tokens.TEXT_DIM};")
+        with ui.row().style("align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;"):
+            sort = ui.button("Sort clips", on_click=lambda: _call(actions, "sort")).props("no-caps outline")
+            scan = ui.button("Scan for KOs", on_click=lambda: _call(actions, "scan")).props("no-caps outline")
+            for button, marker in ((sort, "sort-clips"), (scan, "scan-kos")):
+                button.mark(marker).classes("rvm-button").style(_FADED if busy else "")
+                if busy:
+                    button.props("disable")
     ui.html(_LAYOUT_CSS)
     with ui.element("div").classes("rvm-clips"):
         with ui.column().classes("rvm-clips-main").style("gap:8px;"):
             characters = clips_state["characters"]
             if characters:
-                ui.html(table_html(characters))
+                ui.html(table_html(characters)).style("width:100%;")
             else:
                 ui.label(NO_CHARACTERS_COPY).style(_BODY)
             roots = clips_state["unsorted"]
             if roots:
                 ui.label(ROOT_HEADING).style(
                     f"font-size:{tokens.SIZE_SECTION}px;font-weight:600;font-stretch:87.5%;margin-top:{tokens.SPACE_24}px;")
-                ui.html(_root_html(roots))
+                ui.html(_root_html(roots)).style("width:100%;")
         decisions = clips_state["low_value"]
         if decisions:
             with ui.column().classes("rvm-clips-panel").style(
@@ -174,4 +182,4 @@ def build(source, actions=None) -> None:
                 ui.label(DECISION_HEADING).style(
                     f"font-size:{tokens.SIZE_SECTION}px;font-weight:600;font-stretch:87.5%;")
                 for row in decisions:
-                    _decision_row(row, actions)
+                    _decision_row(row, actions, busy)

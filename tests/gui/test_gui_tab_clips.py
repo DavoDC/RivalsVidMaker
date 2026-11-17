@@ -5,6 +5,7 @@ Tab tests run the NiceGUI user simulator from sync tests with asyncio.run, as th
 do. Nothing here writes outside tmp_path and nothing imports bridge or jobs.
 """
 import asyncio
+import inspect
 import re
 
 import pytest
@@ -75,10 +76,24 @@ def _click(marker, source, actions):
     asyncio.run(run())
 
 
-def _with_job(title="Scan BLACK WIDOW clips"):
+def _with_job(title="Scan BLACK WIDOW clips", scenario="empty"):
     def change(data):
         data["job"] = fixtures.job("scan", title, "scanning", 3, 6, "clips")
-    return _Source("empty", change)
+    return _Source(scenario, change)
+
+
+def _page_elements(builder, source, actions=None):
+    """The live NiceGUI elements of the tab in a simulated page (the tree, for structure checks)."""
+    def root():
+        builder(source, actions)
+
+    async def run():
+        async with user_simulation(root) as user:
+            await user.open("/")
+            with user.client:
+                return list(ElementFilter(only_visible=False))
+
+    return asyncio.run(run())
 
 
 # ---- painted rows match the view model ---------------------------------------------------------
@@ -135,6 +150,51 @@ def test_busy_disables_both_buttons_and_names_the_job():
     assert 'Busy: "Scan BLACK WIDOW clips"' in labels
 
 
+def test_busy_disables_all_four_buttons_and_fades_them():
+    elements = _page_elements(clips.build, _with_job(scenario="needs_decision"))
+    buttons = [e for e in elements if isinstance(e, ui.button)]
+    assert {b.text for b in buttons} >= {"Sort clips", "Scan for KOs", "Keep", "Recycle"}
+    for button in buttons:
+        assert button._props.get("disable"), f"{button.text} should be disabled while a job runs"
+        assert "0.45" in str(button._style), f"{button.text} should be faded while a job runs"
+
+
+def test_idle_buttons_are_not_faded():
+    def no_job(data):
+        data["job"] = None
+    elements = _page_elements(clips.build, _Source("needs_decision", no_job))
+    buttons = [e for e in elements if isinstance(e, ui.button)]
+    assert buttons
+    for button in buttons:
+        assert "0.45" not in str(button._style)
+
+
+def test_decision_character_tier_and_buttons_share_one_row():
+    row = view_model.snapshot(FixtureSource("needs_decision"))["clips"]["low_value"][0]
+    elements = _page_elements(clips.build, FixtureSource("needs_decision"))
+    keep = next(e for e in elements if isinstance(e, ui.button) and e.text == "Keep")
+    line = keep.parent_slot.parent
+    texts = {e.text for e in line.descendants() if isinstance(e, ui.label)}
+    buttons = {e.text for e in line.descendants() if isinstance(e, ui.button)}
+    assert buttons == {"Keep", "Recycle"}
+    assert row["character"] in texts
+    assert (row.get("tier_or_none") or "No kill") in texts
+    assert f'"{row["name"]}"' not in texts
+
+
+def test_summary_and_buttons_share_one_space_between_row():
+    elements = _page_elements(clips.build, FixtureSource("needs_decision"))
+    sort = next(e for e in elements if isinstance(e, ui.button) and e.text == "Sort clips")
+    bar = sort.parent_slot.parent.parent_slot.parent
+    assert "space-between" in str(bar._style)
+    texts = {e.text for e in bar.descendants() if isinstance(e, ui.label)}
+    assert summary_text_for("needs_decision") in texts
+
+
+def summary_text_for(scenario):
+    return clips.summary_text(view_model.snapshot(FixtureSource(scenario))["summary"])
+
+
 def test_idle_leaves_the_buttons_enabled_and_shows_no_busy_label():
     _html, _props, labels, buttons = _render(clips.build, FixtureSource("fresh_intake"))
     assert buttons
@@ -164,11 +224,31 @@ def test_table_minutes_scanned_and_best_cells():
     assert ">None</span>" not in html
 
 
+def test_minutes_past_an_hour_read_as_hours_minutes_seconds():
+    row = {"testid": "clip-char-thor-000005", "name": "THOR", "clips": 90, "minutes": 150,
+           "scanned": 90, "unscanned": 0, "tiers": {}}
+    html = clips.table_html([row])
+    assert ">2:30:00</td>" in html
+    assert ">150:00</td>" not in html
+
+
+def test_table_and_root_list_fill_their_column():
+    table = [e for e in _page_elements(clips.build, FixtureSource("needs_decision"))
+             if isinstance(e, ui.html) and "<table" in e.content]
+    roots = [e for e in _page_elements(clips.build, FixtureSource("fresh_intake"))
+             if isinstance(e, ui.html) and "clip-root-" in e.content]
+    assert table and roots
+    assert "width:100%" in table[0].content
+    for element in table + roots:
+        assert element._style.get("width") == "100%"
+    assert "width:100%" in clips._root_html(view_model.snapshot(FixtureSource("fresh_intake"))["clips"]["unsorted"])
+
+
 def test_table_best_is_none_when_no_quad_or_better():
     row = {"testid": "clip-char-x-000002", "name": "SQUIRREL GIRL", "clips": 12, "minutes": 7.0833,
            "scanned": 10, "unscanned": 2, "tiers": {"KO": 9, "DOUBLE": 2}}
     html = clips.table_html([row])
-    assert ">7:05</td>" in html
+    assert ">07:05</td>" in html
     assert ">10 of 12</td>" in html
     assert "None" in html and "data-tier" not in html
 
@@ -250,8 +330,15 @@ def test_action_buttons_without_actions_are_no_ops():
 
 # ---- layout: side by side at 1440 and up, stacked below (flex wrap, no JS) ---------------------
 
-def test_panel_sits_beside_the_table_at_1440_and_under_it_below():
+def test_panel_sits_beside_the_table_at_1440_and_stacks_at_1024():
     html, _props, _labels, _buttons = _render(clips.build, FixtureSource("needs_decision"))
     assert "flex-wrap:wrap" in html
-    assert "@media (max-width:1439px)" in html
+    assert ".rvm-clips-main{flex:2 1 560px;" in html
+    assert ".rvm-clips-panel{flex:1 1 320px;" in html
     assert "<script" not in html.lower()
+
+
+def test_no_max_width_1439_media_query_remains():
+    source = inspect.getsource(clips)
+    assert "max-width:1439px" not in source
+    assert "1439" not in source
