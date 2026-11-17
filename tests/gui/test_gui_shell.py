@@ -309,3 +309,69 @@ def test_default_page_header_says_error_after_a_failed_job_then_idle_after_a_cle
     runner.start("scan", "Scan Clips", lambda ctx: None)
     assert runner.wait(5)
     assert _default_page_header(gui_main.WiredSource(FixtureSource("empty"), runner), runner) == ("Idle", "idle")
+
+
+# ---- actions: clips, compile and videos get their tab's dict; archive and activity get none ----
+
+def _arg_recording_builders(calls):
+    """Each builder records the extra arguments it was given after the source."""
+    def make(key):
+        def build(source, *rest):
+            calls.append((key, rest))
+        return build
+    return {key: make(key) for key in KEYS}
+
+
+def test_build_page_passes_each_action_tab_its_dict_and_not_archive_or_activity():
+    calls = []
+    builders = _arg_recording_builders(calls)
+    tabs_seen = {}
+
+    def actions(key):
+        tabs_seen.setdefault(key, {"for": key})
+        return tabs_seen[key]
+
+    async def action(user):
+        for key in ("compile", "videos", "archive", "activity"):
+            user.find(marker=f"nav-{key}").click()
+
+    async def run():
+        def root():
+            shell.build_page(FixtureSource("empty"), initial_tab="clips", builders=builders, actions=actions)
+
+        async with user_simulation(root) as user:
+            await user.open("/?tab=clips")
+            await action(user)
+
+    asyncio.run(run())
+    assert ("clips", ({"for": "clips"},)) in calls
+    assert ("compile", ({"for": "compile"},)) in calls
+    assert ("videos", ({"for": "videos"},)) in calls
+    assert ("archive", ()) in calls
+    assert ("activity", ()) in calls
+
+
+def test_make_page_handler_passes_the_actions_to_the_builder(tmp_path):
+    calls = []
+    source, runner, actions = object(), object(), object()
+    handler = gui_main.make_page_handler(source, runner, builder=lambda s, r, tab, a: calls.append((s, r, tab, a)),
+                                         actions=actions)
+    handler(tab="compile")
+    assert calls == [(source, runner, "compile", actions)]
+
+
+def test_default_builder_hands_the_actions_as_a_key_lookup_to_build_page(monkeypatch):
+    import sys
+    import types
+
+    seen = {}
+    stub = types.ModuleType("gui.shell")
+    stub.build_page = lambda source, *, initial_tab=None, actions=None: seen.update(actions=actions)
+    monkeypatch.setitem(sys.modules, "gui.shell", stub)
+
+    class Lookup:
+        def for_tab(self, key):
+            return {"key": key}
+
+    gui_main._default_builder(object(), object(), "clips", Lookup())
+    assert seen["actions"]("clips") == {"key": "clips"}

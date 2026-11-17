@@ -18,6 +18,7 @@ from nicegui import ui
 from gui import build_info, chrome, jobs, tabdefs, tokens, view_model
 
 _log = logging.getLogger("rvm.gui")
+ACTION_TABS = ("clips", "compile", "videos")  # the tabs whose build() takes an actions dict
 
 
 def _default_builder(key: str) -> Callable:
@@ -63,7 +64,8 @@ def _sync_url(key: str) -> None:
 
 def build_page(source, *, initial_tab: str | None = None, state_word: str | None = None,
                state_kind: str | None = None, updated_seconds: float | None = None,
-               builders: dict[str, Callable] | None = None) -> None:
+               builders: dict[str, Callable] | None = None,
+               actions: Callable[[str], dict] | None = None) -> None:
     """Paint the whole page for one source.
 
     source: a Source (fixture or real); .fixture, the snapshot's job and activity, and each tab's build(source) are read.
@@ -72,6 +74,8 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
     from header_state() on the same snapshot the page paints: the running job, else a failed last job.
     updated_seconds: seconds since the last state update for the footer; None shows "not updated yet".
     builders: optional {key: build(source)} overriding tabs/<key>.py; used by tests.
+    actions: optional key -> action dict. clips, compile and videos are built with build(source, actions(key));
+    archive and activity, and every tab when actions is None, are built with build(source).
     """
     active = initial_tab if initial_tab in tabdefs.KEYS else tabdefs.DEFAULT
     overrides = builders or {}
@@ -102,7 +106,10 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
             with panels[key]:
                 try:
                     build = overrides.get(key) or _default_builder(key)
-                    build(source)
+                    if actions is not None and key in ACTION_TABS:
+                        build(source, actions(key))
+                    else:
+                        build(source)
                 except Exception as e:  # a broken tab must not kill the page
                     _log.exception("tab build failed: %s", key)
                     ui.label(f"This tab failed to build: {e}").props(

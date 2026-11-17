@@ -310,6 +310,23 @@ def test_a_second_action_while_a_job_runs_raises_busy(config, runner):
     assert runner.wait(WAIT)
 
 
+def test_compile_passes_force_through_to_apply_compile(config, runner, monkeypatch, tmp_path):
+    signed_in(tmp_path)
+    plan = SimpleNamespace(character="THOR")
+    applied = []
+    monkeypatch.setattr(pipeline, "plan_compile", lambda cfg, character, target_s: plan)
+
+    def fake_apply(cfg, p, decisions, force=False, on_progress=None):
+        applied.append(force)
+        return SimpleNamespace(compiled=True, uploaded=True, needs_sign_in=False, upload_failed=False, error="")
+
+    monkeypatch.setattr(pipeline, "apply_compile", fake_apply)
+    token, _ = bridge.plan_compile(config, "THOR", 900)
+    bridge.compile(runner, config, token, clips={}, extra=0, force=True)
+    assert finish(runner)["state"] == "done"
+    assert applied == [True]
+
+
 # ----- uncompile ---------------------------------------------------------------------
 
 def test_uncompile_plans_and_applies_without_a_live_mark(config, runner, monkeypatch):

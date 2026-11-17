@@ -44,12 +44,14 @@ def _say(text: str) -> None:
 
 
 class WiredSource:
-    """Adds the running job and the job history to the source snapshot (StateApi has no job feed).
-    An idle runner leaves the inner source's fixture job and activity untouched."""
+    """Adds the running job, the job history and any held plans to the source snapshot (StateApi has
+    no job feed). An idle runner leaves the inner source's fixture job and activity untouched; with
+    no held plan the inner source's own plans stay as they are."""
 
-    def __init__(self, inner, runner):
+    def __init__(self, inner, runner, actions=None):
         self.inner = inner
         self.runner = runner
+        self.actions = actions
 
     @property
     def fixture(self):
@@ -63,21 +65,34 @@ class WiredSource:
         history = self.runner.history()
         if history:
             data["activity"] = list(history)
+        if self.actions is not None:
+            data.update(self.actions.held_plans())
         return data
 
 
-def _default_builder(source, runner, tab):
+def _make_actions(runner, config, fixture):
+    """A fixture run gets the stand-in that writes nothing; a real run gets the bridge-backed actions."""
+    from gui import wiring
+    if fixture:
+        return wiring.FixtureActions()
+    return wiring.Actions(runner, config)
+
+
+def _default_builder(source, runner, tab, actions=None):
     # Lazy: the page shell is imported on first show. import_module reads sys.modules, so a
     # stubbed gui.shell is honoured even after the real module set the package attribute.
     shell = importlib.import_module("gui.shell")
-    shell.build_page(source, initial_tab=tab)
+    shell.build_page(source, initial_tab=tab,
+                     actions=None if actions is None else actions.for_tab)
 
 
-def make_page_handler(source, runner, builder=None):
+def make_page_handler(source, runner, builder=None, actions=None):
     build = builder or _default_builder
 
     def handler(tab=None):
-        return build(source, runner, tab)
+        if actions is None:  # builders written before the actions argument keep their three-argument call
+            return build(source, runner, tab)
+        return build(source, runner, tab, actions)
 
     return handler
 
@@ -101,15 +116,18 @@ def serve(args: argparse.Namespace) -> int:
     if sys.stdout is None or sys.stderr is None:  # pythonw: route output to today's log
         log = open(launcher.log_path(root), "a", encoding="utf-8", buffering=1)
         sys.stdout = sys.stderr = log
+    config = None
     if args.fixture:
         source = FixtureSource(args.fixture)
     else:
         from config import load
-        source = RealSource(load(root / "config" / "config.json"))
+        config = load(root / "config" / "config.json")
+        source = RealSource(config)
     state_dir = root / "data" / "gui"
     state_dir.mkdir(parents=True, exist_ok=True)
     runner = jobs.JobRunner(state_dir / "jobs.json", log_path=launcher.log_path(root))
-    wired = WiredSource(source, runner)
+    actions = _make_actions(runner, config, args.fixture)
+    wired = WiredSource(source, runner, actions)
     port = args.port
 
     from nicegui import app, ui
@@ -117,7 +135,7 @@ def serve(args: argparse.Namespace) -> int:
 
     app.add_middleware(security.LoopbackGuard, port_fn=lambda: port)
     state_api.register(app, wired)
-    handler = make_page_handler(wired, runner)
+    handler = make_page_handler(wired, runner, actions=actions)
 
     @ui.page("/")
     def index():

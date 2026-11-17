@@ -110,7 +110,9 @@ def plan_compile(config, character: Path | str, target_s: float) -> tuple[str, A
     return PLANS.issue("compile", plan), plan
 
 
-def compile(runner: jobs.JobRunner, config, token: str, clips: dict | None = None, extra: int = 0) -> dict:
+def compile(runner: jobs.JobRunner, config, token: str, clips: dict | None = None, extra: int = 0,
+            force: bool = False) -> dict:
+    """force is the Re-encode flag: True encodes even when the video already exists."""
     _require_idle(runner)
     _require_sign_in()
     plan = PLANS.take("compile", token)
@@ -120,7 +122,7 @@ def compile(runner: jobs.JobRunner, config, token: str, clips: dict | None = Non
         def on_progress(encoded, total) -> None:
             ctx.progress(round(encoded), round(total), "s", "Encoding")
 
-        result = engine_pipeline.apply_compile(config, plan, decisions, on_progress=on_progress)
+        result = engine_pipeline.apply_compile(config, plan, decisions, force=force, on_progress=on_progress)
         if result.needs_sign_in or result.upload_failed:
             ctx.log.warning("Compiled, but the upload did not finish: %s", result.error)
         ctx.log.info("Compile finished: compiled=%s uploaded=%s", result.compiled, result.uploaded)
