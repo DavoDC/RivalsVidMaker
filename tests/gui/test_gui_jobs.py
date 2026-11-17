@@ -1,4 +1,4 @@
-"""Background job runner for the local GUI (DESIGN-PLAN.md section 7). Headless, no real sleeps.
+"""Background job runner for the local GUI. Headless, no real sleeps.
 
 Every test writes its history under tmp_path, never under data/gui/. Threads are joined with
 a timeout, and the test clock is a fake that only moves when a test advances it.

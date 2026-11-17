@@ -9,7 +9,7 @@ import threading
 import time
 from typing import Any, Callable, Dict, Tuple
 
-NONCE_TTL = 600.0   # seconds a plan token stays valid (DESIGN-PLAN.md section 8)
+NONCE_TTL = 600.0   # seconds a plan token stays valid
 NONCE_LIMIT = 100   # most live tokens kept; the oldest is dropped past this
 
 

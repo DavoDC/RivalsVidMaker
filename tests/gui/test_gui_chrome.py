@@ -1,4 +1,4 @@
-"""Page head and chrome (DESIGN-PLAN section 12, WS-043, WS-053): theme.py and chrome.py."""
+"""Page head and chrome (docs/DESIGN.md): theme.py and chrome.py."""
 import re
 from pathlib import Path
 

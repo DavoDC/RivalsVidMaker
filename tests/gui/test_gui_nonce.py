@@ -1,4 +1,4 @@
-"""Single-use, expiring plan tokens for the local GUI (DESIGN-PLAN.md section 8)."""
+"""Single-use, expiring plan tokens for the local GUI."""
 from gui import nonce
 
 
