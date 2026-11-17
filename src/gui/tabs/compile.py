@@ -116,9 +116,11 @@ def _clip_row(clip: dict, actions: dict, busy: bool) -> None:
             ui.label(decision.capitalize()).style(_UI + f"color:{tokens.TEXT_DIM};")
         else:
             _choice_button("Keep", f"keep-{clip['testid']}", lambda n=name: _call(actions, "keep", n),
-                           busy, decision != "recycle")
+                           busy, decision not in ("recycle", "drop"))
             _choice_button("Recycle", f"recycle-{clip['testid']}", lambda n=name: _call(actions, "recycle", n),
                            busy, decision == "recycle")
+            if decision == "drop":
+                ui.label("Left out").style(_UI + f"color:{tokens.TEXT_DIM};")
 
 
 def _duplicate_row(dup: dict, actions: dict, busy: bool) -> None:
@@ -129,8 +131,11 @@ def _duplicate_row(dup: dict, actions: dict, busy: bool) -> None:
         ui.label(a).style(_UI + _NUM + "font-weight:600;")
         ui.label(b).style(_UI + _NUM)
         ui.label(_match_text(dup.get("score"))).style(_UI + _NUM + f"color:{tokens.TEXT_DIM};")
-        _button("Keep both", f"keep-both-{tid}", lambda: _call(actions, "keep_both", a, b), busy)
-        _button("Drop one", f"drop-one-{tid}", lambda: _call(actions, "drop_one", a, b), busy)
+        resolution = dup.get("resolution")
+        _choice_button("Keep both", f"keep-both-{tid}", lambda: _call(actions, "keep_both", a, b), busy,
+                       resolution == "keep_both")
+        _choice_button("Drop one", f"drop-one-{tid}", lambda: _call(actions, "drop_one", a, b), busy,
+                       resolution == "drop_one")
 
 
 def build(source, actions=None) -> None:

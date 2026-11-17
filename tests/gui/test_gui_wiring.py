@@ -273,12 +273,45 @@ def test_compile_keep_both_and_drop_one_record_decisions_on_the_view(actions, fa
     compile_tab["drop_one"]("THOR_a_KO.mp4", "THOR_b_KO.mp4")
     decisions = {c["name"]: c["decision"] for b in actions.held_plans()["compile_plan"]["batches"]
                  for c in b["clips"]}
-    assert decisions["THOR_b_KO.mp4"] == "recycle"
+    assert decisions["THOR_b_KO.mp4"] == "drop"
     assert decisions["THOR_a_KO.mp4"] == "keep"
     compile_tab["keep_both"]("THOR_a_KO.mp4", "THOR_b_KO.mp4")
     decisions = {c["name"]: c["decision"] for b in actions.held_plans()["compile_plan"]["batches"]
                  for c in b["clips"]}
     assert decisions["THOR_b_KO.mp4"] == "keep"
+
+
+def test_compile_drop_one_leaves_the_second_clip_in_highlights_and_records_the_pair(actions, fake_bridge, fake_ui):
+    compile_tab = actions.for_tab("compile")
+    compile_tab["plan"]("THOR", 900, False)
+    compile_tab["drop_one"]("THOR_a_KO.mp4", "THOR_b_KO.mp4")
+    held = actions.held_plans()["compile_plan"]
+    decisions = {c["name"]: c["decision"] for b in held["batches"] for c in b["clips"]}
+    assert decisions["THOR_b_KO.mp4"] == "drop"
+    assert decisions["THOR_a_KO.mp4"] == "keep"
+    assert held["duplicates"][0]["resolution"] == "drop_one"
+    assert fake_ui.notes[-1] == ('"THOR_b_KO.mp4" stays in Highlights and is left out of this video.', "positive")
+
+
+def test_compile_keep_both_records_the_pair_resolution(actions, fake_bridge, fake_ui):
+    compile_tab = actions.for_tab("compile")
+    compile_tab["plan"]("THOR", 900, False)
+    compile_tab["drop_one"]("THOR_a_KO.mp4", "THOR_b_KO.mp4")
+    compile_tab["keep_both"]("THOR_a_KO.mp4", "THOR_b_KO.mp4")
+    held = actions.held_plans()["compile_plan"]
+    assert held["duplicates"][0]["resolution"] == "keep_both"
+    decisions = {c["name"]: c["decision"] for b in held["batches"] for c in b["clips"]}
+    assert decisions["THOR_b_KO.mp4"] == "keep"
+
+
+def test_compile_duplicate_actions_refuse_a_pair_not_in_the_plan(actions, fake_bridge, fake_ui):
+    compile_tab = actions.for_tab("compile")
+    compile_tab["plan"]("THOR", 900, False)
+    compile_tab["keep_both"]("THOR_x.mp4", "THOR_y.mp4")
+    assert fake_ui.notes[-1] == ("That pair is not in this plan.", "negative")
+    compile_tab["drop_one"]("THOR_y.mp4", "THOR_x.mp4")
+    assert fake_ui.notes[-1] == ("That pair is not in this plan.", "negative")
+    assert all(d["resolution"] is None for d in actions.held_plans()["compile_plan"]["duplicates"])
 
 
 def test_compile_keep_and_recycle_refuse_a_clip_not_in_the_plan(actions, fake_bridge, fake_ui):
@@ -409,7 +442,14 @@ def test_held_compile_plan_is_accepted_by_view_model(actions, fake_bridge, fake_
     assert [c["name"] for c in first] == ["THOR_a_KO.mp4", "THOR_b_KO.mp4"]
     assert first[0]["tier"] == "HEXA" and first[0]["decision"] == "keep"
     assert first[1]["start_s"] == 60.0 and first[1]["duration_s"] == 45.0
-    assert shown["duplicates"] == [{"a": "THOR_a_KO.mp4", "b": "THOR_b_KO.mp4", "score": 1.0}]
+    assert shown["duplicates"] == [{"a": "THOR_a_KO.mp4", "b": "THOR_b_KO.mp4", "score": 1.0, "resolution": None}]
+
+
+def test_view_model_passes_the_pair_resolution_through():
+    plan = {"nonce": "n", "character": "THOR", "target_s": 900.0, "batches": [],
+            "duplicates": [{"a": "x.mp4", "b": "y.mp4", "score": 1.0, "resolution": "drop_one"}]}
+    assert view_model._compile(plan)["plan"]["duplicates"] == [
+        {"a": "x.mp4", "b": "y.mp4", "score": 1.0, "resolution": "drop_one"}]
 
 
 def test_match_score_maps_hamming_distance_to_similarity():

@@ -135,7 +135,8 @@ def _compile(plan: dict | None) -> dict:
         "batches": [{"number": b.get("number"), "duration_s": b.get("duration_s"),
                      "clips": [_plan_clip(c) for c in b.get("clips") or []]}
                     for b in plan.get("batches") or []],
-        "duplicates": [{"a": d.get("a"), "b": d.get("b"), "score": d.get("score")}
+        "duplicates": [{"a": d.get("a"), "b": d.get("b"), "score": d.get("score"),
+                        "resolution": d.get("resolution")}
                        for d in plan.get("duplicates") or []],
     }}
 

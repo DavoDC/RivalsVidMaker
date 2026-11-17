@@ -93,7 +93,8 @@ def _held_compile(token: str, plan, reencode: bool) -> dict:
                      "clips": [{"name": c.name, "start_s": c.start_s, "duration_s": c.duration_s,
                                 "tier": c.tier, "decision": "keep"} for c in b.clips]}
                     for b in plan.batches],
-        "duplicates": [{"a": d.a, "b": d.b, "score": match_score(d.score)} for d in plan.duplicates],
+        "duplicates": [{"a": d.a, "b": d.b, "score": match_score(d.score), "resolution": None}
+                       for d in plan.duplicates],
     }
 
 
@@ -208,6 +209,7 @@ class Actions:
             clips[name]["decision"] = decision
 
     def _keep(self, name: str) -> None:
+        # shortcut: Keep does not clear the pair resolution, add if it confuses
         self._decide({name: "keep"})
         _toast(f'Will keep "{name}".')
         _refresh("/tab/compile")
@@ -217,15 +219,28 @@ class Actions:
         _toast(f'Will recycle "{name}".')
         _refresh("/tab/compile")
 
+    def _pair(self, a: str, b: str) -> dict:
+        held = self._held.get("compile_plan")
+        if held is None:
+            raise bridge.Refused(NO_PLAN)
+        for pair in held["duplicates"]:
+            if (pair["a"], pair["b"]) == (a, b):
+                return pair
+        raise bridge.Refused("That pair is not in this plan.")
+
     def _keep_both(self, a: str, b: str) -> None:
+        pair = self._pair(a, b)
         self._decide({a: "keep", b: "keep"})
+        pair["resolution"] = "keep_both"
         _toast(f'Will keep both "{a}" and "{b}".')
         _refresh("/tab/compile")
 
     def _drop_one(self, a: str, b: str) -> None:
         # In a duplicate pair the second clip is the one dropped; the first is kept.
-        self._decide({b: "recycle"})
-        _toast(f'Will recycle "{b}".')
+        pair = self._pair(a, b)
+        self._decide({b: "drop"})
+        pair["resolution"] = "drop_one"
+        _toast(f'"{b}" stays in Highlights and is left out of this video.')
         _refresh("/tab/compile")
 
     # videos tab

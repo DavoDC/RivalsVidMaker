@@ -550,6 +550,36 @@ def test_rows_with_keep_and_recycle_buttons_drop_the_decision_word():
     assert "Recycle" not in labels
 
 
+def test_dropped_clip_shows_left_out_and_neither_button_pressed():
+    low = _low_clip(_plan("plan"))
+    tid = view_model.testid("plan-clip", low["name"])
+    source = _decide(low["name"], "drop")
+    elements = _page_elements(compile_tab.build, source)
+    assert str(_marked_button(elements, f"keep-{tid}")._props.get("aria-pressed")).lower() == "false"
+    assert str(_marked_button(elements, f"recycle-{tid}")._props.get("aria-pressed")).lower() == "false"
+    assert "Left out" in _render(compile_tab.build, source)[2]
+
+
+def _resolve(a, b, resolution):
+    def change(data):
+        for dup in data["compile_plan"]["duplicates"]:
+            if (dup["a"], dup["b"]) == (a, b):
+                dup["resolution"] = resolution
+    return _Source("plan", change)
+
+
+@pytest.mark.parametrize("resolution,pressed", (("keep_both", "keep-both"), ("drop_one", "drop-one"), (None, None)))
+def test_settled_pair_shows_its_choice_as_the_pressed_button(resolution, pressed):
+    dup = _plan("plan")["duplicates"][0]
+    tid = view_model.testid("plan-dup", f"{dup['a']}|{dup['b']}")
+    elements = _page_elements(compile_tab.build, _resolve(dup["a"], dup["b"], resolution))
+    for name in ("keep-both", "drop-one"):
+        button = _marked_button(elements, f"{name}-{tid}")
+        chosen = name == pressed
+        assert str(button._props.get("aria-pressed")).lower() == ("true" if chosen else "false")
+        assert ("unelevated" in button._props) == chosen
+
+
 @pytest.mark.parametrize("decision", ("keep", "recycle"))
 def test_chosen_button_is_filled_and_pressed_and_the_other_stays_outlined(decision):
     low = _low_clip(_plan("plan"))
