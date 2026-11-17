@@ -158,7 +158,7 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
     ui.add_head_html(chrome.head_html())
     # One content column: header, banner, tabs, panels and footer all span it, capped at
     # 1280 px (docs/DESIGN.md section 11). Without it each piece shrink-wraps its content.
-    root = ui.column().style("width:100%;max-width:1280px;margin:0 auto;padding:16px 24px 0;"
+    root = ui.column().style("width:100%;max-width:1280px;margin:0 auto;padding:0 24px 0;"
                              "box-sizing:border-box;gap:0;align-items:stretch;")
     root.mark("page-root")
     with root:
@@ -201,7 +201,7 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
             for key in tabdefs.KEYS:
                 button = ui.element("button").classes("rvm-tab").props(
                     f'id=tab-{key} type=button role=tab data-testid=nav-{key} aria-controls=panel-{key} '
-                    f'aria-selected={"true" if key == active else "false"}')
+                    f'aria-selected={"true" if key == active else "false"} onmousedown="event.preventDefault()"')
                 button.mark(f"nav-{key}")
                 with button:
                     ui.html(tabdefs.label_of(key))
@@ -211,7 +211,7 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
         for key in tabdefs.KEYS:
             panel = ui.column().props(
                 f'id=panel-{key} role=tabpanel data-testid=tab-{key} aria-labelledby=tab-{key}'
-            ).style(f"gap:0;padding:{tokens.SPACE_24}px;align-items:stretch;")
+            ).style(f"gap:0;padding:{tokens.SPACE_16}px {tokens.SPACE_24}px {tokens.SPACE_24}px;align-items:stretch;")
             panel.mark(f"tab-{key}")
             panel.set_visibility(key == active)
             panels[key] = panel

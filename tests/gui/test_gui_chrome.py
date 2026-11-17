@@ -33,9 +33,20 @@ def test_head_html_dims_disabled_buttons_past_quasar_opacity():
     assert "opacity:0.45" not in theme.HEAD_HTML
 
 
-def test_head_html_app_title_is_the_tab_heading_size_and_tabs_the_section_size():
-    assert ".rvm-title{font-size:26px;" in theme.HEAD_HTML
-    assert ".rvm-tab{font:inherit;font-size:20px;" in theme.HEAD_HTML
+def test_head_html_app_title_is_32px_at_line_height_1_1_and_tabs_22px():
+    assert ".rvm-title{font-size:32px;font-weight:600;font-stretch:87.5%;margin:0;line-height:1.1;}" in theme.HEAD_HTML
+    assert ".rvm-tab{font:inherit;font-size:22px;" in theme.HEAD_HTML
+    assert "padding:8px 0;cursor:pointer;}" in theme.HEAD_HTML
+
+
+def test_head_html_header_has_8px_vertical_padding():
+    assert ".rvm-header{display:flex;align-items:center;justify-content:space-between;gap:16px;" in theme.HEAD_HTML
+    assert "padding:8px 24px;border-bottom:1px solid #2A3247;" in theme.HEAD_HTML
+
+
+def test_head_html_tab_focus_ring_is_keyboard_only():
+    # a mouse click must not leave a box; keyboard focus (focus-visible) keeps the ring
+    assert ".rvm-tab:focus:not(:focus-visible){outline:none;}" in theme.HEAD_HTML
 
 
 def test_head_html_has_visible_focus_ring():

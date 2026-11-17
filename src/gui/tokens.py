@@ -30,7 +30,9 @@ SIZE_FINE = 12      # fine print
 SIZE_UI = 14        # tables and buttons
 SIZE_BODY = 16      # body
 SIZE_SECTION = 20   # section heading
+SIZE_NAV = 22       # tab labels
 SIZE_TAB = 26       # tab heading
+SIZE_TITLE = 32     # app title
 SIZE_REEL = 40      # the reel's total duration
 
 # Spacing step 4 (DESIGN.md section 6), in px

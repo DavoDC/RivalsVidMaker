@@ -42,11 +42,18 @@ def test_every_colour_row_in_design_md_exists_in_tokens(name, value):
 
 @pytest.mark.parametrize("const,value", [
     ("SIZE_FINE", 12), ("SIZE_UI", 14), ("SIZE_BODY", 16),
-    ("SIZE_SECTION", 20), ("SIZE_TAB", 26), ("SIZE_REEL", 40),
+    ("SIZE_NAV", 22), ("SIZE_SECTION", 20), ("SIZE_TAB", 26), ("SIZE_TITLE", 32), ("SIZE_REEL", 40),
 ])
 def test_type_size_scale_matches_design_md(const, value):
-    # DESIGN.md section 6, "Size scale (px)": 12, 14, 16, 20, 26, 40
+    # DESIGN.md section 6, "Size scale (px)": 12, 14, 16, 20, 22, 26, 32, 40
     assert getattr(tokens, const) == value
+
+
+def test_size_scale_sentence_in_design_md_lists_every_size_token():
+    # the size scale is a sentence in section 6, not a table; each token's px value must appear in it
+    line = next(ln for ln in _design_text().splitlines() if ln.startswith("Size scale (px):"))
+    for const in ("SIZE_FINE", "SIZE_UI", "SIZE_BODY", "SIZE_NAV", "SIZE_SECTION", "SIZE_TAB", "SIZE_TITLE", "SIZE_REEL"):
+        assert re.search(rf"\b{getattr(tokens, const)} [a-z]", line), (const, line)
 
 
 @pytest.mark.parametrize("const,value", [
