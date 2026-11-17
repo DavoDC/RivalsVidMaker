@@ -218,12 +218,11 @@ def test_stop_is_absent_when_no_job_runs():
 
 
 def test_stop_is_absent_for_an_encode_job_that_cannot_be_cancelled():
-    # The encoding fixture job is cancellable: True (fixtures.py); this case sets the flag the way an
-    # encode job must report it (encode cancel is past MVP, spec section 7), and Stop must not be rendered.
-    source = _job_source(cancellable=False)
-    html, _props, found = _render(activity.build, source, marker="stop-current-job")
-    assert found == 0
-    assert "disabled" not in html.lower()
+    # Encode cancel is past MVP: the view model marks only scan and cleanup cancellable.
+    for source in (_job_source(cancellable=False), FixtureSource("encoding")):
+        html, _props, found = _render(activity.build, source, marker="stop-current-job")
+        assert found == 0
+        assert "disabled" not in html.lower()
 
 
 def test_stop_click_calls_the_passed_in_callable():

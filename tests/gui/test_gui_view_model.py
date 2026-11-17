@@ -312,6 +312,14 @@ def test_job_row_maps_eta_and_defaults_cancellable():
     assert view_model.snapshot(_Stub(_data()))["job"] is None
 
 
+def test_only_scan_and_cleanup_jobs_are_cancellable_whatever_the_record_says():
+    assert view_model.CANCELLABLE_KINDS == frozenset({"scan", "cleanup"})
+    for kind, expected in (("scan", True), ("cleanup", True), ("encode", False),
+                           ("upload", False), ("compile", False), ("sort", False)):
+        snap = view_model.snapshot(_Stub(_data()), job={"id": "j", "kind": kind, "cancellable": True})
+        assert snap["job"]["cancellable"] is expected, kind
+
+
 # ----- overrides and history -----------------------------------------------------------
 
 

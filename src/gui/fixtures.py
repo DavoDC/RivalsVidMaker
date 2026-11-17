@@ -44,7 +44,6 @@ def job(kind, title, phase, done, total, unit, eta_s=None) -> dict:
         "unit": unit,
         "eta_s": eta_s,
         "started_at": STARTED_AT,
-        "cancellable": True,
     }
 
 

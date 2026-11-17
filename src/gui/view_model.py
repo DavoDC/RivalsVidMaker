@@ -12,6 +12,8 @@ from gui import build_info
 
 SCHEMA = 1
 POLL_INTERVAL = 2  # seconds between /state.json polls
+# Kinds that stop between clips; stopping an encode or upload mid-run is past the first version.
+CANCELLABLE_KINDS = frozenset({"scan", "cleanup"})
 
 
 def testid(kind: str, name) -> str:
@@ -48,7 +50,7 @@ def _job(job: dict | None) -> dict | None:
         "unit": job.get("unit"),
         "eta_s": job.get("eta_s", job.get("eta")),
         "started_at": job.get("started_at"),
-        "cancellable": bool(job.get("cancellable", True)),
+        "cancellable": job.get("kind") in CANCELLABLE_KINDS,
     }
 
 
