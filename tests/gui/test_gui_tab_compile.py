@@ -324,8 +324,40 @@ def test_compile_video_calls_compile_with_nonce_and_decisions():
     decisions = {c["name"]: c["decision"] for b in plan["batches"] for c in b["clips"]}
     calls = []
     _click("compile-video", FixtureSource("plan"),
-           {"compile": lambda nonce, decided: calls.append((nonce, decided))})
-    assert calls == [("fixture-plan-nonce", decisions)]
+           {"compile": lambda nonce, decided, upload: calls.append((nonce, decided, upload))})
+    assert calls == [("fixture-plan-nonce", decisions, True)]
+
+
+def test_upload_checkbox_is_labelled_and_ticked_by_default():
+    elements = _page_elements(compile_tab.build, FixtureSource("plan"))
+    boxes = [e for e in _marked(elements, "compile-upload") if isinstance(e, ui.checkbox)]
+    assert len(boxes) == 1
+    assert boxes[0].text == compile_tab.UPLOAD_LABEL == "Upload after compiling"
+    assert boxes[0].value is True
+
+
+def test_unticking_upload_then_compiling_calls_compile_with_false():
+    calls = []
+
+    def root():
+        compile_tab.build(FixtureSource("plan"), {"compile": lambda *a: calls.append(a)})
+
+    async def run():
+        async with user_simulation(root) as user:
+            await user.open("/")
+            box = next(iter(user.find(marker="compile-upload").elements))
+            box.set_value(False)
+            user.find(marker="compile-video").click()
+
+    asyncio.run(run())
+    assert [args[2] for args in calls] == [False]
+
+
+def test_upload_checkbox_is_disabled_and_faded_while_busy():
+    elements = _page_elements(compile_tab.build, FixtureSource("encoding"))
+    box = next(e for e in _marked(elements, "compile-upload") if isinstance(e, ui.checkbox))
+    assert box._props.get("disable")
+    assert "0.45" in str(box._style)
 
 
 def test_keep_and_recycle_appear_only_on_low_value_clips():

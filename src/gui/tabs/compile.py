@@ -25,6 +25,7 @@ NO_CHARACTER_COPY = (f"Compile needs {READY_MINUTES} minutes of clips for one ch
                      "Scan for KOs on the Clips tab to count them.")
 DUPLICATE_HEADING = "Possible duplicates"
 REENCODE_LABEL = "Re-encode even if it exists"
+UPLOAD_LABEL = "Upload after compiling"
 
 _BODY = f"font-size:{tokens.SIZE_BODY}px;color:{tokens.TEXT_DIM};"
 _UI = f"font-size:{tokens.SIZE_UI}px;"
@@ -149,8 +150,12 @@ def build(source, actions=None) -> None:
     with ui.row().style("justify-content:space-between;align-items:center;width:100%;gap:16px;flex-wrap:wrap;"):
         ui.label(f"Plan for {plan.get('character') or 'no character'}: {_plural(len(batches), 'video')}, "
                  f"{_plural(clip_count, 'clip')}.").style(_BODY)
-        _button("Compile video", "compile-video",
-                lambda: _call(actions, "compile", plan.get("nonce"), _decisions(plan)), busy)
+        with ui.row().style("align-items:center;gap:16px;flex-wrap:wrap;"):
+            upload = ui.checkbox(UPLOAD_LABEL, value=True).mark("compile-upload")
+            if busy:
+                upload.props("disable").style(_FADED)
+            _button("Compile video", "compile-video",
+                    lambda: _call(actions, "compile", plan.get("nonce"), _decisions(plan), bool(upload.value)), busy)
 
     reel.motion()
     for batch in batches:

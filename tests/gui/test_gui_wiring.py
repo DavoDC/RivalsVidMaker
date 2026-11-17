@@ -65,8 +65,9 @@ class FakeBridge:
         self._record("plan_compile", (config, character, target_s), {})
         return self._token(), compile_plan(self.tmp, character)
 
-    def compile(self, runner, config, token, clips=None, extra=0, force=False):
-        self._record("compile", (runner, config, token), {"clips": clips, "extra": extra, "force": force})
+    def compile(self, runner, config, token, clips=None, extra=0, force=False, upload=True):
+        self._record("compile", (runner, config, token),
+                     {"clips": clips, "extra": extra, "force": force, "upload": upload})
         return {"kind": "compile"}
 
     def upload(self, runner, config, folder):
@@ -234,7 +235,18 @@ def test_compile_submits_the_nonce_with_merged_decisions_and_the_reencode_flag(a
     assert args == (actions.runner, actions.config, token)
     assert kwargs == {"clips": {"THOR_a_KO.mp4": "keep", "THOR_b_KO.mp4": "recycle",
                                 "THOR_c_QUAD.mp4": "keep"},
-                      "extra": 0, "force": True}
+                      "extra": 0, "force": True, "upload": True}
+
+
+def test_compile_with_upload_off_passes_false_and_toasts_the_no_upload_line(actions, fake_bridge, fake_ui):
+    compile_tab = actions.for_tab("compile")
+    compile_tab["plan"]("THOR", 900, False)
+    token = actions.held_plans()["compile_plan"]["nonce"]
+    compile_tab["compile"](token, {}, False)
+    name, args, kwargs = fake_bridge.calls[-1]
+    assert name == "compile"
+    assert kwargs["upload"] is False
+    assert fake_ui.notes[-1] == ("Compiling video. It will not be uploaded.", "positive")
 
 
 def test_compile_clears_the_held_plan_after_a_start(actions, fake_bridge, fake_ui):

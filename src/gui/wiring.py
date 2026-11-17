@@ -172,16 +172,17 @@ class Actions:
         _toast(f"Planned video for {character}.")
         _refresh("/tab/compile")
 
-    def _compile(self, nonce: str, decisions: dict) -> None:
+    def _compile(self, nonce: str, decisions: dict, upload: bool = True) -> None:
         held = self._held.get("compile_plan")
         if held is None or held["nonce"] != nonce:
             raise bridge.Refused(STALE)
         # The held decisions are the source of truth: the page shows them, so they win over the page's values.
         merged = dict(decisions or {})
         merged.update(_decisions(held))
-        bridge.compile(self.runner, self.config, nonce, clips=merged, extra=0, force=held["reencode"])
+        bridge.compile(self.runner, self.config, nonce, clips=merged, extra=0, force=held["reencode"],
+                       upload=bool(upload))
         self._held.pop("compile_plan", None)
-        _toast("Compiling video.")
+        _toast("Compiling video." if upload else "Compiling video. It will not be uploaded.")
         _refresh("/tab/compile")
 
     def _decide(self, changes: dict) -> None:
