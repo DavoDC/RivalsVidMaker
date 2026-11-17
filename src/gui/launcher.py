@@ -137,9 +137,11 @@ def preflight(port: int, *, repo_root: Path = REPO_ROOT, loader=None) -> list[Ch
     return checks
 
 
-def run_preflight(port: int) -> int:
-    """--preflight: print every check. Exit 0 only when all pass, blocking or not."""
-    results = preflight(port)
+def run_preflight(port: int, config_path: str | None = None) -> int:
+    """--preflight: print every check. Exit 0 only when all pass, blocking or not. config_path (from
+    --config) is the file the config check loads; None keeps config/config.json."""
+    loader = None if config_path is None else (lambda: engine_config.load(Path(config_path)))
+    results = preflight(port, loader=loader)
     for r in results:
         _say(f"  {'ok  ' if r.ok else 'FAIL'} {r.name}: {r.detail}")
     bad = [r for r in results if not r.ok]

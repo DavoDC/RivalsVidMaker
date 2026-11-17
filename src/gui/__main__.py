@@ -15,6 +15,7 @@ import importlib
 import sys
 from pathlib import Path
 
+import config as engine_config
 from gui import hot_reload, jobs, launcher, security
 from gui.sources import FixtureSource, RealSource
 
@@ -35,6 +36,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--no-dialog", action="store_true", help="no message box on a windowless failure")
     p.add_argument("--port", type=int, default=security.DEFAULT_PORT)
     p.add_argument("--fixture", default=None, help="serve a canned fixture instead of the real library")
+    p.add_argument("--config", default=None, help="config file to load instead of config/config.json")
     return p.parse_args(argv)
 
 
@@ -111,18 +113,22 @@ def _check_verb(name: str, rest: list[str]) -> int:
     return capture.main(rest)
 
 
+def load_source(args: argparse.Namespace, root: Path, loader=None):
+    """(config, source) for serve: a fixture run has no config; a real run loads --config or the repo's
+    config/config.json through the loader (default config.load)."""
+    if args.fixture:
+        return None, FixtureSource(args.fixture)
+    load = loader or engine_config.load
+    config = load(Path(args.config) if args.config else root / "config" / "config.json")
+    return config, RealSource(config)
+
+
 def serve(args: argparse.Namespace) -> int:
     root = launcher.REPO_ROOT
     if sys.stdout is None or sys.stderr is None:  # pythonw: route output to today's log
         log = open(launcher.log_path(root), "a", encoding="utf-8", buffering=1)
         sys.stdout = sys.stderr = log
-    config = None
-    if args.fixture:
-        source = FixtureSource(args.fixture)
-    else:
-        from config import load
-        config = load(root / "config" / "config.json")
-        source = RealSource(config)
+    config, source = load_source(args, root)
     state_dir = root / "data" / "gui"
     state_dir.mkdir(parents=True, exist_ok=True)
     runner = jobs.JobRunner(state_dir / "jobs.json", log_path=launcher.log_path(root))
@@ -161,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in STUB_COMMANDS:
         return _stub(args.command)
     if args.preflight:
-        return launcher.run_preflight(args.port)
+        return launcher.run_preflight(args.port, config_path=args.config)
     if args.stop:
         return launcher.stop(args.port)
     if args.status:
