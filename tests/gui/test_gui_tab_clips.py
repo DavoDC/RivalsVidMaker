@@ -330,12 +330,34 @@ def test_action_buttons_without_actions_are_no_ops():
 
 # ---- layout: side by side at 1440 and up, stacked below (flex wrap, no JS) ---------------------
 
+def _styles_by_class(source):
+    """Inline style dict of every element carrying an rvm-clips* class, keyed by that class."""
+    def root():
+        clips.build(source, None)
+
+    async def run():
+        async with user_simulation(root) as user:
+            await user.open("/")
+            with user.client:
+                found = {}
+                for e in ElementFilter(only_visible=False):
+                    for cls in e._classes:
+                        if cls.startswith("rvm-clips"):
+                            found[cls] = dict(e._style)
+                return found
+
+    return asyncio.run(run())
+
+
 def test_panel_sits_beside_the_table_at_1440_and_stacks_at_1024():
+    # Inline styles, not a <style> tag in ui.html: NiceGUI never applied that tag, so the panel stacked.
+    styles = _styles_by_class(FixtureSource("needs_decision"))
+    assert styles["rvm-clips"].get("display") == "flex"
+    assert styles["rvm-clips"].get("flex-wrap") == "wrap"
+    assert styles["rvm-clips-main"].get("flex") == "2 1 640px"
+    assert styles["rvm-clips-panel"].get("flex") == "1 1 320px"
     html, _props, _labels, _buttons = _render(clips.build, FixtureSource("needs_decision"))
-    assert "flex-wrap:wrap" in html
-    assert ".rvm-clips-main{flex:2 1 560px;" in html
-    assert ".rvm-clips-panel{flex:1 1 320px;" in html
-    assert "<script" not in html.lower()
+    assert "<style" not in html.lower() and "<script" not in html.lower()
 
 
 def test_no_max_width_1439_media_query_remains():

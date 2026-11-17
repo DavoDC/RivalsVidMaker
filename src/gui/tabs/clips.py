@@ -34,12 +34,11 @@ _TH_NUM = (f"text-align:right;color:{tokens.TEXT_DIM};font-weight:600;padding:{t
 _TD = f"padding:{tokens.SPACE_8}px 0;border-bottom:1px solid {tokens.LINE};"
 _TD_NUM = f"padding:{tokens.SPACE_8}px 12px;text-align:right;font-weight:400;border-bottom:1px solid {tokens.LINE};"
 _ROW = f"padding:{tokens.SPACE_8}px 0;border-bottom:1px solid {tokens.LINE};"
-_LAYOUT_CSS = (
-    "<style>"
-    ".rvm-clips{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;width:100%;}"
-    ".rvm-clips-main{flex:2 1 560px;min-width:0;}"
-    ".rvm-clips-panel{flex:1 1 320px;min-width:320px;}"
-    "</style>")
+# Inline, not a <style> tag in ui.html: NiceGUI never applied that tag, so the panel stacked at 1440.
+# Side by side when the column fits 640 + 24 + 320 px (1440 yes, 1024 no), stacked below that (flex wrap, no JS).
+_LAYOUT_ROW = "display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;width:100%;"
+_LAYOUT_MAIN = "flex:2 1 640px;min-width:0;"
+_LAYOUT_PANEL = "flex:1 1 320px;min-width:320px;"
 _FADED = "opacity:0.45;"
 
 
@@ -161,9 +160,8 @@ def build(source, actions=None) -> None:
                 button.mark(marker).classes("rvm-button").style(_FADED if busy else "")
                 if busy:
                     button.props("disable")
-    ui.html(_LAYOUT_CSS)
-    with ui.element("div").classes("rvm-clips"):
-        with ui.column().classes("rvm-clips-main").style("gap:8px;"):
+    with ui.element("div").classes("rvm-clips").style(_LAYOUT_ROW):
+        with ui.column().classes("rvm-clips-main").style(_LAYOUT_MAIN + "gap:8px;"):
             characters = clips_state["characters"]
             if characters:
                 ui.html(table_html(characters)).style("width:100%;")
@@ -177,7 +175,7 @@ def build(source, actions=None) -> None:
         decisions = clips_state["low_value"]
         if decisions:
             with ui.column().classes("rvm-clips-panel").style(
-                    f"gap:8px;border:1px solid {tokens.LINE};border-radius:{tokens.RADIUS_PANEL}px;"
+                    _LAYOUT_PANEL + f"gap:8px;border:1px solid {tokens.LINE};border-radius:{tokens.RADIUS_PANEL}px;"
                     f"padding:{tokens.SPACE_16}px;"):
                 ui.label(DECISION_HEADING).style(
                     f"font-size:{tokens.SIZE_SECTION}px;font-weight:600;font-stretch:87.5%;")
