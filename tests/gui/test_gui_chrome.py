@@ -26,7 +26,10 @@ def test_head_html_uses_bahnschrift_stack():
 
 
 def test_head_html_dims_disabled_buttons_past_quasar_opacity():
-    assert ".q-btn.disabled,.q-btn[disabled]{opacity:0.45 !important;}" in theme.HEAD_HTML
+    # NiceGUI imports Quasar's .q-btn.disabled{opacity:.7 !important} into the quasar_importants layer. A layered
+    # !important beats any unlayered one whatever its specificity, and for !important the EARLIEST declared layer
+    # wins, so the rule lives in the first layer, theme (live probe: computed 0.7 when unlayered).
+    assert "@layer theme{.q-btn.disabled,.q-btn[disabled]{opacity:0.45 !important;}}" in theme.HEAD_HTML
 
 
 def test_head_html_has_visible_focus_ring():
