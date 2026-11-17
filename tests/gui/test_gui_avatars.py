@@ -2,7 +2,6 @@
 
 Nothing here downloads an image or writes outside tmp_path: register() is pointed at a tmp asset folder.
 """
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from gui import avatars, tokens
@@ -124,16 +123,14 @@ def test_asset_folder_is_the_characters_folder_under_the_repo_root():
 
 # ---- app icon and serve wiring ---------------------------------------------------------------
 
-def test_favicon_svg_exists_and_parses_as_xml():
-    root = ET.parse(FAVICON).getroot()
-    assert root.tag.endswith("svg")
-    assert root.get("viewBox") == "0 0 32 32"
+def test_favicon_svg_is_gone_the_icon_renderer_replaces_it():
+    assert not FAVICON.exists()
 
 
 def test_serve_passes_the_favicon_and_registers_the_avatar_mount():
     text = MAIN_SRC.read_text(encoding="utf-8")
     assert "avatars.register(app)" in text
-    assert "favicon=" in text and "favicon.svg" in text
+    assert "favicon=icon.data_url" in text and "favicon.svg" not in text
     run_line = next(line for line in text.splitlines() if "ui.run(" in line)
     assert "favicon=" in run_line
 

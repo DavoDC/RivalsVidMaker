@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 import config as engine_config
-from gui import hot_reload, jobs, launcher, security
+from gui import hot_reload, icon, jobs, launcher, security
 from gui.sources import FixtureSource, RealSource
 
 CHECK_COMMANDS = ("verify", "capture")
@@ -158,8 +158,7 @@ def serve(args: argparse.Namespace) -> int:
         hot_reload.BUSY_CHECK = lambda: runner.busy
         hot_reload.start_watcher(str(root / "src"))
     launcher.log_line("serve", f"serving on port {port} (fixture={args.fixture or 'none'})", repo_root=root)
-    icon = root / "assets" / "favicon.svg"
-    ui.run(host=security.BIND_HOST, port=port, show=False, reload=False, title="RivalsVidMaker", favicon=str(icon))
+    ui.run(host=security.BIND_HOST, port=port, show=False, reload=False, title="RivalsVidMaker", favicon=icon.data_url(64))
     return 0
 
 
