@@ -276,7 +276,7 @@ def test_parse_args_reads_the_documented_flags():
     assert args.port == 9000 and args.command is None
 
 
-@pytest.mark.parametrize("verb", ["verify", "capture", "ui_check"])
+@pytest.mark.parametrize("verb", ["ui_check"])
 def test_stub_subcommands_say_not_built_yet_and_exit_two(verb, capsys):
     assert gui_main.main([verb]) == 2
     assert "not built yet" in capsys.readouterr().out

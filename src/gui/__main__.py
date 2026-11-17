@@ -3,8 +3,8 @@
 
 Launcher verbs (--launch, --stop, --check, --status, --preflight) run in the caller's process and
 return an exit code. Without one of them the module serves the GUI: state routes, the loopback
-guard, the page shell and, unless --no-watch, the hot-reload watcher. Subcommands verify, capture
-and ui_check are stubs until task 21.
+guard, the page shell and, unless --no-watch, the hot-reload watcher. Subcommands verify and capture
+take their own flags and are handed the rest of argv; ui_check is still a stub.
 
 The page shell is imported lazily (gui.shell), so the launcher verbs run before it exists.
 """
@@ -18,12 +18,13 @@ from pathlib import Path
 from gui import hot_reload, jobs, launcher, security
 from gui.sources import FixtureSource, RealSource
 
-STUB_COMMANDS = ("verify", "capture", "ui_check")
+CHECK_COMMANDS = ("verify", "capture")
+STUB_COMMANDS = ("ui_check",)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="python -m gui", description="RivalsVidMaker local GUI")
-    p.add_argument("command", nargs="?", choices=STUB_COMMANDS, default=None)
+    p.add_argument("command", nargs="?", choices=CHECK_COMMANDS + STUB_COMMANDS, default=None)
     p.add_argument("--launch", action="store_true", help="start detached (windowless) and open the browser")
     p.add_argument("--stop", action="store_true", help="stop the listener on the port")
     p.add_argument("--check", action="store_true", help="print the running build and boot id")
@@ -82,8 +83,17 @@ def make_page_handler(source, runner, builder=None):
 
 
 def _stub(name: str) -> int:
-    _say(f"{name} is not built yet (task 21)")
+    _say(f"{name} is not built yet")
     return 2
+
+
+def _check_verb(name: str, rest: list[str]) -> int:
+    # Imported lazily: the checks drive Chrome and the launcher verbs never need them.
+    if name == "verify":
+        from gui import verify
+        return verify.main(rest)
+    from gui import capture
+    return capture.main(rest)
 
 
 def serve(args: argparse.Namespace) -> int:
@@ -127,6 +137,8 @@ def serve(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in CHECK_COMMANDS:  # their own flags (--fast, --widths) are parsed by the verb
+        return _check_verb(argv[0], argv[1:])
     args = parse_args(argv)
     if args.command in STUB_COMMANDS:
         return _stub(args.command)
