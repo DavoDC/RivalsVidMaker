@@ -17,10 +17,37 @@ Usage - indeterminate spinner (shows "Label..."):
         subprocess.run(cmd, ...)
 """
 
+import logging
 import threading
+from collections.abc import Callable
 
 
 _DOTS = (".", "..", "...")
+
+log = logging.getLogger(__name__)
+
+# Listeners receive (done, total, label) each time a ticker count changes.
+# total is None for indeterminate spinners. Terminal output is unaffected.
+_listeners: list[Callable[[int, int | None, str], None]] = []
+
+
+def add_listener(fn: Callable[[int, int | None, str], None]) -> None:
+    """Subscribe fn to ticker count updates."""
+    _listeners.append(fn)
+
+
+def remove_listener(fn: Callable[[int, int | None, str], None]) -> None:
+    """Unsubscribe fn. Unknown listeners are ignored."""
+    if fn in _listeners:
+        _listeners.remove(fn)
+
+
+def _notify(done: int, total: int | None, label: str) -> None:
+    for fn in list(_listeners):
+        try:
+            fn(done, total, label)
+        except Exception:
+            log.warning("progress listener %r failed", fn, exc_info=True)
 
 
 class AnimatedTicker:
@@ -43,6 +70,8 @@ class AnimatedTicker:
         """Increment the completed count by one. Only meaningful when total is set."""
         with self._lock:
             self._done += 1
+            n = self._done
+        _notify(n, self._total, self._label)
 
     def _tick(self) -> None:
         frame = 0
