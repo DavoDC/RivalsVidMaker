@@ -20,12 +20,14 @@ def tiers(**counts) -> dict:
     return {t: counts.get(t, 0) for t in TIERS}
 
 
-def character(name, clips, minutes, scanned=None, tier_counts=None, ready=False) -> dict:
+def character(name, clips, minutes, scanned=None, tier_counts=None, ready=False, seconds=None) -> dict:
     scanned = clips if scanned is None else scanned
+    seconds = round(minutes * 60) if seconds is None else seconds
     return {
         "name": name,
         "clips": clips,
         "minutes": minutes,
+        "seconds": seconds,
         "scanned": scanned,
         "unscanned": clips - scanned,
         "tiers": tiers(**(tier_counts or {})),

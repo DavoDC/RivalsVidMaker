@@ -42,6 +42,11 @@ def _ready_names(state: dict) -> list[str]:
     return [c["name"] for c in state["clips"]["characters"] if c.get("ready")]
 
 
+def character_options(ready: list[str]) -> dict[str, str]:
+    """Character select options: folder value mapped to its display name, in the order given."""
+    return {folder: avatars.display_name(folder) for folder in ready}
+
+
 def closest(state: dict, n: int = 3) -> list[tuple[str, int]]:
     """The n characters not ready yet with the most clip seconds, most first, as (folder, seconds)."""
     rows = [c for c in state["clips"]["characters"] if not c.get("ready")]
@@ -145,7 +150,7 @@ def build(source, actions=None) -> None:
         return
 
     with ui.row().style("align-items:flex-end;gap:16px;width:100%;flex-wrap:wrap;"):
-        character = ui.select(options=ready, value=_default_character(ready, plan), label="Character") \
+        character = ui.select(options=character_options(ready), value=_default_character(ready, plan), label="Character") \
             .props("dark").mark("compile-character").style("min-width:200px;")
         length = ui.select(options={m * 60: f"{m} minutes" for m in LENGTH_MINUTES},
                            value=DEFAULT_MINUTES * 60, label="Length") \

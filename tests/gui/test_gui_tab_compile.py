@@ -340,6 +340,16 @@ def test_closest_with_no_clips_is_empty():
     assert compile_tab.closest({"clips": {"characters": []}}) == []
 
 
+def test_closest_on_the_ready_fixture_carries_seconds():
+    rows = compile_tab.closest(view_model.snapshot(FixtureSource("ready")))
+    assert rows and all(seconds > 0 for _name, seconds in rows)
+
+
+def test_character_options_map_folders_to_display_names_in_order():
+    assert compile_tab.character_options(["HELA", "SQUIRREL_GIRL"]) == {"HELA": "Hela", "SQUIRREL_GIRL": "Squirrel Girl"}
+    assert list(compile_tab.character_options(["SQUIRREL_GIRL", "HELA"])) == ["SQUIRREL_GIRL", "HELA"]
+
+
 def test_empty_state_lists_closest_characters_as_progress():
     source = _with_characters([_clip_row("SQUIRREL GIRL", 1350), _clip_row("BLACK WIDOW", 400),
                                _clip_row("IRON MAN", 540), _clip_row("HULK", 60)])

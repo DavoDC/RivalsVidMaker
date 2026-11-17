@@ -263,6 +263,11 @@ def test_character_carries_exact_seconds_beside_minutes(tmp_path):
     assert thor["minutes"] == 1.3        # kept for existing readers
 
 
+def test_fixture_character_seconds_come_from_minutes_unless_given():
+    assert fixtures.character("THOR", 3, 2.5)["seconds"] == 150
+    assert fixtures.character("THOR", 3, 2.5, seconds=99)["seconds"] == 99
+
+
 def test_real_source_writes_nothing(tmp_path):
     cfg = _build_tree(tmp_path)
     before = _fingerprint(tmp_path)

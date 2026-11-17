@@ -209,8 +209,14 @@ def test_table_rows_carry_testids_and_the_five_columns():
     rows = view_model.snapshot(FixtureSource("needs_decision"))["clips"]["characters"]
     html = clips.table_html(rows)
     assert {t for t in TESTID.findall(html) if t.startswith("clip-char-")} == {r["testid"] for r in rows}
-    for heading in ("Character", "Clips", "Minutes", "Scanned", "Best"):
+    for heading in ("Character", "Clips", "Length", "Scanned", "Best"):
         assert f">{heading}</th>" in html
+
+
+def test_table_header_says_length_not_minutes():
+    html = clips.table_html([])
+    assert ">Length</th>" in html
+    assert ">Minutes<" not in html
 
 
 def test_table_minutes_scanned_and_best_cells():

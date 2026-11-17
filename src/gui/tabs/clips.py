@@ -95,7 +95,7 @@ def _best_cell(tiers: dict) -> str:
 
 
 def table_html(rows: list[dict]) -> str:
-    """The character table: Character, Clips, Minutes, Scanned and Best; one row per character with its testid."""
+    """The character table: Character, Clips, Length, Scanned and Best; one row per character with its testid."""
     body = []
     for row in rows:
         clips = int(row.get("clips") or 0)
@@ -112,7 +112,7 @@ def table_html(rows: list[dict]) -> str:
     return (f'<table style="{_TABLE}"><thead><tr>'
             f'<th style="{_TH}">Character</th>'
             f'<th style="{_TH_NUM}">Clips</th>'
-            f'<th style="{_TH_NUM}">Minutes</th>'
+            f'<th style="{_TH_NUM}">Length</th>'
             f'<th style="{_TH_NUM}">Scanned</th>'
             f'<th style="{_TH}">Best</th>'
             "</tr></thead><tbody>" + "".join(body) + "</tbody></table>")
