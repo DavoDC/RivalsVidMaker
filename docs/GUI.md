@@ -30,7 +30,7 @@ Loopback bind, Host allowlist, Origin check on the websocket and every non-GET r
 
 ## Not built yet
 
-Everything in this file. Deferred past the first version: tray icon and watchdog, stopping an encode or upload mid-run, editing config from the page.
+The rows marked missing or partial in the parity table below, Quit, and live job progress between repaints. Deferred past the first version: tray icon and watchdog, stopping an encode or upload mid-run, editing config from the page.
 
 ## Terminal parity
 
