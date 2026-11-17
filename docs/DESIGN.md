@@ -10,13 +10,14 @@ One player, at a desk, after a play session, turning saved Marvel Rivals highlig
 
 2026-11-17: shell, Archive and Activity are built; Clips, Compile and Videos are stubs. No section is verified yet: a section is marked verified once a capture at both widths shows it.
 
-Gaps seen in the first captures, each with a fix queued:
+Fixed since the first captures: the shell shares one content column, Quit and the state word sit at the right of the header, the state word comes from the running job, the job bar spans the panel with separate count and ETA, and table cells are padded. Seen in the shell, Archive and Activity captures at both widths.
 
-- The shell shrink-wraps: header rule, fixture banner, tab strip and footer each end at their own content instead of spanning the content column (section 11).
-- The header says Idle while a job runs; the state word must come from the running job (section 4).
-- Quit sits beside the title; it belongs at the right end of the header with the state word (section 4).
-- The job bar is about 180 px wide and its meta line joins parts with a middle dot (sections 5 and 8).
-- Table columns have no cell padding, so neighbouring headings run together.
+Gaps still open, each with a fix queued:
+
+- About 40 px of extra space above the header and 60 px between the header and the fixture banner (section 11).
+- Numeric table columns are left aligned (section 11).
+- Buttons render upper case ("STOP"); labels are sentence case (section 8).
+- Table body cells render bold; tables are Regular (section 6).
 
 ## 3. Principles
 
