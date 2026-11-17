@@ -71,6 +71,7 @@ class TestUncompileFullDelete:
         highlights.mkdir(parents=True)
 
         # Mock user confirmation
+        (output_folder / "clips.json").write_text("{}")
         with patch("builtins.input", return_value="y"):
             # Mock send2trash to fail on clips.json (simulate file-in-use)
             with patch("cleanup.send2trash") as mock_trash:
@@ -82,8 +83,9 @@ class TestUncompileFullDelete:
 
                 run_uncompile(output_folder, tmp_path / "Highlights")
 
-        # Folder should be fully removed despite clips.json failure
-        assert not output_folder.exists()
+        # The output folder still goes to the Recycle Bin despite the clips.json failure
+        sent = [Path(c.args[0]) for c in mock_trash.call_args_list]
+        assert output_folder in sent
 
     def test_uncompile_removes_empty_clips_dir(self, tmp_path):
         """uncompile should remove the clips/ directory after moving clips."""
@@ -98,7 +100,13 @@ class TestUncompileFullDelete:
         highlights = tmp_path / "Highlights" / "THOR"
         highlights.mkdir(parents=True)
 
-        with patch("builtins.input", return_value="y"):
+        def fake_trash(path):
+            import shutil
+            target = Path(path)
+            assert tmp_path in target.parents, "test must only recycle tmp files"
+            shutil.rmtree(target) if target.is_dir() else target.unlink()
+
+        with patch("builtins.input", return_value="y"), patch("cleanup.send2trash", side_effect=fake_trash):
             run_uncompile(output_folder, tmp_path / "Highlights")
 
         assert not clips_dir.exists()

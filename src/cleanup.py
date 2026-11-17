@@ -443,7 +443,7 @@ def apply_uncompile(plan: UncompilePlan, state_path: Path | None = None) -> Appl
                 shutil.move(str(a.path), str(a.dest))
                 logging.debug("Restored: %s -> %s", a.path.name, a.dest.parent)
             elif a.fate == FATE_RECYCLE_FOLDER:
-                if result.errors:
+                if any(failed.fate == FATE_RESTORE for failed, _ in result.errors):
                     logging.info("Left %s in place: a restore failed", a.path.name)
                     continue
                 send2trash(str(a.path))
