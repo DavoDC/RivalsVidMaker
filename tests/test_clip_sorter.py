@@ -152,6 +152,41 @@ class TestSortClips:
         assert moved == 3
 
 
+class TestSortClipsOnSkip:
+    def test_reports_unparseable_clip_and_leaves_it(self, tmp_path):
+        src = _make_clip(tmp_path, "random clip.mp4")
+        skips = []
+        moved = sort_clips(tmp_path, on_skip=lambda name, reason: skips.append((name, reason)))
+        assert moved == 0
+        assert skips == [("random clip.mp4", "name not recognised")]
+        assert src.exists(), "Unparseable file must not be moved"
+
+    def test_reports_destination_clash(self, tmp_path):
+        _make_clip(tmp_path, "THOR_2026-02-06_22-38-56.mp4")
+        dest_dir = tmp_path / "THOR"
+        dest_dir.mkdir()
+        (dest_dir / "THOR_2026-02-06_22-38-56.mp4").write_bytes(b"existing")
+        skips = []
+        moved = sort_clips(tmp_path, on_skip=lambda name, reason: skips.append((name, reason)))
+        assert moved == 0
+        assert skips == [("THOR_2026-02-06_22-38-56.mp4", "already in THOR/")]
+
+    def test_protected_clips_are_not_reported_as_skips(self, tmp_path):
+        _make_clip(tmp_path, "THOR_2026-01-01_00-00-00.mp4")
+        _make_clip(tmp_path, "zz clip.mp4")
+        skips = []
+        moved = sort_clips(tmp_path, protect_recent=1,
+                           on_skip=lambda name, reason: skips.append((name, reason)))
+        assert moved == 1
+        assert skips == [], "A protected clip is kept on purpose, not skipped"
+
+    def test_without_on_skip_still_moves_and_skips_quietly(self, tmp_path):
+        src = _make_clip(tmp_path, "random clip.mp4")
+        _make_clip(tmp_path, "THOR_2026-02-06_22-38-56.mp4")
+        assert sort_clips(tmp_path) == 1
+        assert src.exists()
+
+
 class TestSortClipsProtectRecent:
 
     def test_protect_recent_leaves_newest_in_root(self, tmp_path):

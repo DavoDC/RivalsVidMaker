@@ -87,8 +87,15 @@ def _report_errors(ctx: jobs.JobContext, result) -> None:
 
 def sort(runner: jobs.JobRunner, config) -> dict:
     def job(ctx: jobs.JobContext) -> None:
-        moved = clip_sorter.sort_clips(config.clips_path, protect_recent=config.protect_recent_clips)
-        ctx.log.info("Sorted %d clip(s)", moved)
+        skipped: list[tuple[str, str]] = []
+        moved = clip_sorter.sort_clips(config.clips_path, protect_recent=config.protect_recent_clips,
+                                       on_skip=lambda name, reason: skipped.append((name, reason)))
+        for name, reason in skipped:
+            ctx.log.warning("Skipped %s: %s", name, reason)
+        if skipped:
+            ctx.log.info("Sorted %d clip(s), skipped %d", moved, len(skipped))
+        else:
+            ctx.log.info("Sorted %d clip(s)", moved)
 
     _require_idle(runner)
     return runner.start("sort", "Sort clips", job)

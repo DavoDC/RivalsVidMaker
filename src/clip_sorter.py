@@ -28,12 +28,14 @@ from pathlib import Path
 VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
 
 
-def sort_clips(clips_path: Path, protect_recent: int = 0) -> int:
+def sort_clips(clips_path: Path, protect_recent: int = 0, on_skip=None) -> int:
     """
     Move any video files sitting directly in clips_path into per-character subfolders.
 
     protect_recent: leave the N most recently saved clips (last N alphabetically)
     in the root untouched, so their saved status stays visible in the game UI.
+    on_skip: optional callable(name, reason) told about each clip left in the root
+    because it could not be sorted. Protected clips are not skips.
 
     Subfolders that already exist (e.g. THOR/vid1_uploaded/) are not touched.
     Returns the number of files moved.
@@ -66,6 +68,8 @@ def sort_clips(clips_path: Path, protect_recent: int = 0) -> int:
         char = extract_character(src.stem)
         if char is None:
             logging.warning("  SKIP (cannot parse character name): %s", src.name)
+            if on_skip:
+                on_skip(src.name, "name not recognised")
             continue
 
         dest_dir = clips_path / char
@@ -76,6 +80,8 @@ def sort_clips(clips_path: Path, protect_recent: int = 0) -> int:
             logging.warning(
                 "  SKIP (destination already exists): %s -> %s/", src.name, char
             )
+            if on_skip:
+                on_skip(src.name, f"already in {char}/")
             continue
 
         logging.debug("  Moving: %s -> %s/", src.name, char)

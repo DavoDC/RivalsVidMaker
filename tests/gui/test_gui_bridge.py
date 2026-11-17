@@ -6,6 +6,7 @@ records the call and fails the test if the test did not stub it; it also fails t
 when a browser or the YouTube sign-in opens without the test asking for it.
 """
 import json
+import logging
 import threading
 import webbrowser
 from pathlib import Path
@@ -118,11 +119,25 @@ def hold_a_job(runner):
 
 def test_sort_starts_a_sort_job(config, runner, monkeypatch):
     calls = []
-    monkeypatch.setattr(clip_sorter, "sort_clips", lambda path, protect_recent=0: calls.append((path, protect_recent)) or 0)
+    monkeypatch.setattr(clip_sorter, "sort_clips", lambda path, protect_recent=0, on_skip=None: calls.append((path, protect_recent)) or 0)
     bridge.sort(runner, config)
     record = finish(runner)
     assert (record["kind"], record["state"]) == ("sort", "done")
     assert calls == [(config.clips_path, 5)]
+
+
+def test_sort_log_names_each_skipped_clip_and_counts_them(config, runner, monkeypatch, caplog):
+    def fake_sort(path, protect_recent=0, on_skip=None):
+        on_skip("a.mp4", "name not recognised")
+        return 1
+
+    monkeypatch.setattr(clip_sorter, "sort_clips", fake_sort)
+    with caplog.at_level(logging.INFO, logger="rvm.gui.jobs"):
+        bridge.sort(runner, config)
+        record = finish(runner)
+    assert record["state"] == "done"
+    assert "Skipped a.mp4: name not recognised" in caplog.text
+    assert "Sorted 1 clip(s), skipped 1" in caplog.text
 
 
 def test_scan_starts_a_scan_job_and_passes_the_low_value_collector(config, runner, monkeypatch):
