@@ -16,7 +16,7 @@ _CSS = """
   :focus{outline:none;}
   :focus-visible{outline:2px solid @@TEXT@@;outline-offset:2px;}
   .rvm-header{display:flex;align-items:center;justify-content:space-between;gap:@@SPACE_16@@px;
-    padding:@@SPACE_8@@px @@SPACE_24@@px;border-bottom:1px solid @@LINE@@;}
+    padding:@@SPACE_12@@px @@SPACE_24@@px @@SPACE_8@@px;border-bottom:1px solid @@LINE@@;}
   .rvm-title{font-size:@@SIZE_TITLE@@px;font-weight:600;font-stretch:87.5%;margin:0;line-height:1.1;}
   .rvm-state{display:flex;align-items:center;gap:@@SPACE_8@@px;font-size:@@SIZE_UI@@px;}
   .rvm-dot{display:inline-block;width:@@SPACE_8@@px;height:@@SPACE_8@@px;border-radius:50%;background:@@TEXT_DIM@@;}

@@ -39,9 +39,9 @@ def test_head_html_app_title_is_32px_at_line_height_1_1_and_tabs_22px():
     assert "padding:8px 0;cursor:pointer;}" in theme.HEAD_HTML
 
 
-def test_head_html_header_has_8px_vertical_padding():
+def test_head_html_header_title_sits_12px_from_the_top():
     assert ".rvm-header{display:flex;align-items:center;justify-content:space-between;gap:16px;" in theme.HEAD_HTML
-    assert "padding:8px 24px;border-bottom:1px solid #2A3247;" in theme.HEAD_HTML
+    assert "padding:12px 24px 8px;border-bottom:1px solid #2A3247;" in theme.HEAD_HTML
 
 
 def test_head_html_tab_focus_ring_is_keyboard_only():

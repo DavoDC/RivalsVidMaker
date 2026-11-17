@@ -104,7 +104,7 @@ Tabs use tablist and tabpanel roles. Icon buttons have labels. Focus ring is a v
 
 ## 11. Layout
 
-Desktop only, minimum width 1024 px, base text 16 px so it reads at browser 100%. One content column, width 100% up to 1280 px, centred, 24 px side gutters: the header, fixture banner, tab strip, panel and footer all share its edges, and their rules run its full width. The header sits 16 px from the top, not 60. Tables fill the column with 12 px horizontal cell padding and numbers right aligned. At 1440 the Clips tab shows the character table and the decision panel side by side; at 1024 the panel moves under the table. There is no phone layout: the app runs beside the game on the same Windows machine.
+Desktop only, minimum width 1024 px, base text 16 px so it reads at browser 100%. One content column, width 100% up to 1280 px, centred, 24 px side gutters: the header, fixture banner, tab strip, panel and footer all share its edges, and their rules run its full width. The header title sits 12 px from the top, not 60. Tables fill the column with 12 px horizontal cell padding and numbers right aligned. At 1440 the Clips tab shows the character table and the decision panel side by side; at 1024 the panel moves under the table. There is no phone layout: the app runs beside the game on the same Windows machine.
 
 ## 12. Timestamps and numbers
 
