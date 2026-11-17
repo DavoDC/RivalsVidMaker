@@ -81,7 +81,7 @@ def _character(folder: Path, cfg: Config) -> dict:
     paths = _video_files(folder)
     scanned: list[Clip] = []
     for path in paths:
-        entry = _cache_entry(path, cfg.cache_dir)
+        entry = _cache_entry(path, cfg.cache_dir / folder.name)
         duration = entry.get("duration") if entry else None
         if isinstance(duration, (int, float)) and duration > 0:
             scanned.append(Clip(path=path, duration=float(duration)))
@@ -93,7 +93,7 @@ def _character(folder: Path, cfg: Config) -> dict:
         "minutes": round(total / 60, 1),
         "scanned": len(scanned),
         "unscanned": len(paths) - len(scanned),
-        "tiers": _tier_counts(paths, cfg.cache_dir),
+        "tiers": _tier_counts(paths, cfg.cache_dir / folder.name),
         "ready": any(b.total_duration >= cfg.min_batch_seconds for b in batches),
     }
 
@@ -176,7 +176,7 @@ def _archive(cfg: Config) -> dict:
         rows.append({
             "name": folder.name,
             "count": len(paths),
-            "tiers": _tier_counts(paths, cfg.cache_dir),
+            "tiers": _tier_counts(paths, cfg.cache_dir / folder.name),
         })
     return {"total": sum(r["count"] for r in rows), "by_character": rows}
 

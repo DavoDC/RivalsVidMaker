@@ -90,10 +90,10 @@ def _build_tree(root: Path) -> config.Config:
     (cfg.output_path / "thor_vid2").mkdir(parents=True)
     arch = _clip(cfg.archive_path / "THOR" / "THOR_2026-05-01_08-00-00.mp4")
 
-    cache_clip = cfg.cache_dir
-    clip_cache.cache_save(str(thor_a), str(cache_clip), duration=700.0, ko_result={"tier": "KO"})
-    clip_cache.cache_save(str(squirrel), str(cache_clip), duration=100.0, ko_result=None)
-    clip_cache.cache_save(str(arch), str(cache_clip), duration=50.0, ko_result={"tier": "QUAD"})
+    # The scan pipeline keys the cache by character folder: <cache_dir>/<CHARACTER>/.
+    clip_cache.cache_save(str(thor_a), str(cfg.cache_dir / "THOR"), duration=700.0, ko_result={"tier": "KO"})
+    clip_cache.cache_save(str(squirrel), str(cfg.cache_dir / "SQUIRREL_GIRL"), duration=100.0, ko_result=None)
+    clip_cache.cache_save(str(arch), str(cfg.cache_dir / "THOR"), duration=50.0, ko_result={"tier": "QUAD"})
 
     cfg.state_path.write_text(json.dumps({
         "output_folders": {

@@ -100,9 +100,9 @@ def _build_tree(root: Path) -> config.Config:
     _clip(cfg.output_path / "thor_vid1" / "thor_vid1.mp4")
     (cfg.output_path / "thor_vid2").mkdir(parents=True)
     arch = _clip(cfg.archive_path / "THOR" / "THOR_2026-05-01_08-00-00.mp4")
-    clip_cache.cache_save(str(thor_a), str(cfg.cache_dir), duration=700.0, ko_result={"tier": "KO"})
-    clip_cache.cache_save(str(squirrel), str(cfg.cache_dir), duration=100.0, ko_result=None)
-    clip_cache.cache_save(str(arch), str(cfg.cache_dir), duration=50.0, ko_result={"tier": "QUAD"})
+    clip_cache.cache_save(str(thor_a), str(cfg.cache_dir / "THOR"), duration=700.0, ko_result={"tier": "KO"})
+    clip_cache.cache_save(str(squirrel), str(cfg.cache_dir / "SQUIRREL_GIRL"), duration=100.0, ko_result=None)
+    clip_cache.cache_save(str(arch), str(cfg.cache_dir / "THOR"), duration=50.0, ko_result={"tier": "QUAD"})
     cfg.state_path.write_text(json.dumps({
         "output_folders": {"thor_vid1": {"youtube_confirmed": True,
                                          "confirmed_at": "2026-07-05T10:00:00+00:00"}},
