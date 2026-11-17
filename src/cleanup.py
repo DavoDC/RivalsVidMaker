@@ -17,7 +17,6 @@ Usage (from main menu or pipeline):
 """
 
 import logging
-import re
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
@@ -25,19 +24,14 @@ from pathlib import Path
 
 from send2trash import send2trash
 
+import clip_names
 from state import is_youtube_confirmed, load as load_state, mark_youtube_confirmed, save as save_state
 
 # Tiers considered worth archiving (Quad and above)
 ARCHIVE_MIN_TIERS = {"QUAD", "PENTA", "HEXA"}
 
-# Regex that matches the _TIER suffix embedded in a clip filename
-_TIER_SUFFIX_RE = re.compile(r"_(QUAD|PENTA|HEXA|TRIPLE|DOUBLE|KO)(?=\.mp4$)", re.IGNORECASE)
-
-
-def _tier_from_name(name: str) -> str | None:
-    """Extract the embedded KO tier from a clip filename, e.g. '_QUAD' → 'QUAD'."""
-    m = _TIER_SUFFIX_RE.search(name)
-    return m.group(1).upper() if m else None
+# The tier parser lives in clip_names so the read-only GUI sources can use it without importing this module.
+_tier_from_name = clip_names.tier_from_name
 
 
 def _fmt_size(path: Path) -> str:

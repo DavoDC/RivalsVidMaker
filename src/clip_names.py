@@ -33,3 +33,13 @@ def extract_character(stem: str) -> str | None:
         return None
     return re.sub(r"\s+", "_", char_raw)
 
+
+# Regex that matches the _TIER suffix embedded in a clip filename
+TIER_SUFFIX_RE = re.compile(r"_(QUAD|PENTA|HEXA|TRIPLE|DOUBLE|KO)(?=\.mp4$)", re.IGNORECASE)
+
+
+def tier_from_name(name: str) -> str | None:
+    """Extract the embedded KO tier from a clip filename, e.g. '_QUAD' → 'QUAD'."""
+    m = TIER_SUFFIX_RE.search(name)
+    return m.group(1).upper() if m else None
+

@@ -1,4 +1,4 @@
-"""Archive tab: kept Quad and better clips for a best-of, read only (spec section 3).
+"""Archive tab: kept QUAD or better clips for a best-of, read only (spec section 3).
 
 One row per character with the kept count and a chip for each of QUAD, PENTA and HEXA that has clips.
 Rows are a single table; each row carries its view_model testid. Lists this long are not virtualised:
@@ -16,7 +16,7 @@ from gui.tabs import heading
 
 PAINTS_ROWS = True
 
-EMPTY_COPY = ("Nothing archived yet. Clean up a live video and its Quad and better clips are kept here "
+EMPTY_COPY = ("Nothing archived yet. Clean up a live video and its QUAD or better clips are kept here "
               "for a best-of.")
 
 _TABLE = (f"width:100%;border-collapse:collapse;font-size:{tokens.SIZE_UI}px;"
@@ -61,6 +61,6 @@ def build(source) -> None:
     if not rows:
         ui.label(EMPTY_COPY).style(f"font-size:{tokens.SIZE_BODY}px;color:{tokens.TEXT_DIM};")
         return
-    ui.label(f"{_plural(int(archive['total'] or 0), 'clip')} kept for a best-of. Quad and better only."
+    ui.label(f"{_plural(int(archive['total'] or 0), 'clip')} kept for a best-of. QUAD or better only."
              ).style(f"font-size:{tokens.SIZE_BODY}px;color:{tokens.TEXT_DIM};")
     ui.html(table_html(rows))

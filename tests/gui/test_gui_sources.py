@@ -223,6 +223,32 @@ def test_real_source_lists_characters_unsorted_and_output_folders(tmp_path):
     assert data["notices"] == []
 
 
+def _archive_tiers(root: Path, name: str, cache_tier: str | None = None) -> dict:
+    cfg = _make_config(root)
+    clip = _clip(cfg.archive_path / "THOR" / name)
+    if cache_tier is not None:
+        clip_cache.cache_save(str(clip), str(clip_cache.character_cache_dir(cfg.cache_dir, "THOR")),
+                              duration=50.0, ko_result={"tier": cache_tier})
+    return RealSource(cfg).read()["archive"]["by_character"][0]["tiers"]
+
+
+def test_archive_clip_without_cache_entry_counts_the_tier_in_its_file_name(tmp_path):
+    tiers = _archive_tiers(tmp_path, "THOR_2026-05-01_08-00-00_QUAD.mp4")
+    assert tiers["QUAD"] == 1
+    assert sum(tiers.values()) == 1
+
+
+def test_archive_cache_tier_wins_over_the_file_name(tmp_path):
+    tiers = _archive_tiers(tmp_path, "THOR_2026-05-01_08-00-00_QUAD.mp4", cache_tier="KO")
+    assert tiers["KO"] == 1
+    assert tiers["QUAD"] == 0
+
+
+def test_archive_clip_with_no_cache_and_no_name_suffix_counts_nothing(tmp_path):
+    tiers = _archive_tiers(tmp_path, "THOR_2026-05-01_08-00-00.mp4")
+    assert sum(tiers.values()) == 0
+
+
 def test_character_carries_exact_seconds_beside_minutes(tmp_path):
     cfg = _make_config(tmp_path)
     folder = cfg.clips_path / "THOR"

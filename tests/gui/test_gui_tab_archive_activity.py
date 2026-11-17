@@ -144,6 +144,16 @@ def test_archive_empty_copy_names_the_next_action():
     assert "Clean up" in archive.EMPTY_COPY
 
 
+def test_archive_copy_says_quad_or_better_with_tier_words_upper_case():
+    html, _props, _n = _render(archive.build, FixtureSource("empty"))
+    assert "QUAD or better" in archive.EMPTY_COPY
+    assert "Quad" not in archive.EMPTY_COPY
+    assert "QUAD or better" in html and "Quad" not in html
+    full_html, _props, _n = _render(archive.build, FixtureSource("huge_archive"))
+    assert "kept for a best-of. QUAD or better only." in full_html
+    assert "Quad" not in full_html
+
+
 @pytest.mark.parametrize("scenario", SCENARIOS)
 def test_archive_painted_rows_match_the_state_rows(scenario):
     source = FixtureSource(scenario)

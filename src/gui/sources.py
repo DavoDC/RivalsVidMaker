@@ -63,6 +63,8 @@ def _tier_counts(paths: list[Path], cache_dir: Path) -> dict:
         entry = _cache_entry(path, cache_dir)
         result = entry.get("ko_result") if entry else None
         tier = result.get("tier") if isinstance(result, dict) else None
+        if tier not in counts:
+            tier = clip_names.tier_from_name(path.name)
         if tier in counts:
             counts[tier] += 1
     return counts
