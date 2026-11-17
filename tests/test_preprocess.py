@@ -39,6 +39,66 @@ def _make_clip(directory: Path, name: str) -> Path:
     return p
 
 
+class TestProgressReporting:
+
+    _TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+
+    def _two_characters(self, tmp_path):
+        for char, clips in [
+            ("STORM", ["STORM_2026-03-01_10-00-00.mp4"]),
+            ("THOR", ["THOR_2026-02-06_22-38-56.mp4", "THOR_2026-02-06_23-00-00.mp4"]),
+        ]:
+            d = tmp_path / char
+            d.mkdir()
+            for name in clips:
+                _make_clip(d, name)
+
+    def test_reports_each_clip_then_a_final_total(self, tmp_path):
+        self._two_characters(tmp_path)
+        calls = []
+
+        with patch("preprocess.ko_detect") as mock_ko:
+            mock_ko.TIERS = self._TIERS
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
+            mock_ko.cache_load.return_value = (False, None)
+            mock_ko.scan_clip.return_value = {"tier": "DOUBLE"}
+
+            preprocess_all(make_config(tmp_path),
+                           on_progress=lambda done, total, char: calls.append((done, total, char)))
+
+        assert calls == [(0, 3, "STORM"), (1, 3, "THOR"), (2, 3, "THOR"), (3, 3, "")]
+
+    def test_reports_cached_clips_too(self, tmp_path):
+        char_dir = tmp_path / "THOR"
+        char_dir.mkdir()
+        _make_clip(char_dir, "THOR_2026-02-06_22-38-56_QUAD.mp4")
+        calls = []
+
+        with patch("preprocess.ko_detect") as mock_ko:
+            mock_ko.TIERS = self._TIERS
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
+            mock_ko.cache_load.return_value = (True, {"tier": "QUAD"})
+
+            preprocess_all(make_config(tmp_path),
+                           on_progress=lambda done, total, char: calls.append((done, total, char)))
+
+        assert calls == [(0, 1, "THOR"), (1, 1, "")]
+        mock_ko.scan_clip.assert_not_called()
+
+    def test_progress_is_optional(self, tmp_path):
+        self._two_characters(tmp_path)
+
+        with patch("preprocess.ko_detect") as mock_ko:
+            mock_ko.TIERS = self._TIERS
+            mock_ko.NULL_RESULT_SUFFIX = "NONE"
+            mock_ko.cache_load.return_value = (False, None)
+            mock_ko.scan_clip.return_value = {"tier": "DOUBLE"}
+
+            result = preprocess_all(make_config(tmp_path))
+
+        assert result == {"STORM": 1, "THOR": 2}
+
+
 class TestPreprocessAll:
 
     def test_returns_empty_when_no_char_folders(self, tmp_path):

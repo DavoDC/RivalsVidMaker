@@ -128,7 +128,7 @@ def test_sort_starts_a_sort_job(config, runner, monkeypatch):
 def test_scan_starts_a_scan_job_and_passes_the_low_value_collector(config, runner, monkeypatch):
     seen = {}
 
-    def fake_scan(cfg, dry_run=False, on_low_value=None):
+    def fake_scan(cfg, dry_run=False, on_low_value=None, on_progress=None):
         seen["cfg"] = cfg
         on_low_value(Path("THOR_x_KO.mp4"))
         return {}
@@ -138,6 +138,23 @@ def test_scan_starts_a_scan_job_and_passes_the_low_value_collector(config, runne
     record = finish(runner)
     assert (record["kind"], record["state"]) == ("scan", "done")
     assert seen["cfg"] is config
+
+
+@pytest.mark.parametrize("args, expected_phase", [
+    ((1, 3, "THOR"), "Scanning THOR"),
+    ((3, 3, ""), "Finishing"),
+])
+def test_scan_reports_clip_progress_to_the_job_bar(config, runner, monkeypatch, args, expected_phase):
+    def fake_scan(cfg, dry_run=False, on_low_value=None, on_progress=None):
+        on_progress(*args)
+        return {}
+
+    monkeypatch.setattr(preprocess, "preprocess_all", fake_scan)
+    bridge.scan(runner, config)
+    record = finish(runner)
+    assert (record["kind"], record["state"]) == ("scan", "done")
+    assert (record["done"], record["total"], record["unit"], record["phase"]) == (
+        args[0], args[1], "clips", expected_phase)
 
 
 def test_compile_plans_then_applies_once_under_its_nonce(config, runner, monkeypatch, tmp_path):

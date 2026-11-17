@@ -105,6 +105,7 @@ def preprocess_all(
     config: Config,
     dry_run: bool = False,
     on_low_value: Callable[[Path], None] | None = None,
+    on_progress: Callable[[int, int, str], None] | None = None,
 ) -> dict[str, int]:
     """
     Scan all clips in all character subfolders of config.clips_path.
@@ -173,6 +174,8 @@ def preprocess_all(
         char_done = 0
         for clip_path in clips:
             done += 1
+            if on_progress is not None:
+                on_progress(done - 1, total, char_name)
             already_processed = _has_processed_suffix(clip_path)
             hit, cached_result = ko_detect.cache_load(str(clip_path))
 
@@ -244,6 +247,8 @@ def preprocess_all(
         else f"{total_elapsed:.1f}s"
     )
     logging.info("Pre-processing complete - %d clip(s) in %s", total, elapsed_str)
+    if on_progress is not None and total > 0:
+        on_progress(total, total, "")
     return results
 
 

@@ -97,7 +97,12 @@ def sort(runner: jobs.JobRunner, config) -> dict:
 def scan(runner: jobs.JobRunner, config) -> dict:
     def job(ctx: jobs.JobContext) -> None:
         low_value: list[Path] = []
-        preprocess.preprocess_all(config, on_low_value=low_value.append)
+        preprocess.preprocess_all(
+            config,
+            on_low_value=low_value.append,
+            on_progress=lambda done, total, char: ctx.progress(
+                done, total, "clips", f"Scanning {char}" if char else "Finishing"),
+        )
         ctx.log.info("Scan found %d low-value clip(s)", len(low_value))
 
     _require_idle(runner)
