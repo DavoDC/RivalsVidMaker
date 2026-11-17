@@ -4,7 +4,7 @@ download_playlist.py - Download all videos from the Marvel Rivals YouTube playli
 Downloads at highest available quality (bestvideo+bestaudio merged to mp4).
 Skips already-downloaded files - safe to re-run at any time.
 
-Setup: copy yt-dlp.exe to dependencies/ (from SBS_Download/dependencies/)
+Setup: put yt-dlp.exe in dependencies/
 Usage: python scripts/download_playlist.py
 """
 
