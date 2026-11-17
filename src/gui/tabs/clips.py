@@ -101,11 +101,9 @@ def table_html(rows: list[dict]) -> str:
         clips = int(row.get("clips") or 0)
         scanned = int(row.get("scanned") or 0)
         folder = str(row.get("name") or "")
-        name_cell = (f'<div style="display:flex;align-items:center;gap:{tokens.SPACE_8}px;">'
-                     f'{avatars.avatar_html(folder)}{escape(avatars.display_name(folder))}</div>')
         body.append(
             f'<tr data-testid="{row["testid"]}">'
-            f'<td style="{_TD}">{name_cell}</td>'
+            f'<td style="{_TD}">{avatars.name_cell_html(folder)}</td>'
             f'<td style="{_TD_NUM}">{clips}</td>'
             f'<td style="{_TD_NUM}">{_duration(row)}</td>'
             f'<td style="{_TD_NUM}">{scanned} of {clips}</td>'

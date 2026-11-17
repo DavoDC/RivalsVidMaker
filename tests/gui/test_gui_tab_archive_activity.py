@@ -13,7 +13,7 @@ from nicegui import ui
 from nicegui.element_filter import ElementFilter
 from nicegui.testing.user_simulation import user_simulation
 
-from gui import fixtures, tokens, ui_check, view_model
+from gui import avatars, fixtures, tokens, ui_check, view_model
 from gui.components import job_bar, tier_chip
 from gui.sources import FixtureSource
 from gui.tabs import activity, archive
@@ -115,7 +115,8 @@ def test_archive_table_rows_carry_the_view_model_testids_and_name_each_character
     rows = view_model.snapshot(source)["archive"]["by_character"]
     html = archive.table_html(rows)
     assert _ui_rows(html, "archive-") == {r["testid"] for r in rows}
-    assert "ARCHIVE GROUP 0001" in html
+    assert "Archive Group 0001</div>" in html
+    assert "ARCHIVE GROUP 0001" not in html
 
 
 def test_archive_chips_only_for_quad_penta_hexa():
@@ -136,6 +137,14 @@ def test_archive_names_from_data_are_escaped_not_markup():
     html = archive.table_html(rows)
     assert "&lt;b&gt;bold&lt;/b&gt;" in html
     assert "<b>bold</b>" not in html
+
+
+def test_archive_character_cell_shows_the_display_name_not_the_folder_name(monkeypatch, tmp_path):
+    monkeypatch.setattr(avatars, "ASSET_DIR", tmp_path)  # no portrait, so the initials badge shows
+    rows = [{"testid": "archive-thor-000001", "name": "THOR", "count": 1, "tiers": {"QUAD": 1}}]
+    html = archive.table_html(rows)
+    assert "Thor</div>" in html
+    assert ">THOR<" not in html
 
 
 def test_archive_empty_copy_names_the_next_action():

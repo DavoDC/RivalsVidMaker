@@ -80,6 +80,24 @@ def test_avatar_defaults_to_the_repo_asset_folder_when_no_folder_is_given(monkey
     assert '<img src="/characters/THOR.png"' in avatars.avatar_html("THOR")
 
 
+# ---- name cell (avatar then display name, shared by Clips, Archive and Videos) ---------------
+
+def test_name_cell_is_the_badge_then_the_display_name_in_a_flex_row(monkeypatch, tmp_path):
+    monkeypatch.setattr(avatars, "ASSET_DIR", tmp_path)
+    html = avatars.name_cell_html("DOCTOR_STRANGE")
+    assert html == ('<div style="display:flex;align-items:center;gap:8px;">'
+                    + avatars.avatar_html("DOCTOR_STRANGE", asset_dir=tmp_path) + "Doctor Strange</div>")
+    assert ">DS</span>" in html
+    assert "DOCTOR_STRANGE" not in html
+
+
+def test_name_cell_escapes_a_name_that_holds_markup(monkeypatch, tmp_path):
+    monkeypatch.setattr(avatars, "ASSET_DIR", tmp_path)
+    html = avatars.name_cell_html("<i>x</i>")
+    assert "<i>" not in html
+    assert "&lt;i&gt;x&lt;/i&gt;" in html
+
+
 # ---- static mount ----------------------------------------------------------------------------
 
 class _FakeApp:

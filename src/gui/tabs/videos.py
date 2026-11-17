@@ -14,7 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from nicegui import ui
 
-from gui import tokens, view_model
+from gui import avatars, tokens, view_model
 from gui.components import plan_list
 from gui.tabs import heading
 
@@ -130,7 +130,8 @@ def _folder_row(folder: dict, actions: dict, busy: bool, restore_slots: list) ->
     with ui.column().props(f"data-testid={folder['testid']}").style(_ROW + "gap:8px;width:100%;"):
         with ui.row().style("gap:16px;align-items:center;width:100%;flex-wrap:wrap;"):
             ui.label(str(folder.get("slug") or "")).style(_UI + "font-weight:600;")
-            ui.label(str(folder.get("character") or "")).style(_UI + _DIM)
+            if folder.get("character"):
+                ui.html(avatars.name_cell_html(str(folder["character"]))).style(_UI + _DIM)
             ui.label(_plural(int(folder.get("clips") or 0), "clip")).style(_UI + _NUM)
             ui.label(f"{int(folder.get('quad_plus') or 0)} {QUAD_LABEL}").style(_UI + _NUM)
             _stage_actions(folder, actions, busy)

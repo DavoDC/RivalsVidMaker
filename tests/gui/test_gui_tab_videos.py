@@ -13,7 +13,7 @@ from nicegui import ui
 from nicegui.element_filter import ElementFilter
 from nicegui.testing.user_simulation import user_simulation
 
-from gui import fixtures, tokens, view_model
+from gui import avatars, fixtures, tokens, view_model
 from gui.components import plan_list
 from gui.sources import FixtureSource
 from gui.tabs import videos as videos_tab
@@ -201,10 +201,19 @@ def test_numbers_are_separate_labels_with_clips_and_quad_or_better():
     assert not any(BAD_CHARS[0] in text for text in labels)
 
 
-def test_character_label_uses_the_same_font_size_token_as_the_counts():
+def test_folder_row_shows_the_character_display_name_not_the_folder_name(monkeypatch, tmp_path):
+    monkeypatch.setattr(avatars, "ASSET_DIR", tmp_path)  # no portrait, so the initials badge shows
+    source = _with_folders([fixtures.folder("squirrel_girl_vid1", 1, character="SQUIRREL_GIRL", clips=2)])
+    html, _props, _labels, _buttons = _render(source)
+    assert "Squirrel Girl</div>" in html
+    assert "SQUIRREL_GIRL" not in html
+
+
+def test_character_label_uses_the_same_font_size_token_as_the_counts(monkeypatch, tmp_path):
+    monkeypatch.setattr(avatars, "ASSET_DIR", tmp_path)
     source = _with_folders([fixtures.folder("zed_vid1", 1, character="ZED", clips=2)])
     elements = _session(source)
-    character = next(e for e in elements if isinstance(e, ui.label) and e.text == "ZED")
+    character = next(e for e in elements if isinstance(e, ui.html) and "Zed</div>" in e.content)
     counts = next(e for e in elements if isinstance(e, ui.label) and e.text == "2 clips")
     assert character._style.get("font-size") == counts._style.get("font-size") == f"{tokens.SIZE_UI}px"
     assert character._style.get("color") == tokens.TEXT_DIM

@@ -6,11 +6,9 @@ the row check needs every row on the page.
 """
 from __future__ import annotations
 
-from html import escape
-
 from nicegui import ui
 
-from gui import tokens, view_model
+from gui import avatars, tokens, view_model
 from gui.components import tier_chip
 from gui.tabs import heading
 
@@ -43,7 +41,7 @@ def table_html(rows: list[dict]) -> str:
     for row in rows:
         body.append(
             f'<tr data-testid="{row["testid"]}">'
-            f'<td style="{_TD}">{escape(str(row.get("name") or ""))}</td>'
+            f'<td style="{_TD}">{avatars.name_cell_html(str(row.get("name") or ""))}</td>'
             f'<td style="{_TD}text-align:right;">{int(row.get("count") or 0)}</td>'
             f'<td style="{_TD}">{_tier_cell(row.get("tiers") or {})}</td>'
             "</tr>")

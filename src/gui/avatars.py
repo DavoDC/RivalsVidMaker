@@ -66,6 +66,12 @@ def avatar_html(folder: str, asset_dir: Path | None = None) -> str:
     return f'<span aria-hidden="true" style="{style}">{escape(initials(folder))}</span>'
 
 
+def name_cell_html(folder: str) -> str:
+    """The avatar then the display name in one flex row; the table cell every character tab shares."""
+    return (f'<div style="display:flex;align-items:center;gap:{tokens.SPACE_8}px;">'
+            f'{avatar_html(folder)}{escape(display_name(folder))}</div>')
+
+
 def register(app) -> None:
     """Create the asset folder (it may be empty) and serve it at /characters."""
     ASSET_DIR.mkdir(parents=True, exist_ok=True)

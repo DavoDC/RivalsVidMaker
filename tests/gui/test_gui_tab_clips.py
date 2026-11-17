@@ -279,6 +279,13 @@ def test_table_shows_display_names_not_folder_names(monkeypatch, tmp_path):
     assert 'display:flex;align-items:center;gap:8px;' in html
 
 
+def test_table_name_cell_is_the_shared_avatars_name_cell(monkeypatch, tmp_path):
+    monkeypatch.setattr(avatars, "ASSET_DIR", tmp_path)
+    row = {"testid": "clip-char-x-000011", "name": "SQUIRREL_GIRL", "clips": 1, "minutes": 0.5,
+           "scanned": 1, "unscanned": 0, "tiers": {}}
+    assert avatars.name_cell_html("SQUIRREL_GIRL") in clips.table_html([row])
+
+
 def test_table_numeric_cells_are_right_aligned_with_12px_padding_and_regular_weight():
     row = {"testid": "clip-char-x-000003", "name": "IRON MAN", "clips": 8, "minutes": 1.0,
            "scanned": 8, "unscanned": 0, "tiers": {}}
