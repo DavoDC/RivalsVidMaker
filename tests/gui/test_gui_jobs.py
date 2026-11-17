@@ -232,3 +232,24 @@ def test_running_job_is_written_to_history_before_it_finishes(tmp_path):
     finally:
         release.set()
         assert runner.wait(WAIT)
+
+
+def test_bgtask_spawn_logs_a_failed_task(caplog):
+    import asyncio
+    import logging
+    from gui import bgtask
+
+    async def boom():
+        raise RuntimeError("bad")
+
+    async def main():
+        task = bgtask.spawn(boom())
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        return task
+
+    with caplog.at_level(logging.ERROR):
+        task = asyncio.run(main())
+    assert task.done()
+    assert "background task failed" in caplog.text
+    assert not bgtask._tasks

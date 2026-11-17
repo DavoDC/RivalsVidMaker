@@ -4,15 +4,14 @@
 The event loop holds only a weak reference to a task, so a bare
 asyncio.create_task(...) whose result is dropped can vanish before it
 finishes, and its exception is then lost. spawn() keeps a strong reference
-until the task is done and writes any failure to the app log.
+until the task is done and logs any failure.
 """
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Coroutine
 from typing import Any
-
-import applog
 
 _tasks: set[asyncio.Task[Any]] = set()
 
@@ -31,4 +30,4 @@ def _on_done(task: asyncio.Task[Any]) -> None:
         return
     exc = task.exception()
     if exc is not None:
-        applog.write("bgtask", f"background task failed: {exc!r}")
+        logging.getLogger(__name__).error("background task failed: %r", exc)
