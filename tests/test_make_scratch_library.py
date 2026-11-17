@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+import clip_sorter
 from config import load
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "make_scratch_library.py"
@@ -18,7 +19,7 @@ _spec = importlib.util.spec_from_file_location("make_scratch_library", SCRIPT)
 mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(mod)
 
-NAME_RE = re.compile(r"^Marvel Rivals_2026\.11\.01-\d{2}\.\d{2}\.\d{2}\.mp4$")
+NAME_RE = re.compile(r"^[A-Z][A-Z ]*_2026-11-01_\d{2}-\d{2}-\d{2}\.mp4$")
 REAL_FFMPEG = mod.DEFAULT_FFMPEG_DIR / "ffmpeg.exe"
 
 
@@ -36,7 +37,7 @@ def fake_make_clip(ffmpeg, path, seconds):
 
 
 def test_clip_names_match_pattern_and_sort_in_creation_order():
-    names = mod.clip_names(10, 0)
+    names = mod.clip_names(10, 0, "THOR")
     assert len(names) == 10
     assert len(set(names)) == 10
     assert all(NAME_RE.match(n) for n in names)
@@ -44,7 +45,64 @@ def test_clip_names_match_pattern_and_sort_in_creation_order():
 
 
 def test_clip_names_continue_from_start_index():
-    assert mod.clip_names(5, 5) == mod.clip_names(10, 0)[5:]
+    assert mod.clip_names(5, 5, "THOR") == mod.clip_names(10, 0, "THOR")[5:]
+
+
+def test_clip_names_use_the_game_stem_for_the_character():
+    assert mod.clip_names(1, 0, "SQUIRREL GIRL") == ["SQUIRREL GIRL_2026-11-01_10-00-00.mp4"]
+
+
+def test_plan_names_covers_every_folder_with_its_layout_count():
+    plan = mod.plan_names()
+    assert list(plan) == list(mod.LAYOUT)
+    for folder, count in mod.LAYOUT.items():
+        assert len(plan[folder]) == count, folder
+
+
+def test_plan_names_has_no_duplicate_names_or_timestamps():
+    names = [n for group in mod.plan_names().values() for n in group]
+    assert len(names) == 10
+    assert len(set(names)) == 10
+
+
+def test_plan_names_character_folders_use_the_folder_name():
+    plan = mod.plan_names()
+    assert all(n.startswith("THOR_") for n in plan["Highlights/THOR"])
+    assert all(n.startswith("HELA_") for n in plan["Highlights/HELA"])
+
+
+def test_every_planned_name_parses_to_its_folder_character():
+    plan = mod.plan_names()
+    for folder in ("Highlights/THOR", "Highlights/HELA"):
+        expected = Path(folder).name
+        for name in plan[folder]:
+            assert clip_sorter.extract_character(Path(name).stem) == expected, name
+
+
+def test_loose_character_list_matches_the_loose_folder_count():
+    assert len(mod.LOOSE_CHARACTERS) == mod.LAYOUT["Highlights"]
+
+
+def test_loose_names_parse_to_hela_squirrel_girl_thor_in_time_order():
+    loose = mod.plan_names()["Highlights"]
+    assert [clip_sorter.extract_character(Path(n).stem) for n in loose] == [
+        "HELA", "SQUIRREL_GIRL", "THOR",
+    ]
+    assert loose == sorted(loose)
+
+
+def test_sort_moves_two_loose_clips_and_keeps_the_newest(tmp_path):
+    clips = tmp_path / "Highlights"
+    clips.mkdir()
+    loose = mod.plan_names()["Highlights"]
+    for name in loose:
+        (clips / name).write_bytes(b"")
+
+    assert clip_sorter.sort_clips(clips, protect_recent=1) == 2
+    assert (clips / "SQUIRREL_GIRL").is_dir()
+    assert (clips / "HELA" / loose[0]).is_file()
+    assert (clips / "SQUIRREL_GIRL" / loose[1]).is_file()
+    assert (clips / loose[2]).is_file()
 
 
 def test_layout_totals_ten_clips_in_expected_folders():

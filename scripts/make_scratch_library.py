@@ -36,13 +36,33 @@ LAYOUT = {
 }
 
 
-def clip_names(count, start_index):
-    """Clip file names with increasing timestamps, so name order is creation order."""
+# Characters of the loose clips in Highlights/, in time order. The game's own stem
+# pattern is <CHARACTER>_<date>_<time>, so Sort files each by character. "SQUIRREL GIRL"
+# has a space, so Sort makes the folder SQUIRREL_GIRL. The newest (THOR) stays put.
+LOOSE_CHARACTERS = ["HELA", "SQUIRREL GIRL", "THOR"]
+
+
+def clip_names(count, start_index, character):
+    """Clip file names in the game's pattern, with increasing timestamps (creation order)."""
     names = []
     for k in range(count):
         when = BASE_TIME + dt.timedelta(minutes=start_index + k)
-        names.append(f"Marvel Rivals_{when:%Y.%m.%d-%H.%M.%S}.mp4")
+        names.append(f"{character}_{when:%Y-%m-%d_%H-%M-%S}.mp4")
     return names
+
+
+def plan_names():
+    """Folder (relative to DEST) -> clip file names, in creation order."""
+    plan = {}
+    index = 0
+    for folder, count in LAYOUT.items():
+        if folder == "Highlights":
+            names = [clip_names(1, index + k, ch)[0] for k, ch in enumerate(LOOSE_CHARACTERS)]
+        else:
+            names = clip_names(count, index, Path(folder).name)
+        plan[folder] = names
+        index += count
+    return plan
 
 
 def layout():
@@ -148,15 +168,13 @@ def main(argv=None):
     for folder in counts:
         (dest / folder).mkdir(parents=True, exist_ok=True)
 
-    index = 0
-    for folder, count in counts.items():
-        for name in clip_names(count, index):
+    for folder, names in plan_names().items():
+        for name in names:
             try:
                 make_clip(ffmpeg, dest / folder / name, args.seconds)
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
                 print(f"ffmpeg failed on {name}: {exc}", file=sys.stderr)
                 return 1
-        index += count
 
     (dest / "state.json").write_text("{}\n", encoding="utf-8")
     cfg_path = write_config(dest, ffdir)
