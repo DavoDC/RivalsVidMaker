@@ -1,9 +1,7 @@
 # RivalsVidMaker — Project Context for Claude
 
 ## What this project does
-Python pipeline that batches short Marvel Rivals gameplay clips into ~15-min YouTube
-compilations using FFmpeg. Detects multi-kill banners via OCR (Tesseract) and generates
-timestamped YouTube descriptions automatically.
+Python pipeline that batches short Marvel Rivals gameplay clips into ~15-min YouTube compilations using FFmpeg. Detects multi-kill banners via OCR (Tesseract) and generates timestamped YouTube descriptions automatically.
 
 ## Repo structure
 ```
@@ -20,6 +18,7 @@ src/
   ai_prompt.py          — generate pre-filled AI prompts markdown file after each pipeline run
   cleanup.py            — interactive post-YouTube cleanup (move Quad+ to archive, delete rest)
   preprocess.py         — pre-process mode: warm KO cache for all clips without encoding
+  gui/                  PLANNED local NiceGUI app (port 8476); only gui/bridge.py may import modules that change files; see docs/GUI.md
 scripts/
   run.bat               — double-click launcher (opens Git Bash terminal)
   run.sh                — runs python src/main.py from repo root
@@ -37,7 +36,8 @@ data/
   logs/                 — runtime logs (gitignored)
   output/               — description.txt files per batch
   examples/             — ground_truth/ labelled frames, ko_frames/ reference screenshots
-docs/                   MULTIKILL_DETECTION.md, YOUTUBE_API.md, YOUTUBE_TITLE_AND_DESC.md
+docs/                   MULTIKILL_DETECTION.md, YOUTUBE_API.md, YOUTUBE_TITLE_AND_DESC.md,
+                        DESIGN.md (GUI design source of truth), GUI.md (GUI architecture, planned)
 dependencies/
   ffmpeg/               ffmpeg.exe + ffprobe.exe + ffplay.exe (gitignored, user provides)
   yt-dlp.exe            used by scripts/download_playlist.py (gitignored)
@@ -50,8 +50,7 @@ pytest.ini              — test config (testpaths=tests, pythonpath=src)
 ## How to run
 
 **Primary entry point: double-click `scripts/run.bat`**
-All normal workflow goes through this. No need to run scripts with different args.
-The interactive menu handles everything: compile, pre-process, cleanup, etc.
+All normal workflow goes through this. No need to run scripts with different args. The interactive menu handles everything: compile, pre-process, cleanup, etc.
 
 ```
 # Developer/debug only (not normal usage):
@@ -66,8 +65,7 @@ python src/ko_detect.py <clip_path>      # single clip debug
 pytest
 ```
 
-Note: `--cleanup` as a standalone flag is being phased into the interactive menu.
-Eventually all actions will be accessible from within run.bat with no extra flags needed.
+Note: `--cleanup` as a standalone flag is being phased into the interactive menu. Eventually all actions will be accessible from within run.bat with no extra flags needed.
 
 ## Development principles
 - **Single language rule** — Python only. No mixed languages.
@@ -75,20 +73,16 @@ Eventually all actions will be accessible from within run.bat with no extra flag
 - **One clip first** — get a single clip working perfectly before scaling to batch.
 
 ## Logging architecture
-- **FileHandler (DEBUG)** — full timestamped log of everything, including internal details
-  (per-clip probe results, ffmpeg commands, ffmpeg stderr, KO scan details per clip).
-- **StreamHandler (INFO)** — terminal shows the same user-facing messages, plain format
-  (no timestamps, no level prefix for INFO; `[WARNING]`/`[ERROR]` prefix for those).
+- **FileHandler (DEBUG)** — full timestamped log of everything, including internal details (per-clip probe results, ffmpeg commands, ffmpeg stderr, KO scan details per clip).
+- **StreamHandler (INFO)** — terminal shows the same user-facing messages, plain format (no timestamps, no level prefix for INFO; `[WARNING]`/`[ERROR]` prefix for those).
 - Rule: **everything shown in the terminal also appears in the log; the log has more.**
-- Log files are created lazily (`delay=True`) — if the user exits before any work starts,
-  no empty log file is left behind.
+- Log files are created lazily (`delay=True`) — if the user exits before any work starts, no empty log file is left behind.
 - Log location: `data/logs/run_YYYYMMDD_HHMMSS.log`
 
 ## Clip filename convention
 Marvel Rivals clips follow: `{CHARACTER NAME}_{YYYY}-{MM}-{DD}_{HH}-{MM}-{SS}.mp4`
 
-Character names may contain letters, digits, spaces, or underscores.
-Spaces are normalised to underscores for the folder name.
+Character names may contain letters, digits, spaces, or underscores. Spaces are normalised to underscores for the folder name.
 
 **The game never includes KO tier in filenames.** The `_DOUBLE`, `_TRIPLE` etc. suffix is appended by the RVM pipeline after KO scanning. Raw game-saved clips end at the timestamp.
 
@@ -101,8 +95,7 @@ BLACK WIDOW_2026-01-15_08-00-00.mp4   →  Highlights/BLACK_WIDOW/
 ```
 
 ## Clip auto-sorter (src/clip_sorter.py)
-On every run the pipeline first calls `sort_clips(clips_path)` to move any video files
-sitting directly in the `Highlights/` root into per-character subfolders.
+On every run the pipeline first calls `sort_clips(clips_path)` to move any video files sitting directly in the `Highlights/` root into per-character subfolders.
 
 **Safety guarantees:**
 - Uses `shutil.move()` — atomic rename on the same filesystem, no copy+delete risk.
@@ -111,9 +104,7 @@ sitting directly in the `Highlights/` root into per-character subfolders.
 - Skips if the destination already exists — never overwrites (logged as WARNING).
 
 **Character folder convention — Highlights subfolders contain ONLY raw `.mp4` clips.**
-No further subfolders. Once a clip is compiled into a video it moves to
-`Output\CHARACTER_DATE\clips\` — it does NOT stay in Highlights.
-Highlights is a pure intake zone: new clips arrive → get sorted → stay until compiled.
+No further subfolders. Once a clip is compiled into a video it moves to `Output\CHARACTER_DATE\clips\` — it does NOT stay in Highlights. Highlights is a pure intake zone: new clips arrive → get sorted → stay until compiled.
 
 ## Video folder structure
 Root: `C:\Users\David\Videos\MarvelRivals\`
@@ -193,8 +184,7 @@ Long-term archive for Quad+ clips. Never deleted automatically.
 - No subfolders required — flat structure is fine.
 
 ## KO detection (src/ko_detect.py)
-Detects multi-kill banners (KO → DOUBLE → TRIPLE → QUAD → PENTA → HEXA) via OCR.
-Full technical reference: `docs/MULTIKILL_DETECTION.md`.
+Detects multi-kill banners (KO → DOUBLE → TRIPLE → QUAD → PENTA → HEXA) via OCR. Full technical reference: `docs/MULTIKILL_DETECTION.md`.
 
 - **Pass 1 only (default):** 2fps sweep, banner crop right 25% / y 40-62%, 2s cooldown between events. Catches all DOUBLE+ reliably.
 - **Pass 2 (disabled by default):** 8fps full-clip, no early exit. Only enabled via `use_pass2_scanner: true` in config - used by `rescan_and_report.py` for data collection runs.
@@ -236,14 +226,12 @@ Project planning (ideas and next actions) is kept privately by the maintainer; t
 
 ## Launcher scripts
 
-`scripts/run.bat` -> `scripts/run.sh` -> `python src/main.py` (normal run)
-`scripts/run_dry.bat` -> `scripts/run_dry.sh` -> `python src/main.py --dry-run`
+`scripts/run.bat` -> `scripts/run.sh` -> `python src/main.py` (normal run) `scripts/run_dry.bat` -> `scripts/run_dry.sh` -> `python src/main.py --dry-run`
 
 Each bat points to its own .sh file. Dry-run is explicit in run_dry.sh - no env var coupling. If adding a new run mode, add a new `run_<mode>.sh` + `run_<mode>.bat` pair.
 
 ## Dependencies
 - Python 3.10+
 - `pip install pytesseract Pillow`
-- Tesseract OCR binary: `winget install UB-Mannheim.TesseractOCR`
-  → installs to `C:\Program Files\Tesseract-OCR\tesseract.exe` (matches config.json default)
+- Tesseract OCR binary: `winget install UB-Mannheim.TesseractOCR` → installs to `C:\Program Files\Tesseract-OCR\tesseract.exe` (matches config.json default)
 - FFmpeg: place `ffmpeg.exe` + `ffprobe.exe` in `dependencies/ffmpeg/` - OR clone ffkit as a sibling repo; config.py overrides `ffmpeg_path` from config.json with `../ffkit/dependencies/ffmpeg/` when that folder exists
