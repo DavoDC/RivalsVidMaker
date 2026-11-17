@@ -18,7 +18,7 @@ One background worker runs one job at a time (sort, scan, compile, upload, clean
 
 ## State contract
 
-`GET /state.json` returns the whole page state with `schema`, `generated_at`, `stale`, `poll_interval`, `boot_id`, `build`, `fixture`, then `job`, `summary`, `clips`, `compile`, `videos`, `archive`, `activity`. `GET /state/<tab>.json` returns one tab. `GET /api/build` returns the build line, sha, dirty flag and boot id. Every row carries the `testid` painted on its element, and a check compares the two. Secrets (OAuth token, client secret) never appear in any payload.
+`GET /state.json` returns the whole page state with `schema`, `generated_at`, `stale`, `poll_interval`, `boot_id`, `build`, `fixture`, then `job`, `summary`, `clips`, `compile`, `videos`, `archive`, `activity`, `config_problems` (missing tools or bad paths, painted as fix cards) and `notices` (one-shot messages such as a sign-in failure). A video's `stage` is `live` once marked live, `cleaned_partly` when the video is gone but its clips or description remain, `uploaded` when a YouTube link is recorded, and `encoded` otherwise. `GET /state/<tab>.json` returns one tab. `GET /api/build` returns the build line, sha, dirty flag and boot id. Every row carries the `testid` painted on its element, and a check compares the two. Secrets (OAuth token, client secret) never appear in any payload.
 
 ## Fixtures and checks
 
