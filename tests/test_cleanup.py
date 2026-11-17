@@ -13,25 +13,40 @@ import pytest
 from cleanup import (
     FATE_ARCHIVE,
     FATE_RECYCLE,
+    FATE_RECYCLE_FOLDER,
     FATE_RECYCLE_VIDEO,
     FATE_REMOVE_EMPTY_FOLDER,
+    FATE_RESTORE,
     FolderNotConfirmed,
     PlanChanged,
     _tier_from_name,
     _fmt_size,
     apply_cleanup,
+    apply_uncompile,
     plan_cleanup,
+    plan_uncompile,
     restrict_plan,
     run_cleanup,
 )
-from state import mark_youtube_confirmed, save as save_state
+from state import load as load_state, mark_youtube_confirmed, save as save_state
+
+
+def _remove_tree(path: Path) -> None:
+    """Test fake for a folder going to the Recycle Bin: deletes children first. Never shutil.rmtree."""
+    for child in sorted(path.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+        child.unlink() if child.is_file() else child.rmdir()
+    path.rmdir()
 
 
 @pytest.fixture(autouse=True)
 def fake_trash():
-    """send2trash is always patched: a call unlinks the file and is recorded, nothing reaches a real Recycle Bin."""
+    """send2trash is always patched: a call removes the file or folder and is recorded, nothing reaches a real Recycle Bin."""
     def _trash(path):
-        Path(path).unlink()
+        p = Path(path)
+        if p.is_dir():
+            _remove_tree(p)
+        else:
+            p.unlink()
     with patch("cleanup.send2trash", side_effect=_trash) as mock:
         yield mock
 
@@ -562,3 +577,120 @@ class TestDryRunAndPlanBugs:
         prompts = [c.args[0] for c in mock_input.call_args_list]
         assert prompts, "expected at least one prompt"
         assert not any("permanent" in p.lower() for p in prompts)
+
+
+# ── plan_uncompile / apply_uncompile ──────────────────────────────────────────
+
+def _uncompile_tree(tmp_path: Path):
+    """Output folder from _build_tree plus an empty Highlights root. Returns (out, clips_dir, mp4, highlights, desc, clips_json)."""
+    out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+    highlights = tmp_path / "Highlights"
+    highlights.mkdir()
+    return out, clips_dir, mp4, highlights, desc, clips_json
+
+
+class TestPlanUncompile:
+
+    def test_plan_lists_clips_to_restore_and_folder_to_recycle(self, tmp_path):
+        out, clips_dir, mp4, highlights, desc, clips_json = _uncompile_tree(tmp_path)
+        plan = plan_uncompile(out, highlights)
+        restores = {a.path.name: a for a in plan.actions if a.fate == FATE_RESTORE}
+        assert set(restores) == {QUAD, PENTA, HEXA, PLAIN}
+        assert restores[QUAD].dest == highlights / "THOR" / QUAD
+        folder = [a for a in plan.actions if a.fate == FATE_RECYCLE_FOLDER]
+        assert [a.path for a in folder] == [out]
+        recycled = {a.path for a in plan.actions if a.fate in (FATE_RECYCLE, FATE_RECYCLE_VIDEO)}
+        assert recycled == {mp4, desc, clips_json}
+        assert plan.skipped == ()
+
+    def test_planning_changes_nothing(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, highlights, desc, clips_json = _uncompile_tree(tmp_path)
+        before = _tree_fingerprint(tmp_path)
+        plan_uncompile(out, highlights)
+        assert _tree_fingerprint(tmp_path) == before
+        assert list(highlights.iterdir()) == []
+        fake_trash.assert_not_called()
+
+    def test_clip_with_existing_destination_is_skipped_and_keeps_folder(self, tmp_path):
+        out, clips_dir, mp4, highlights, desc, clips_json = _uncompile_tree(tmp_path)
+        (highlights / "THOR").mkdir()
+        (highlights / "THOR" / QUAD).write_bytes(b"already in Highlights")
+        plan = plan_uncompile(out, highlights)
+        assert QUAD in plan.skipped
+        assert all(a.path.name != QUAD for a in plan.actions if a.fate == FATE_RESTORE)
+        assert not any(a.fate == FATE_RECYCLE_FOLDER for a in plan.actions), \
+            "a clip is still in clips/, so the folder must stay"
+
+
+class TestApplyUncompile:
+
+    def test_apply_restores_clips_and_recycles_compile_files_and_folder(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, highlights, desc, clips_json = _uncompile_tree(tmp_path)
+        plan = plan_uncompile(out, highlights)
+        with patch("cleanup.shutil.rmtree", side_effect=AssertionError("rmtree must not be used")):
+            result = apply_uncompile(plan, _live_state(tmp_path, out.name))
+        assert (highlights / "THOR" / QUAD).exists()
+        assert (highlights / "THOR" / PLAIN).exists()
+        sent = {Path(c.args[0]) for c in fake_trash.call_args_list}
+        assert sent == {mp4, desc, clips_json, out}
+        assert not out.exists()
+        assert result.errors == []
+
+    def test_apply_removes_only_this_folder_from_state(self, tmp_path):
+        out, clips_dir, mp4, highlights, desc, clips_json = _uncompile_tree(tmp_path)
+        state_path = tmp_path / "state.json"
+        save_state({"output_folders": {
+            out.name: {"youtube_confirmed": True},
+            "OTHER_FOLDER": {"youtube_confirmed": True},
+        }}, state_path)
+        apply_uncompile(plan_uncompile(out, highlights), state_path)
+        state = load_state(state_path)
+        assert out.name not in state["output_folders"]
+        assert state["output_folders"]["OTHER_FOLDER"] == {"youtube_confirmed": True}
+
+    def test_apply_raises_plan_changed_when_file_appeared(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, highlights, desc, clips_json = _uncompile_tree(tmp_path)
+        plan = plan_uncompile(out, highlights)
+        (clips_dir / "THOR_2026-02-10_09-00-00.mp4").write_bytes(b"new clip")
+        with pytest.raises(PlanChanged):
+            apply_uncompile(plan, None)
+        assert (clips_dir / QUAD).exists()
+        assert list(highlights.iterdir()) == []
+        fake_trash.assert_not_called()
+
+    def test_apply_raises_plan_changed_when_restore_destination_appeared(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, highlights, desc, clips_json = _uncompile_tree(tmp_path)
+        plan = plan_uncompile(out, highlights)
+        (highlights / "THOR").mkdir()
+        (highlights / "THOR" / QUAD).write_bytes(b"appeared after planning")
+        with pytest.raises(PlanChanged):
+            apply_uncompile(plan, None)
+        assert (clips_dir / QUAD).exists()
+        assert (clips_dir / PLAIN).exists()
+        assert (highlights / "THOR" / QUAD).read_bytes() == b"appeared after planning"
+        fake_trash.assert_not_called()
+
+    def test_clash_skipped_at_plan_time_keeps_its_clip_and_the_folder(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, highlights, desc, clips_json = _uncompile_tree(tmp_path)
+        (highlights / "THOR").mkdir()
+        (highlights / "THOR" / QUAD).write_bytes(b"already in Highlights")
+        apply_uncompile(plan_uncompile(out, highlights), None)
+        assert (clips_dir / QUAD).exists()
+        assert (highlights / "THOR" / QUAD).read_bytes() == b"already in Highlights"
+        assert (highlights / "THOR" / PLAIN).exists()
+        assert out.exists()
+        assert not mp4.exists(), "compile files are recycled even when a clip is kept"
+        sent = {Path(c.args[0]) for c in fake_trash.call_args_list}
+        assert out not in sent, "the folder is not recycled while a clip is still in it"
+
+
+class TestRunUncompileConfirmation:
+
+    def test_declined_restore_changes_nothing(self, tmp_path, fake_trash):
+        from cleanup import run_uncompile
+        out, clips_dir, mp4, highlights, desc, clips_json = _uncompile_tree(tmp_path)
+        before = _tree_fingerprint(tmp_path)
+        with patch("builtins.input", return_value="n"), patch("builtins.print"):
+            run_uncompile(out, highlights, state_path=tmp_path / "state.json")
+        assert _tree_fingerprint(tmp_path) == before
+        fake_trash.assert_not_called()
