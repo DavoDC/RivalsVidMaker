@@ -79,6 +79,7 @@ def config_dict(dest, ffmpeg_dir):
         "archive_path": str(root / "ClipArchive"),
         "cache_dir": str(root / "cache"),
         "state_path": str(root / "state.json"),
+        "token_path": str(root / "token.json"),  # never created: a scratch GUI cannot reach the real token
         "ffmpeg_path": str(Path(ffmpeg_dir).resolve()),
         "youtube_channel_id": "SCRATCH",
         "min_batch_seconds": 20,

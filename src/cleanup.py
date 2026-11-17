@@ -149,7 +149,8 @@ def retry_upload(output_folder: Path, config, confirm: bool = True) -> RetryResu
         return RetryResult(cancelled=True)
 
     try:
-        youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
+        youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id,
+                                                     token_path=config.token_path)
         uploader.validate_channel_id(youtube, config.youtube_channel_id)
     except FileNotFoundError as e:
         logging.warning("YouTube credentials not set up: %s", e)
@@ -174,6 +175,7 @@ def retry_upload(output_folder: Path, config, confirm: bool = True) -> RetryResu
             description,
             output_folder.name,
             config.state_path,
+            token_path=config.token_path,
         )
     except Exception as e:
         logging.error("Upload failed: %s", e)

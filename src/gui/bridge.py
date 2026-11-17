@@ -66,10 +66,10 @@ def _require_idle(runner: jobs.JobRunner) -> None:
         raise jobs.Busy(current["title"])
 
 
-def _require_sign_in() -> None:
-    """Refuse unless token.json holds a refresh token, so the engine never falls through to the browser."""
+def _require_sign_in(config) -> None:
+    """Refuse unless the config's token file holds a refresh token, so the engine never falls through to the browser."""
     try:
-        data = json.loads(Path(uploader.TOKEN_PATH).read_text(encoding="utf-8"))
+        data = json.loads(uploader.resolve_token_path(config.token_path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         data = None
     if not isinstance(data, dict) or not data.get("refresh_token"):
@@ -131,10 +131,12 @@ def plan_compile(config, character: Path | str, target_s: float) -> tuple[str, A
 
 
 def compile(runner: jobs.JobRunner, config, token: str, clips: dict | None = None, extra: int = 0,
-            force: bool = False) -> dict:
-    """force is the Re-encode flag: True encodes even when the video already exists."""
+            force: bool = False, upload: bool = True) -> dict:
+    """force is the Re-encode flag: True encodes even when the video already exists.
+    upload=False compiles without a YouTube upload, so no sign-in is needed."""
     _require_idle(runner)
-    _require_sign_in()
+    if upload:
+        _require_sign_in(config)
     plan = PLANS.take("compile", token)
     decisions = {"clips": dict(clips or {}), "extra": int(extra)}
 
@@ -142,7 +144,8 @@ def compile(runner: jobs.JobRunner, config, token: str, clips: dict | None = Non
         def on_progress(encoded, total) -> None:
             ctx.progress(round(encoded), round(total), "s", "Encoding")
 
-        result = engine_pipeline.apply_compile(config, plan, decisions, force=force, on_progress=on_progress)
+        result = engine_pipeline.apply_compile(config, plan, decisions, force=force, on_progress=on_progress,
+                                               upload=upload)
         if result.needs_sign_in or result.upload_failed:
             ctx.log.warning("Compiled, but the upload did not finish: %s", result.error)
         ctx.log.info("Compile finished: compiled=%s uploaded=%s", result.compiled, result.uploaded)
@@ -161,7 +164,7 @@ def upload(runner: jobs.JobRunner, config, output_folder: Path | str) -> dict:
             raise RuntimeError(result.error or "The upload did not finish.")
 
     _require_idle(runner)
-    _require_sign_in()
+    _require_sign_in(config)
     return runner.start("upload", "Upload video", job)
 
 

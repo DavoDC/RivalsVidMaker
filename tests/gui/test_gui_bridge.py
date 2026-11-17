@@ -73,7 +73,7 @@ def config(tmp_path):
     cfg = SimpleNamespace(
         clips_path=root / "Highlights", output_path=root / "Output", archive_path=root / "ClipArchive",
         state_path=root / "data" / "state.json", youtube_channel_id="UCtest", protect_recent_clips=5,
-        force_rescan_cache=False,
+        force_rescan_cache=False, token_path=None,
     )
     cfg.clips_path.mkdir(parents=True)
     cfg.output_path.mkdir(parents=True)
@@ -194,7 +194,7 @@ def test_compile_plans_then_applies_once_under_its_nonce(config, runner, monkeyp
     applied = []
     monkeypatch.setattr(pipeline, "plan_compile", lambda cfg, character, target_s: plan)
 
-    def fake_apply(cfg, p, decisions, force=False, on_progress=None):
+    def fake_apply(cfg, p, decisions, force=False, on_progress=None, upload=True):
         applied.append((p, decisions, force))
         on_progress(30, 60)
         return SimpleNamespace(compiled=True, uploaded=True, needs_sign_in=False, upload_failed=False, error="")
@@ -364,7 +364,7 @@ def test_compile_passes_force_through_to_apply_compile(config, runner, monkeypat
     applied = []
     monkeypatch.setattr(pipeline, "plan_compile", lambda cfg, character, target_s: plan)
 
-    def fake_apply(cfg, p, decisions, force=False, on_progress=None):
+    def fake_apply(cfg, p, decisions, force=False, on_progress=None, upload=True):
         applied.append(force)
         return SimpleNamespace(compiled=True, uploaded=True, needs_sign_in=False, upload_failed=False, error="")
 
@@ -373,6 +373,59 @@ def test_compile_passes_force_through_to_apply_compile(config, runner, monkeypat
     bridge.compile(runner, config, token, clips={}, extra=0, force=True)
     assert finish(runner)["state"] == "done"
     assert applied == [True]
+
+
+# ----- upload flag and the config token path ----------------------------------------
+
+def test_compile_without_upload_needs_no_sign_in_anywhere(config, runner, monkeypatch):
+    applied = []
+    monkeypatch.setattr(pipeline, "plan_compile", lambda cfg, character, target_s: SimpleNamespace(character="THOR"))
+
+    def fake_apply(cfg, p, decisions, force=False, on_progress=None, upload=True):
+        applied.append(upload)
+        return SimpleNamespace(compiled=True, uploaded=False, needs_sign_in=False, upload_failed=False, error="")
+
+    monkeypatch.setattr(pipeline, "apply_compile", fake_apply)
+    token, _ = bridge.plan_compile(config, "THOR", 900)
+    bridge.compile(runner, config, token, upload=False)
+    assert finish(runner)["state"] == "done"
+    assert applied == [False]
+
+
+def test_compile_with_upload_refuses_when_the_config_token_file_is_missing(config, runner, monkeypatch, tmp_path):
+    signed_in(tmp_path)  # a valid token at the module TOKEN_PATH, which the config does not point at
+    config.token_path = tmp_path / "scratch" / "token.json"
+    monkeypatch.setattr(pipeline, "plan_compile", lambda cfg, character, target_s: SimpleNamespace(character="THOR"))
+    token, _ = bridge.plan_compile(config, "THOR", 900)
+    with pytest.raises(bridge.Refused, match="Sign in"):
+        bridge.compile(runner, config, token)
+
+
+def test_compile_with_upload_accepts_a_sign_in_at_the_config_token_path(config, runner, monkeypatch, tmp_path):
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    (scratch / "token.json").write_text(json.dumps({"refresh_token": "r"}), encoding="utf-8")
+    config.token_path = scratch / "token.json"
+    applied = []
+    monkeypatch.setattr(pipeline, "plan_compile", lambda cfg, character, target_s: SimpleNamespace(character="THOR"))
+
+    def fake_apply(cfg, p, decisions, force=False, on_progress=None, upload=True):
+        applied.append(upload)
+        return SimpleNamespace(compiled=True, uploaded=True, needs_sign_in=False, upload_failed=False, error="")
+
+    monkeypatch.setattr(pipeline, "apply_compile", fake_apply)
+    token, _ = bridge.plan_compile(config, "THOR", 900)
+    bridge.compile(runner, config, token)
+    assert finish(runner)["state"] == "done"
+    assert applied == [True]
+
+
+def test_upload_with_upload_refuses_when_the_config_token_file_is_missing(config, runner, tmp_path):
+    signed_in(tmp_path)
+    folder = make_output(config)
+    config.token_path = tmp_path / "scratch" / "token.json"
+    with pytest.raises(bridge.Refused, match="Sign in"):
+        bridge.upload(runner, config, folder)
 
 
 # ----- uncompile ---------------------------------------------------------------------

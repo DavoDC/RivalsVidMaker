@@ -28,6 +28,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 TOKEN_PATH = REPO_ROOT / "config" / "token.json"
 
+
+def resolve_token_path(token_path=None) -> Path:
+    """The token file: the given path when set, else the module TOKEN_PATH read now (so it can be patched)."""
+    return Path(token_path) if token_path is not None else TOKEN_PATH
+
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube",
@@ -71,7 +76,7 @@ def _print_oauth_instructions(expected_channel_id: str = None):
     print()
 
 
-def get_authenticated_service(expected_channel_id: str = None):
+def get_authenticated_service(expected_channel_id: str = None, token_path=None):
     """Get authenticated YouTube v3 service. Handles token refresh and OAuth flow.
 
     If token.json exists but is corrupted/empty, it will be deleted and a new
@@ -79,7 +84,9 @@ def get_authenticated_service(expected_channel_id: str = None):
 
     Args:
         expected_channel_id: If provided, print instructions showing which account to select during OAuth.
+        token_path: Token file to use; None means TOKEN_PATH.
     """
+    path = resolve_token_path(token_path)
     os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     try:
         import google.auth
@@ -91,14 +98,14 @@ def get_authenticated_service(expected_channel_id: str = None):
         raise
 
     creds = None
-    if TOKEN_PATH.exists():
+    if path.exists():
         try:
-            creds, _ = google.auth.load_credentials_from_file(str(TOKEN_PATH), SCOPES)
+            creds, _ = google.auth.load_credentials_from_file(str(path), SCOPES)
         except (ValueError, KeyError) as e:
             # Token file is corrupted/malformed (missing 'type' field, invalid JSON, etc)
             logging.warning("Token file corrupted or invalid: %s", e)
             logging.warning("Deleting corrupted token and triggering re-authentication...")
-            TOKEN_PATH.unlink()
+            path.unlink()
             creds = None
 
     if not creds or not creds.valid:
@@ -120,10 +127,10 @@ def get_authenticated_service(expected_channel_id: str = None):
         # Ensure 'type' field is present (required by google.auth)
         if "type" not in token_json:
             token_json["type"] = "authorized_user"
-        tmp = TOKEN_PATH.with_suffix(".tmp")
+        tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(token_json), encoding="utf-8")
-        tmp.replace(TOKEN_PATH)
-        logging.info("Token saved to %s", TOKEN_PATH)
+        tmp.replace(path)
+        logging.info("Token saved to %s", path)
 
     return build("youtube", "v3", credentials=creds)
 
@@ -167,7 +174,7 @@ def parse_description_file(desc_path: Path) -> tuple[str, str]:
     return title, description
 
 
-def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
+def upload_video(youtube, mp4_path: Path, title: str, description: str, token_path=None) -> str:
     """Upload video to YouTube using resumable protocol with requests library.
 
     Uses requests library (more robust than httplib2) with 10MB chunks.
@@ -193,10 +200,11 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
     print()  # blank line before progress
 
     # Extract auth token from saved token.json file
-    if not TOKEN_PATH.exists():
-        raise ValueError(f"Token not found at {TOKEN_PATH}. Run authentication first.")
+    token_file = resolve_token_path(token_path)
+    if not token_file.exists():
+        raise ValueError(f"Token not found at {token_file}. Run authentication first.")
 
-    token_data = json.loads(TOKEN_PATH.read_text(encoding="utf-8"))
+    token_data = json.loads(token_file.read_text(encoding="utf-8"))
     access_token = token_data.get("token") or token_data.get("access_token")
     if not access_token:
         raise ValueError(f"No token in token.json. Keys: {list(token_data.keys())}")
@@ -305,7 +313,7 @@ def upload_video(youtube, mp4_path: Path, title: str, description: str) -> str:
 
 
 def upload_and_save_state(youtube, mp4_path: Path, title: str, description: str,
-                         slug: str, state_path: Path) -> str:
+                         slug: str, state_path: Path, token_path=None) -> str:
     """Upload video and save metadata to state.json.
 
     Args:
@@ -315,13 +323,14 @@ def upload_and_save_state(youtube, mp4_path: Path, title: str, description: str,
         description: full description (with timestamps)
         slug: output folder name (e.g. THOR_FEB-MAR_2026_BATCH1)
         state_path: path to data/state.json
+        token_path: token file the upload reads; None means TOKEN_PATH
 
     Returns:
         video_id
     """
     from state import load, save, mark_youtube_confirmed
 
-    video_id = upload_video(youtube, mp4_path, title, description)
+    video_id = upload_video(youtube, mp4_path, title, description, token_path=token_path)
     url = f"https://www.youtube.com/watch?v={video_id}"
 
     # Load current state and add video metadata

@@ -107,6 +107,19 @@ class TestLoad:
         with pytest.raises(ValueError, match="config.example.json"):
             load(cfg_path)
 
+    def test_token_path_absent_is_none(self, tmp_path):
+        cfg = load(write_config(tmp_path, dict(MINIMAL_CONFIG)))
+        assert cfg.token_path is None
+
+    def test_token_path_empty_is_none(self, tmp_path):
+        cfg = load(write_config(tmp_path, {**MINIMAL_CONFIG, "token_path": ""}))
+        assert cfg.token_path is None
+
+    def test_token_path_set_is_a_path(self, tmp_path):
+        cfg = load(write_config(tmp_path, {**MINIMAL_CONFIG, "token_path": "scratch/token.json"}))
+        assert isinstance(cfg.token_path, Path)
+        assert cfg.token_path == Path("scratch/token.json")
+
     def test_custom_target_batch_seconds(self, tmp_path):
         data = {**FULL_CONFIG, "target_batch_seconds": 1200}
         cfg_path = write_config(tmp_path, data)

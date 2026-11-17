@@ -668,7 +668,8 @@ def _upload_compiled(config: Config, result: CompileResult) -> None:
     logging.info("")
     logging.info("--- YouTube Upload ---")
     try:
-        youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
+        youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id,
+                                                     token_path=config.token_path)
         uploader.validate_channel_id(youtube, config.youtube_channel_id)
         result.title, result.description = uploader.parse_description_file(result.desc_path)
     except FileNotFoundError as e:
@@ -684,9 +685,17 @@ def _upload_compiled(config: Config, result: CompileResult) -> None:
         result.needs_sign_in = True
         result.error = str(e)
         return
+    except Exception as e:
+        # Any other auth failure (e.g. a token refresh error) must not abort the compile.
+        logging.warning("YouTube sign-in failed: %s", e)
+        logging.warning("Token kept. Sign in again to upload this video.")
+        result.needs_sign_in = True
+        result.error = str(e)
+        return
     try:
         result.upload_speed = _attempt_upload(youtube, result.video_path, result.title,
-                                              result.description, result.slug, config.state_path)
+                                              result.description, result.slug, config.state_path,
+                                              token_path=config.token_path)
         result.uploaded = True
         logging.info("Video uploaded successfully!")
     except Exception as e:
@@ -695,11 +704,13 @@ def _upload_compiled(config: Config, result: CompileResult) -> None:
         result.error = str(e)
 
 
-def _attempt_upload(youtube, video_path: Path, title: str, description: str, slug: str, state_path: Path) -> float:
+def _attempt_upload(youtube, video_path: Path, title: str, description: str, slug: str, state_path: Path,
+                    token_path=None) -> float:
     """Upload once. Returns the speed in MB/min. Raises on failure."""
     t0 = time.perf_counter()
     size_mb = video_path.stat().st_size / (1024 * 1024)
-    uploader.upload_and_save_state(youtube, video_path, title, description, slug, state_path)
+    uploader.upload_and_save_state(youtube, video_path, title, description, slug, state_path,
+                                   token_path=token_path)
     duration = max(time.perf_counter() - t0, 1e-6)
     return size_mb / (duration / 60)
 
@@ -710,9 +721,10 @@ def apply_compile(
     decisions: dict,
     force: bool = False,
     on_progress=None,
+    upload: bool = True,
 ) -> CompileResult:
     """
-    Carry out a compile plan. Never prompts.
+    Carry out a compile plan. Never prompts. upload=False skips the YouTube upload.
 
     decisions:
       "clips": {clip name: "keep" | "archive" | "recycle" | "drop"}, default "keep".
@@ -799,7 +811,10 @@ def apply_compile(
         duration_s=batch.total_duration,
         clip_count=len(batch.clips),
     )
-    _upload_compiled(config, result)
+    if upload:
+        _upload_compiled(config, result)
+    else:
+        logging.info("Upload skipped.")
 
     logging.info("")
     logging.info("--- Cleanup ---")
@@ -899,14 +914,16 @@ def _prompt_upload_retry(config: Config, result: CompileResult) -> None:
             token_path.unlink()
             logging.info("Token deleted. Re-authenticating...")
         try:
-            youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
+            youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id,
+                                                         token_path=config.token_path)
             uploader.validate_channel_id(youtube, config.youtube_channel_id)
         except Exception as auth_err:
             logging.warning("Re-authentication failed: %s", auth_err)
             return
         try:
             result.upload_speed = _attempt_upload(youtube, result.video_path, result.title,
-                                                  result.description, result.slug, config.state_path)
+                                                  result.description, result.slug, config.state_path,
+                                                  token_path=config.token_path)
         except Exception as e:
             logging.warning("YouTube upload failed: %s", e)
             continue

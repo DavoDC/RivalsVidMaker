@@ -9,6 +9,53 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
+class TestTokenPathOverride:
+    """The token location comes from the caller when given, else the module TOKEN_PATH at call time."""
+
+    def test_resolve_returns_the_given_path(self, tmp_path, monkeypatch):
+        import uploader
+        monkeypatch.setattr(uploader, "TOKEN_PATH", tmp_path / "default.json")
+        given = tmp_path / "scratch" / "token.json"
+        assert uploader.resolve_token_path(given) == given
+
+    def test_resolve_accepts_a_string_and_returns_a_path(self, tmp_path):
+        import uploader
+        assert uploader.resolve_token_path(str(tmp_path / "t.json")) == tmp_path / "t.json"
+
+    def test_resolve_without_a_path_reads_the_module_token_path_at_call_time(self, tmp_path, monkeypatch):
+        import uploader
+        monkeypatch.setattr(uploader, "TOKEN_PATH", tmp_path / "default.json")
+        assert uploader.resolve_token_path() == tmp_path / "default.json"
+        assert uploader.resolve_token_path(None) == tmp_path / "default.json"
+
+    def test_upload_video_reads_the_given_token_not_the_default(self, tmp_path, monkeypatch):
+        import uploader
+        default = tmp_path / "default.json"
+        default.write_text(json.dumps({"token": "real"}), encoding="utf-8")
+        monkeypatch.setattr(uploader, "TOKEN_PATH", default)
+        mp4 = tmp_path / "v.mp4"
+        mp4.write_bytes(b"x")
+        missing = tmp_path / "scratch" / "token.json"
+        with pytest.raises(ValueError) as exc:
+            uploader.upload_video(MagicMock(), mp4, "t", "d", token_path=missing)
+        assert "Token not found" in str(exc.value)
+        assert str(missing) in str(exc.value)
+
+    def test_corrupted_token_at_the_given_path_is_the_one_deleted(self, tmp_path, monkeypatch):
+        import uploader
+        default = tmp_path / "default.json"
+        default.write_text("{}", encoding="utf-8")
+        given = tmp_path / "scratch.json"
+        given.write_text('{"token": "abc"}', encoding="utf-8")
+        monkeypatch.setattr(uploader, "TOKEN_PATH", default)
+        monkeypatch.setattr(uploader, "find_credentials", MagicMock(side_effect=FileNotFoundError("stubbed")))
+        monkeypatch.setattr("google.auth.load_credentials_from_file", MagicMock(side_effect=ValueError("corrupt")))
+        with pytest.raises(FileNotFoundError):
+            uploader.get_authenticated_service(token_path=given)
+        assert not given.exists()
+        assert default.exists()
+
+
 class TestYouTubeUploader:
     """Tests for src/uploader.py - OAuth video upload and integration."""
 

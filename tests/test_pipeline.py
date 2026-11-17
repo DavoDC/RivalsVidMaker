@@ -54,6 +54,7 @@ def tree(tmp_path):
     cfg.youtube_channel_id = "UCtestchannel"
     cfg.vlc_path = None
     cfg.protect_recent_clips = 0
+    cfg.token_path = None
     return cfg, char_dir
 
 
@@ -316,6 +317,56 @@ class TestApplyCompile:
         assert result.upload_failed is True
         assert result.needs_sign_in is False
         assert result.video_path.exists()
+
+
+    def test_refresh_error_marks_needs_sign_in_and_still_moves_the_clips(self, tree, fakes, monkeypatch):
+        cfg, char_dir = tree
+
+        class RefreshError(Exception):
+            pass
+
+        monkeypatch.setattr(pipeline.uploader, "get_authenticated_service",
+                            MagicMock(side_effect=RefreshError("invalid_grant")))
+        plan = pipeline.plan_compile(cfg, char_dir, TARGET)
+
+        result = pipeline.apply_compile(cfg, plan, {})
+
+        assert result.compiled is True
+        assert result.needs_sign_in is True
+        assert result.uploaded is False
+        assert "invalid_grant" in result.error
+        assert result.video_path.exists()
+        assert (result.out_dir / "clips" / "THOR_2026-02-06_22-38-56_QUAD.mp4").exists()
+        assert not (char_dir / QUAD_CLIP).exists()
+
+    def test_upload_false_skips_the_upload_and_still_moves_the_clips(self, tree, fakes, monkeypatch, caplog):
+        cfg, char_dir = tree
+
+        def no_upload(config, result):
+            raise AssertionError("_upload_compiled must not run when upload=False")
+
+        monkeypatch.setattr(pipeline, "_upload_compiled", no_upload)
+        plan = pipeline.plan_compile(cfg, char_dir, TARGET)
+
+        with caplog.at_level("INFO"):
+            result = pipeline.apply_compile(cfg, plan, {}, upload=False)
+
+        assert result.compiled is True
+        assert result.uploaded is False
+        assert "Upload skipped." in caplog.text
+        assert (result.out_dir / "clips" / "THOR_2026-02-06_22-38-56_QUAD.mp4").exists()
+        assert not (char_dir / QUAD_CLIP).exists()
+
+    def test_upload_passes_the_config_token_path_to_auth_and_upload(self, tree, fakes, monkeypatch):
+        cfg, char_dir = tree
+        given = cfg.output_path.parent / "scratch" / "token.json"
+        cfg.token_path = given
+        plan = pipeline.plan_compile(cfg, char_dir, TARGET)
+
+        pipeline.apply_compile(cfg, plan, {})
+
+        assert pipeline.uploader.get_authenticated_service.call_args.kwargs["token_path"] == given
+        assert pipeline.uploader.upload_and_save_state.call_args.kwargs["token_path"] == given
 
 
 # ── run() terminal wrapper ───────────────────────────────────────────────────

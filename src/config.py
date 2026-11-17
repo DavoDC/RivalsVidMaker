@@ -26,6 +26,7 @@ class Config:
     use_pass2_scanner: bool    # if True, scan_clip falls back to pass 2 when pass 1 finds nothing (rescan/data mode only)
     youtube_channel_id: str    # YouTube channel ID for validation (e.g. UC4xPDj5h-MRmTaa8-xIBfaA)
     vlc_path: Path | None      # optional: enables [v]iew option during clip review
+    token_path: Path | None = None  # optional: YouTube token file; None means uploader.TOKEN_PATH
 
 
 def load(path: Path = Path("config/config.json")) -> Config:
@@ -66,4 +67,5 @@ def load(path: Path = Path("config/config.json")) -> Config:
         use_pass2_scanner=bool(raw.get("use_pass2_scanner", False)),
         youtube_channel_id=raw["youtube_channel_id"],
         vlc_path=Path(raw["vlc_path"]) if "vlc_path" in raw else (_DEFAULT_VLC if _DEFAULT_VLC.exists() else None),
+        token_path=Path(raw["token_path"]) if raw.get("token_path") else None,
     )

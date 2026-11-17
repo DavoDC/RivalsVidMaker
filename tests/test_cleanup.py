@@ -275,7 +275,8 @@ def _make_retry_folder(tmp_path: Path) -> Path:
 
 
 def _retry_config(tmp_path: Path):
-    return SimpleNamespace(youtube_channel_id="UCtestchannel", state_path=tmp_path / "state.json")
+    return SimpleNamespace(youtube_channel_id="UCtestchannel", state_path=tmp_path / "state.json",
+                           token_path=None)
 
 
 class TestRetryUploadUnified:

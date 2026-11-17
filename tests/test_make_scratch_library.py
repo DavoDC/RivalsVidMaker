@@ -129,6 +129,15 @@ def test_config_dict_paths_all_sit_under_dest(tmp_path):
     assert cfg["youtube_channel_id"] == "SCRATCH"
 
 
+def test_config_dict_token_path_sits_under_dest_and_is_not_created(tmp_path):
+    dest = tmp_path / "scratch"
+    cfg = mod.config_dict(dest, tmp_path / "ffmpeg")
+    token = Path(cfg["token_path"])
+    assert token == dest.resolve() / "token.json"
+    assert token.is_relative_to(dest.resolve())
+    assert not token.exists()
+
+
 def test_config_load_accepts_written_file(tmp_path):
     dest = tmp_path / "scratch"
     dest.mkdir()
