@@ -1,6 +1,177 @@
-"""Clips tab: what came in, what is scanned, which clips need a decision (placeholder heading only)."""
+"""Clips tab: what came in, what is scanned, which clips need a decision (spec sections 3 and 9).
+
+Every number and row comes from view_model.snapshot(source): the summary line, the character table, the
+Highlights root list and the needs-a-decision panel. Each row carries its view_model testid. build() takes an
+optional actions dict ("sort", "scan", "keep", "recycle"); a button calls its action when one is given and does
+nothing otherwise. The real wiring comes in a later task, so this module imports neither bridge nor jobs.
+"""
+from __future__ import annotations
+
+from html import escape
+
+from nicegui import ui
+
+from gui import tokens, view_model
+from gui.components import tier_chip
 from gui.tabs import heading
 
+PAINTS_ROWS = True
 
-def build(source) -> None:
+NO_NEW_COPY = "No new clips. Save highlights in game, then press Sort clips."
+NO_CHARACTERS_COPY = "No characters yet. Scan for KOs to count the clips in each character folder."
+ROOT_NOTE = "kept: in the game's recent list"
+DECISION_HEADING = "Needs a decision"
+ROOT_HEADING = "In Highlights root"
+
+_BEST_ORDER = ("HEXA", "PENTA", "QUAD")
+_BODY = f"font-size:{tokens.SIZE_BODY}px;color:{tokens.TEXT_DIM};"
+_TABLE = (f"width:100%;border-collapse:collapse;font-size:{tokens.SIZE_UI}px;"
+          f"font-variant-numeric:tabular-nums;")
+_TH = (f"text-align:left;color:{tokens.TEXT_DIM};font-weight:600;padding:{tokens.SPACE_8}px 0;"
+       f"border-bottom:1px solid {tokens.LINE};")
+_TH_NUM = (f"text-align:right;color:{tokens.TEXT_DIM};font-weight:600;padding:{tokens.SPACE_8}px 12px;"
+           f"border-bottom:1px solid {tokens.LINE};")
+_TD = f"padding:{tokens.SPACE_8}px 0;border-bottom:1px solid {tokens.LINE};"
+_TD_NUM = f"padding:{tokens.SPACE_8}px 12px;text-align:right;font-weight:400;border-bottom:1px solid {tokens.LINE};"
+_ROW = f"padding:{tokens.SPACE_8}px 0;border-bottom:1px solid {tokens.LINE};"
+_LAYOUT_CSS = (
+    "<style>"
+    ".rvm-clips{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;width:100%;}"
+    ".rvm-clips-main{flex:1 1 640px;min-width:0;}"
+    ".rvm-clips-panel{flex:0 1 360px;min-width:320px;}"
+    "@media (max-width:1439px){.rvm-clips-panel{flex:1 1 100%;}}"
+    "</style>")
+
+
+def _decision_sentence(count: int) -> str:
+    return "1 clip needs a decision." if count == 1 else f"{count} clips need a decision."
+
+
+def summary_text(summary: dict) -> str:
+    """The summary line: new and kept counts in one sentence, the decision count after it, zeros omitted."""
+    new = int(summary.get("new_clips") or 0)
+    kept = int(summary.get("protected") or 0)
+    decide = int(summary.get("low_value_pending") or 0)
+    lead = []
+    if new:
+        lead.append(f"{new} new in Highlights")
+    if kept:
+        lead.append(f"{kept} kept for the game's recent list")
+    sentences = []
+    if lead:
+        sentences.append(", ".join(lead) + ".")
+    if decide:
+        sentences.append(_decision_sentence(decide))
+    return " ".join(sentences) if sentences else NO_NEW_COPY
+
+
+def _mss(minutes) -> str:
+    total = round(float(minutes or 0) * 60)
+    return f"{total // 60}:{total % 60:02d}"
+
+
+def _best(tiers: dict) -> str | None:
+    for tier in _BEST_ORDER:
+        if tiers.get(tier):
+            return tier
+    return None
+
+
+def _best_cell(tiers: dict) -> str:
+    tier = _best(tiers)
+    if tier is None:
+        return f'<span style="color:{tokens.TEXT_DIM};">None</span>'
+    return tier_chip.chip_html(tier)
+
+
+def table_html(rows: list[dict]) -> str:
+    """The character table: Character, Clips, Minutes, Scanned and Best; one row per character with its testid."""
+    body = []
+    for row in rows:
+        clips = int(row.get("clips") or 0)
+        scanned = int(row.get("scanned") or 0)
+        body.append(
+            f'<tr data-testid="{row["testid"]}">'
+            f'<td style="{_TD}">{escape(str(row.get("name") or ""))}</td>'
+            f'<td style="{_TD_NUM}">{clips}</td>'
+            f'<td style="{_TD_NUM}">{_mss(row.get("minutes"))}</td>'
+            f'<td style="{_TD_NUM}">{scanned} of {clips}</td>'
+            f'<td style="{_TD}">{_best_cell(row.get("tiers") or {})}</td>'
+            "</tr>")
+    return (f'<table style="{_TABLE}"><thead><tr>'
+            f'<th style="{_TH}">Character</th>'
+            f'<th style="{_TH_NUM}">Clips</th>'
+            f'<th style="{_TH_NUM}">Minutes</th>'
+            f'<th style="{_TH_NUM}">Scanned</th>'
+            f'<th style="{_TH}">Best</th>'
+            "</tr></thead><tbody>" + "".join(body) + "</tbody></table>")
+
+
+def _root_html(rows: list[dict]) -> str:
+    items = []
+    for row in rows:
+        note = (f'<div style="color:{tokens.TEXT_DIM};">{ROOT_NOTE}</div>' if row.get("protected") else "")
+        items.append(f'<div data-testid="{row["testid"]}" style="{_ROW}">'
+                     f'<div>"{escape(str(row.get("name") or ""))}"</div>{note}</div>')
+    return "".join(items)
+
+
+def _call(actions: dict, key: str, *args) -> None:
+    action = actions.get(key)
+    if action is not None:
+        action(*args)
+
+
+def _decision_row(row: dict, actions: dict) -> None:
+    tier = row.get("tier_or_none")
+    with ui.column().props(f'data-testid={row["testid"]}').style(_ROW + "gap:4px;width:100%;"):
+        ui.label(f'"{row.get("name") or ""}"').style(f"font-size:{tokens.SIZE_UI}px;font-weight:600;")
+        ui.label(str(row.get("character") or "")).style(_BODY)
+        ui.label(str(tier) if tier else "No kill").style(f"font-size:{tokens.SIZE_UI}px;color:{tokens.TEXT};")
+        with ui.row().style("gap:8px;"):
+            ui.button("Keep", on_click=lambda n=row.get("name"): _call(actions, "keep", n)) \
+                .props("no-caps outline").classes("rvm-button").mark(f"keep-{row['testid']}")
+            ui.button("Recycle", on_click=lambda n=row.get("name"): _call(actions, "recycle", n)) \
+                .props("no-caps outline").classes("rvm-button").mark(f"recycle-{row['testid']}")
+
+
+def build(source, actions=None) -> None:
+    actions = actions or {}
+    state = view_model.snapshot(source)
+    clips_state = state["clips"]
+    job = state["job"]
     heading("Clips")
+    ui.label(summary_text(state["summary"])).style(_BODY)
+    with ui.row().style("align-items:center;justify-content:flex-end;gap:8px;width:100%;flex-wrap:wrap;"):
+        if job is not None:
+            ui.label(f'Busy: "{job.get("title") or "a job"}"').style(
+                f"font-size:{tokens.SIZE_UI}px;color:{tokens.TEXT_DIM};margin-right:auto;")
+        busy = job is not None
+        sort = ui.button("Sort clips", on_click=lambda: _call(actions, "sort")).props("no-caps outline")
+        scan = ui.button("Scan for KOs", on_click=lambda: _call(actions, "scan")).props("no-caps outline")
+        for button, marker in ((sort, "sort-clips"), (scan, "scan-kos")):
+            button.mark(marker).classes("rvm-button")
+            if busy:
+                button.props("disable")
+    ui.html(_LAYOUT_CSS)
+    with ui.element("div").classes("rvm-clips"):
+        with ui.column().classes("rvm-clips-main").style("gap:8px;"):
+            characters = clips_state["characters"]
+            if characters:
+                ui.html(table_html(characters))
+            else:
+                ui.label(NO_CHARACTERS_COPY).style(_BODY)
+            roots = clips_state["unsorted"]
+            if roots:
+                ui.label(ROOT_HEADING).style(
+                    f"font-size:{tokens.SIZE_SECTION}px;font-weight:600;font-stretch:87.5%;margin-top:{tokens.SPACE_24}px;")
+                ui.html(_root_html(roots))
+        decisions = clips_state["low_value"]
+        if decisions:
+            with ui.column().classes("rvm-clips-panel").style(
+                    f"gap:8px;border:1px solid {tokens.LINE};border-radius:{tokens.RADIUS_PANEL}px;"
+                    f"padding:{tokens.SPACE_16}px;"):
+                ui.label(DECISION_HEADING).style(
+                    f"font-size:{tokens.SIZE_SECTION}px;font-weight:600;font-stretch:87.5%;")
+                for row in decisions:
+                    _decision_row(row, actions)

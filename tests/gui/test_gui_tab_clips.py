@@ -1,0 +1,257 @@
+"""Clips tab (DESIGN.md sections 4, 5, 8, 9, 11): summary line, actions, character table, root list and the
+needs-a-decision panel. Rows carry the view_model testids; Keep and Recycle call the injected actions.
+
+Tab tests run the NiceGUI user simulator from sync tests with asyncio.run, as the archive and activity tests
+do. Nothing here writes outside tmp_path and nothing imports bridge or jobs.
+"""
+import asyncio
+import re
+
+import pytest
+from nicegui import ui
+from nicegui.element_filter import ElementFilter
+from nicegui.testing.user_simulation import user_simulation
+
+from gui import fixtures, view_model
+from gui.sources import FixtureSource
+from gui.tabs import clips
+
+SCENARIOS = ("fresh_intake", "needs_decision", "scanning", "empty")
+TESTID = re.compile(r'data-testid="([^"]+)"')
+ROW_PREFIXES = ("clip-char-", "clip-root-", "lowvalue-")
+BAD_CHARS = (chr(0x00B7), chr(0x2013), chr(0x2014))
+
+
+class _Source(FixtureSource):
+    """A fixture scenario with one change applied to its data (a fresh copy per read)."""
+
+    def __init__(self, name, change):
+        super().__init__(name)
+        self._change = change
+
+    def read(self):
+        data = super().read()
+        self._change(data)
+        return data
+
+
+def _render(builder, source, actions=None):
+    """Run the tab inside a simulated page. Returns (html, testids, labels, buttons) for the page."""
+    def root():
+        builder(source, actions)
+
+    async def run():
+        async with user_simulation(root) as user:
+            await user.open("/")
+            with user.client:
+                elements = list(ElementFilter(only_visible=False))
+                html = "\n".join(e.content for e in elements if isinstance(e, ui.html))
+                labels = [e.text for e in elements if isinstance(e, ui.label)]
+                props = [e._props.get("data-testid") for e in elements]
+                buttons = [e for e in elements if isinstance(e, ui.button)]
+            return html, [p for p in props if p], labels, buttons
+
+    return asyncio.run(run())
+
+
+def _state_ids(source):
+    snap = view_model.snapshot(source)["clips"]
+    ids = set()
+    for key in ("characters", "unsorted", "low_value"):
+        ids |= {row["testid"] for row in snap[key]}
+    return ids
+
+
+def _click(marker, source, actions):
+    """Click the button with marker inside a simulated page."""
+    def root():
+        clips.build(source, actions)
+
+    async def run():
+        async with user_simulation(root) as user:
+            await user.open("/")
+            user.find(marker=marker).click()
+
+    asyncio.run(run())
+
+
+def _with_job(title="Scan BLACK WIDOW clips"):
+    def change(data):
+        data["job"] = fixtures.job("scan", title, "scanning", 3, 6, "clips")
+    return _Source("empty", change)
+
+
+# ---- painted rows match the view model ---------------------------------------------------------
+
+@pytest.mark.parametrize("scenario", SCENARIOS)
+def test_painted_clip_rows_equal_the_view_model_testids(scenario):
+    html, props, _labels, _buttons = _render(clips.build, FixtureSource(scenario))
+    painted = {t for t in props + TESTID.findall(html) if t.startswith(ROW_PREFIXES)}
+    assert painted == _state_ids(FixtureSource(scenario))
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS)
+def test_no_middle_dot_or_dash_in_any_rendered_text(scenario):
+    html, _props, labels, _buttons = _render(clips.build, FixtureSource(scenario))
+    text = html + "\n".join(labels)
+    for ch in BAD_CHARS:
+        assert ch not in text
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS)
+def test_every_button_has_no_caps(scenario):
+    _html, _props, _labels, buttons = _render(clips.build, FixtureSource(scenario))
+    assert buttons, "the tab paints at least the two action buttons"
+    for button in buttons:
+        assert "no-caps" in button._props
+
+
+# ---- summary line -----------------------------------------------------------------------------
+
+def test_summary_names_new_protected_and_decision_counts_omitting_zeros():
+    summary = {"new_clips": 2, "protected": 1, "low_value_pending": 0}
+    assert clips.summary_text(summary) == "2 new in Highlights, 1 kept for the game's recent list."
+
+
+def test_summary_singular_decision_and_all_zero_copy():
+    assert clips.summary_text({"new_clips": 1, "protected": 0, "low_value_pending": 1}) == (
+        "1 new in Highlights. 1 clip needs a decision.")
+    assert clips.summary_text({"new_clips": 0, "protected": 0, "low_value_pending": 0}) == (
+        "No new clips. Save highlights in game, then press Sort clips.")
+
+
+def test_empty_scenario_shows_the_empty_copy():
+    html, _props, labels, _buttons = _render(clips.build, FixtureSource("empty"))
+    assert "No new clips. Save highlights in game, then press Sort clips." in labels
+
+
+# ---- busy state -------------------------------------------------------------------------------
+
+def test_busy_disables_both_buttons_and_names_the_job():
+    _html, _props, labels, buttons = _render(clips.build, _with_job())
+    assert buttons, "action buttons are painted"
+    for button in buttons:
+        assert button._props.get("disable"), f"{button._props} should be disabled while a job runs"
+    assert 'Busy: "Scan BLACK WIDOW clips"' in labels
+
+
+def test_idle_leaves_the_buttons_enabled_and_shows_no_busy_label():
+    _html, _props, labels, buttons = _render(clips.build, FixtureSource("fresh_intake"))
+    assert buttons
+    for button in buttons:
+        assert not button._props.get("disable")
+    assert not any(text.startswith("Busy:") for text in labels)
+
+
+# ---- character table --------------------------------------------------------------------------
+
+def test_table_rows_carry_testids_and_the_five_columns():
+    rows = view_model.snapshot(FixtureSource("needs_decision"))["clips"]["characters"]
+    html = clips.table_html(rows)
+    assert {t for t in TESTID.findall(html) if t.startswith("clip-char-")} == {r["testid"] for r in rows}
+    for heading in ("Character", "Clips", "Minutes", "Scanned", "Best"):
+        assert f">{heading}</th>" in html
+
+
+def test_table_minutes_scanned_and_best_cells():
+    row = {"testid": "clip-char-thor-000001", "name": "THOR", "clips": 31, "minutes": 18.6667,
+           "scanned": 31, "unscanned": 0, "tiers": {"KO": 20, "QUAD": 3, "PENTA": 1, "HEXA": 0}}
+    html = clips.table_html([row])
+    assert ">18:40</td>" in html
+    assert ">31 of 31</td>" in html
+    assert 'data-tier="PENTA"' in html
+    assert 'data-tier="QUAD"' not in html  # the highest kept tier is the one shown
+    assert ">None</span>" not in html
+
+
+def test_table_best_is_none_when_no_quad_or_better():
+    row = {"testid": "clip-char-x-000002", "name": "SQUIRREL GIRL", "clips": 12, "minutes": 7.0833,
+           "scanned": 10, "unscanned": 2, "tiers": {"KO": 9, "DOUBLE": 2}}
+    html = clips.table_html([row])
+    assert ">7:05</td>" in html
+    assert ">10 of 12</td>" in html
+    assert "None" in html and "data-tier" not in html
+
+
+def test_table_numeric_cells_are_right_aligned_with_12px_padding_and_regular_weight():
+    row = {"testid": "clip-char-x-000003", "name": "IRON MAN", "clips": 8, "minutes": 1.0,
+           "scanned": 8, "unscanned": 0, "tiers": {}}
+    html = clips.table_html([row])
+    assert "text-align:right" in html
+    assert "padding:8px 12px;" in html
+    assert "font-weight:700" not in html and "font-weight:bold" not in html
+
+
+def test_table_names_from_data_are_escaped():
+    row = {"testid": "clip-char-x-000004", "name": "<i>x</i>", "clips": 1, "minutes": 0,
+           "scanned": 1, "unscanned": 0, "tiers": {}}
+    html = clips.table_html([row])
+    assert "&lt;i&gt;x&lt;/i&gt;" in html
+    assert "<i>x</i>" not in html
+
+
+# ---- root list and decision panel ------------------------------------------------------------
+
+def test_root_list_marks_protected_rows_as_kept_in_recent_list():
+    html, _props, _labels, _buttons = _render(clips.build, FixtureSource("fresh_intake"))
+    assert "kept: in the game's recent list" in html
+    assert html.count("kept: in the game's recent list") == 1
+
+
+def test_decision_panel_is_absent_when_low_value_is_empty():
+    html, props, labels, _buttons = _render(clips.build, FixtureSource("fresh_intake"))
+    assert "Needs a decision" not in labels
+    assert not any(t.startswith("lowvalue-") for t in props + TESTID.findall(html))
+
+
+def test_decision_panel_rows_show_name_character_and_tier_or_none():
+    html, _props, labels, _buttons = _render(clips.build, FixtureSource("needs_decision"))
+    assert "Needs a decision" in labels
+    assert "No kill" in html or "No kill" in labels
+    assert "KO" in html or "KO" in labels
+
+
+def test_keep_calls_the_injected_action_with_the_clip_name():
+    source = FixtureSource("needs_decision")
+    row = view_model.snapshot(source)["clips"]["low_value"][0]
+    calls = []
+    _click(f"keep-{row['testid']}", FixtureSource("needs_decision"),
+           {"keep": lambda name: calls.append(("keep", name))})
+    assert calls == [("keep", row["name"])]
+
+
+def test_recycle_calls_the_injected_action_with_the_clip_name():
+    source = FixtureSource("needs_decision")
+    row = view_model.snapshot(source)["clips"]["low_value"][1]
+    calls = []
+    _click(f"recycle-{row['testid']}", FixtureSource("needs_decision"),
+           {"recycle": lambda name: calls.append(("recycle", name))})
+    assert calls == [("recycle", row["name"])]
+
+
+def test_decision_buttons_do_nothing_without_actions():
+    source = FixtureSource("needs_decision")
+    row = view_model.snapshot(source)["clips"]["low_value"][0]
+    _click(f"keep-{row['testid']}", FixtureSource("needs_decision"), None)
+
+
+def test_sort_and_scan_call_their_actions_when_given():
+    calls = []
+    actions = {"sort": lambda: calls.append("sort"), "scan": lambda: calls.append("scan")}
+    _click("sort-clips", FixtureSource("fresh_intake"), actions)
+    _click("scan-kos", FixtureSource("fresh_intake"), actions)
+    assert calls == ["sort", "scan"]
+
+
+def test_action_buttons_without_actions_are_no_ops():
+    _click("sort-clips", FixtureSource("fresh_intake"), None)
+    _click("scan-kos", FixtureSource("fresh_intake"), None)
+
+
+# ---- layout: side by side at 1440 and up, stacked below (flex wrap, no JS) ---------------------
+
+def test_panel_sits_beside_the_table_at_1440_and_under_it_below():
+    html, _props, _labels, _buttons = _render(clips.build, FixtureSource("needs_decision"))
+    assert "flex-wrap:wrap" in html
+    assert "@media (max-width:1439px)" in html
+    assert "<script" not in html.lower()
