@@ -30,7 +30,7 @@ Loopback bind, Host allowlist, Origin check on the websocket and every non-GET r
 
 ## Not built yet
 
-The rows marked missing or partial in the parity table below, Quit, and live job progress between repaints. Deferred past the first version: tray icon and watchdog, stopping an encode or upload mid-run, editing config from the page.
+The rows marked missing or partial in the parity table below. Deferred past the first version: tray icon and watchdog, stopping an encode or upload mid-run, editing config from the page.
 
 ## Terminal parity
 
@@ -50,7 +50,7 @@ The rows marked missing or partial in the parity table below, Quit, and live job
 | Is this video live? | Videos tab: Mark as live | built |
 | Uncompile | Videos tab: Restore clips, Danger mode | built |
 | Browse the archive | Archive tab | built |
-| Quit | Header Quit | missing: no handler |
+| Quit | Header Quit: stops when idle, names the running job when busy | built |
 | `--force` | Compile: Re-encode even if it exists | built |
 | `--cleanup --dry-run` | Every plan view | built |
 | `--dry-run` | Plan video without Compile | built |
