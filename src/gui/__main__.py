@@ -138,11 +138,13 @@ def serve(args: argparse.Namespace) -> int:
     port = args.port
 
     from nicegui import app, ui
-    from gui import avatars, state_api
+    from gui import avatars, shell, state_api, tray
 
     app.add_middleware(security.LoopbackGuard, port_fn=lambda: port)
     state_api.register(app, wired)
     state_api.register_quit(app, runner, app.shutdown)
+    tray.start(port, is_busy=lambda: runner.busy, shutdown=app.shutdown,
+               state_word=lambda: shell._header_from_source(wired)[0], fixture=args.fixture)
     avatars.register(app)
     handler = make_page_handler(wired, runner, actions=actions)
 
