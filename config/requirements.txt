@@ -6,3 +6,4 @@ httpx[http2]>=0.27
 google-auth-oauthlib>=1.0
 google-auth-httplib2>=0.4
 google-api-python-client>=2.0
+nicegui>=2.0

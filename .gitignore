@@ -15,6 +15,11 @@ htmlcov/
 dependencies/ffmpeg/
 dependencies/*.exe
 
+# GUI runtime folders (captures, GUI state, cache) - generated, not tracked
+data/captures/
+data/gui/
+data/.cache/
+
 # Claude Code - local only. The guard hook is registered at machine (user) level,
 # not per-repo - never commit anything under .claude/ in this repo.
 .claude/
