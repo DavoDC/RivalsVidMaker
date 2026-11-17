@@ -11,7 +11,7 @@ from html import escape
 
 from nicegui import ui
 
-from gui import timefmt, tokens, view_model
+from gui import avatars, timefmt, tokens, view_model
 from gui.components import reel, tier_chip
 from gui.tabs import heading
 
@@ -40,6 +40,21 @@ def _plural(count: int, word: str) -> str:
 
 def _ready_names(state: dict) -> list[str]:
     return [c["name"] for c in state["clips"]["characters"] if c.get("ready")]
+
+
+def closest(state: dict, n: int = 3) -> list[tuple[str, int]]:
+    """The n characters not ready yet with the most clip seconds, most first, as (folder, seconds)."""
+    rows = [c for c in state["clips"]["characters"] if not c.get("ready")]
+    rows.sort(key=lambda c: int(c.get("seconds") or 0), reverse=True)
+    return [(c["name"], int(c.get("seconds") or 0)) for c in rows[:n]]
+
+
+def _closest_row(folder: str, seconds: int) -> None:
+    """One near-ready character: its avatar and name, then its progress as M:SS of the ready length."""
+    tid = view_model.testid("compile-closest", folder)
+    with ui.row().props(f"data-testid={tid}").style(_ROW + "gap:16px;align-items:center;width:100%;flex-wrap:wrap;"):
+        ui.html(avatars.name_cell_html(folder))
+        ui.label(f"{timefmt.duration(seconds)} of {READY_MINUTES}:00").style(_UI + _NUM + f"color:{tokens.TEXT_DIM};")
 
 
 def _default_character(ready: list[str], plan: dict | None) -> str:
@@ -125,6 +140,8 @@ def build(source, actions=None) -> None:
     ready = _ready_names(state)
     if not ready:
         ui.label(NO_CHARACTER_COPY).style(_BODY)
+        for folder, seconds in closest(state):
+            _closest_row(folder, seconds)
         return
 
     with ui.row().style("align-items:flex-end;gap:16px;width:100%;flex-wrap:wrap;"):

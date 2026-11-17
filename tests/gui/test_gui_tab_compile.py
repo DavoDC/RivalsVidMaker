@@ -317,6 +317,48 @@ def test_no_ready_character_says_how_many_minutes_and_points_to_clips():
     assert not any(b.text == "Plan video" for b in buttons)
 
 
+def _clip_row(name, seconds, ready=False):
+    return {"name": name, "clips": 1, "minutes": round(seconds / 60, 1), "seconds": seconds,
+            "scanned": 1, "unscanned": 0, "tiers": {}, "ready": ready}
+
+
+def _with_characters(rows):
+    def change(data):
+        data["characters"] = rows
+    return _Source("empty", change)
+
+
+def test_closest_returns_top_three_by_seconds_and_skips_ready_characters():
+    state = {"clips": {"characters": [
+        _clip_row("A", 100), _clip_row("B", 900, ready=True), _clip_row("C", 400),
+        _clip_row("D", 700), _clip_row("E", 300), _clip_row("F", 500),
+    ]}}
+    assert compile_tab.closest(state) == [("D", 700), ("F", 500), ("C", 400)]
+
+
+def test_closest_with_no_clips_is_empty():
+    assert compile_tab.closest({"clips": {"characters": []}}) == []
+
+
+def test_empty_state_lists_closest_characters_as_progress():
+    source = _with_characters([_clip_row("SQUIRREL GIRL", 1350), _clip_row("BLACK WIDOW", 400),
+                               _clip_row("IRON MAN", 540), _clip_row("HULK", 60)])
+    html, props, labels, _buttons = _render(compile_tab.build, source)
+    assert NO_CHARACTER_COPY in labels
+    ready_text = f"of {compile_tab.READY_MINUTES}:00"
+    progress = [text for text in labels if text.endswith(ready_text)]
+    assert progress == ["22:30 of 10:00", "9:00 of 10:00", "6:40 of 10:00"]
+    assert "Squirrel Girl" in html and "Black Widow" in html and "Iron Man" in html
+    assert "Hulk" not in html
+    assert view_model.testid("compile-closest", "SQUIRREL GIRL") in props
+
+
+def test_no_closest_list_when_there_are_no_clips():
+    _html, props, labels, _buttons = _render(compile_tab.build, FixtureSource("empty"))
+    assert not any(text.endswith(f"of {compile_tab.READY_MINUTES}:00") for text in labels)
+    assert not any(p.startswith("compile-closest-") for p in props)
+
+
 # ---- plan rows and actions -----------------------------------------------------------------------
 
 def test_compile_video_calls_compile_with_nonce_and_decisions():
