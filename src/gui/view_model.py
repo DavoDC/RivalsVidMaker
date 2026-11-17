@@ -205,4 +205,6 @@ def snapshot(source, job: dict | None = None, plans: dict | None = None, history
             } for r in archive.get("by_character") or []],
         },
         "activity": {"jobs": [_activity(r) for r in activity_src]},
+        "config_problems": [str(p) for p in data.get("config_problems") or []],
+        "notices": [dict(n) for n in data.get("notices") or [] if isinstance(n, dict)],
     }

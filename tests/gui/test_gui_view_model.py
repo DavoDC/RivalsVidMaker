@@ -20,7 +20,15 @@ SRC_FILE = Path(view_model.__file__).resolve()
 TOP_KEYS = {
     "schema", "generated_at", "stale", "poll_interval", "boot_id", "build", "fixture",
     "job", "summary", "clips", "compile", "videos", "archive", "activity",
+    "config_problems", "notices",
 }
+
+
+def test_config_problems_and_notices_reach_the_page():
+    broken = view_model.snapshot(FixtureSource("config_broken"))
+    assert broken["config_problems"] == ["ffmpeg not found", "tesseract not found"]
+    busy = view_model.snapshot(FixtureSource("busy_refused"))
+    assert busy["notices"][0]["kind"] == "toast"
 JOB_KINDS = ["sort", "scan", "compile", "upload", "cleanup", "uncompile", "recycle_clip"]
 FORBIDDEN_WORDS = ("token", "secret", "client_id")
 FORBIDDEN_IMPORTS = {
