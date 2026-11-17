@@ -37,7 +37,7 @@ data/
   output/               — description.txt files per batch
   examples/             — ground_truth/ labelled frames, ko_frames/ reference screenshots
 docs/                   MULTIKILL_DETECTION.md, YOUTUBE_API.md, YOUTUBE_TITLE_AND_DESC.md,
-                        DESIGN.md (GUI design source of truth), GUI.md (GUI architecture, planned)
+                        DESIGN.md (GUI design source of truth), GUI.md (GUI architecture, built)
 dependencies/
   ffmpeg/               ffmpeg.exe + ffprobe.exe + ffplay.exe (gitignored, user provides)
   yt-dlp.exe            used by scripts/download_playlist.py (gitignored)
@@ -49,7 +49,24 @@ pytest.ini              — test config (testpaths=tests, pythonpath=src)
 
 ## How to run
 
-**Primary entry point: double-click `scripts/run.bat`**
+**GUI: double-click `scripts/gui.bat`** (runs `pythonw -m gui --launch` and opens the browser at 127.0.0.1:8476).
+
+Run from the repo root with `PYTHONPATH=src`, as gui.bat does:
+
+```
+PYTHONPATH=src python -m gui --launch          # start detached and open the browser
+PYTHONPATH=src python -m gui --stop            # stop the listener on the port
+PYTHONPATH=src python -m gui --check           # print the running build and boot id
+PYTHONPATH=src python -m gui --status          # say whether something listens on the port
+PYTHONPATH=src python -m gui --preflight       # run the start-up checks and print them
+PYTHONPATH=src python -m gui --fixture NAME    # serve a canned fixture instead of the real library
+PYTHONPATH=src python -m gui verify            # tests, painted-state check, captures of every tab
+PYTHONPATH=src python -m gui capture           # screenshots of every tab (data/captures, gitignored)
+```
+
+`scripts/run.bat` still works and stays until the GUI passes a parity run.
+
+**Terminal entry point: double-click `scripts/run.bat`**
 All normal workflow goes through this. No need to run scripts with different args. The interactive menu handles everything: compile, pre-process, cleanup, etc.
 
 ```

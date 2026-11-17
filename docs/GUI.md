@@ -1,6 +1,6 @@
 # RivalsVidMaker GUI architecture
 
-Status: planned, 2026-11-17. Look and copy are in [DESIGN.md](DESIGN.md); this file covers structure, the seam and the state contract.
+Status: built, 2026-11-17. Parity run on a scratch library still to do. Look and copy are in [DESIGN.md](DESIGN.md); this file covers structure, the seam and the state contract.
 
 ## Shape
 
@@ -31,3 +31,26 @@ Loopback bind, Host allowlist, Origin check on the websocket and every non-GET r
 ## Not built yet
 
 Everything in this file. Deferred past the first version: tray icon and watchdog, stopping an encode or upload mid-run, editing config from the page.
+
+## Terminal parity
+
+| Terminal action | GUI home | Status |
+|---|---|---|
+| Compile a new video, pick character | Compile tab: character, Plan video | built |
+| Low-value clip: include or recycle | Compile plan rows: Keep, Recycle | built |
+| Low-value clip: view in VLC | "Open in player" | missing |
+| Video length | Compile tab: target length | built |
+| Make video? | Compile video button | built |
+| Duplicates | Keep both, Drop one | built |
+| Delete token and sign in again | Videos tab: Sign in to YouTube again | built |
+| Preprocess all clips | Clips tab: Scan for KOs | built |
+| Per-clip delete in preprocess | Clips tab: low-value list | partial: Keep has no backend |
+| Retry YouTube upload | Videos tab: Upload | built, retry path unverified |
+| Clean up | Videos tab: Clean up, plan then apply | built |
+| Is this video live? | Videos tab: Mark as live | built |
+| Uncompile | Videos tab: Restore clips, Danger mode | built |
+| Browse the archive | Archive tab | built |
+| Quit | Header Quit | missing: no handler |
+| `--force` | Compile: Re-encode even if it exists | built |
+| `--cleanup --dry-run` | Every plan view | built |
+| `--dry-run` | Plan video without Compile | built |

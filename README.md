@@ -140,6 +140,21 @@ Run the tool once - it will guide you through OAuth authentication when you firs
 
 ## Usage
 
+### GUI
+
+Double-click `scripts/gui.bat` to open the RivalsVidMaker window in your browser. It runs on your own machine, at 127.0.0.1 only. Pick a character, plan the video, check the clips it will use, then compile and upload from the same page.
+
+![The Compile tab with a planned 15-minute video](docs/images/gui-compile.png)
+
+```bash
+PYTHONPATH=src python -m gui --launch   # start the GUI and open the browser
+PYTHONPATH=src python -m gui --stop     # stop it
+```
+
+The terminal menu still works and remains the complete workflow until the GUI covers every action.
+
+### Terminal menu
+
 **Primary entry point:** Double-click `scripts/run.bat` and use the interactive menu to access all features (compile, upload, cleanup, etc). No command-line flags needed for normal use.
 
 ```bash
