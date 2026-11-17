@@ -13,6 +13,7 @@ from nicegui import ui
 from nicegui.element_filter import ElementFilter
 from nicegui.testing.user_simulation import user_simulation
 
+import cleanup
 from gui import avatars, fixtures, tokens, view_model
 from gui.components import plan_list
 from gui.sources import FixtureSource
@@ -339,6 +340,16 @@ def test_size_text_never_shows_a_kilobyte_size_as_zero_point_zero_mb():
 ])
 def test_totals_text_names_the_archive_and_recycle_counts_and_the_size(totals, text):
     assert plan_list.totals_text(totals) == text
+
+
+def test_every_cleanup_fate_has_a_plain_word_in_the_plan():
+    fates = {getattr(cleanup, name) for name in dir(cleanup) if name.startswith("FATE_")}
+    assert fates
+    assert fates <= set(plan_list.FATE_WORDS), f"no plain word for {sorted(fates - set(plan_list.FATE_WORDS))}"
+
+
+def test_fate_words_are_plain_words_without_underscores():
+    assert all("_" not in word for word in plan_list.FATE_WORDS.values())
 
 
 def test_apply_is_disabled_when_the_plan_archives_and_recycles_nothing():

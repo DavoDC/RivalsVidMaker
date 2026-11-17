@@ -14,7 +14,8 @@ from gui import tokens
 
 GB_MB = 1024  # sizes switch from MB to GB at one gigabyte
 FATE_WORDS = {"remove": "Remove", "keep": "Keep", "archive": "Archive", "recycle_video": "Recycle video",
-              "recycle": "Recycle"}
+              "recycle": "Recycle", "remove_empty_folder": "Remove empty folder", "restore": "Restore",
+              "recycle_folder": "Recycle folder"}
 RECYCLE_LABEL = "Also recycle the video"
 HEADING_PREFIX = "Clean up plan for"
 
