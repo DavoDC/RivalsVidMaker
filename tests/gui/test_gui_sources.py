@@ -223,6 +223,20 @@ def test_real_source_lists_characters_unsorted_and_output_folders(tmp_path):
     assert data["notices"] == []
 
 
+def test_character_carries_exact_seconds_beside_minutes(tmp_path):
+    cfg = _make_config(tmp_path)
+    folder = cfg.clips_path / "THOR"
+    first = _clip(folder / "THOR_2026-07-01_10-00-00.mp4")
+    second = _clip(folder / "THOR_2026-07-01_10-05-00.mp4")
+    cache = str(clip_cache.character_cache_dir(cfg.cache_dir, "THOR"))
+    clip_cache.cache_save(str(first), cache, duration=45.0, ko_result=None)
+    clip_cache.cache_save(str(second), cache, duration=35.0, ko_result=None)
+
+    thor = {c["name"]: c for c in RealSource(cfg).read()["characters"]}["THOR"]
+    assert thor["seconds"] == 80         # 45 s + 35 s, exact
+    assert thor["minutes"] == 1.3        # kept for existing readers
+
+
 def test_real_source_writes_nothing(tmp_path):
     cfg = _build_tree(tmp_path)
     before = _fingerprint(tmp_path)

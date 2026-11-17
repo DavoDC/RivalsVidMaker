@@ -224,6 +224,20 @@ def test_table_minutes_scanned_and_best_cells():
     assert ">None</span>" not in html
 
 
+def test_minutes_cell_uses_exact_seconds_when_the_row_has_them():
+    row = {"testid": "clip-char-thor-000006", "name": "THOR", "clips": 2, "minutes": 1.3,
+           "seconds": 80, "scanned": 2, "unscanned": 0, "tiers": {}}
+    html = clips.table_html([row])
+    assert ">1:20</td>" in html          # 80 s, not the 1:18 that 1.3 minutes would give
+
+
+def test_minutes_cell_falls_back_to_minutes_without_seconds():
+    row = {"testid": "clip-char-thor-000007", "name": "THOR", "clips": 2, "minutes": 1.5,
+           "scanned": 2, "unscanned": 0, "tiers": {}}
+    html = clips.table_html([row])
+    assert ">1:30</td>" in html
+
+
 def test_minutes_past_an_hour_read_as_hours_minutes_seconds():
     row = {"testid": "clip-char-thor-000005", "name": "THOR", "clips": 90, "minutes": 150,
            "scanned": 90, "unscanned": 0, "tiers": {}}

@@ -279,6 +279,20 @@ def test_ready_follows_min_batch_seconds(tmp_path):
     assert ready_for(800)["THOR"] is False   # and does not clear an 800 s one
 
 
+def test_character_row_carries_exact_seconds_beside_minutes():
+    data = _data()
+    data["characters"] = [
+        {"name": "THOR", "clips": 2, "minutes": 1.3, "seconds": 80, "scanned": 2, "unscanned": 0,
+         "tiers": {}, "ready": False},
+        {"name": "IRON_MAN", "clips": 1, "minutes": 1.5, "scanned": 1, "unscanned": 0,
+         "tiers": {}, "ready": False},
+    ]
+    rows = {r["name"]: r for r in view_model.snapshot(_Stub(data))["clips"]["characters"]}
+    assert rows["THOR"]["seconds"] == 80
+    assert rows["THOR"]["minutes"] == 1.3
+    assert rows["IRON_MAN"]["seconds"] is None   # a row without seconds stays None
+
+
 # ----- privacy and mirror --------------------------------------------------------------
 
 

@@ -64,9 +64,12 @@ def summary_text(summary: dict) -> str:
     return " ".join(sentences) if sentences else NO_NEW_COPY
 
 
-def _duration(minutes) -> str:
-    """Minutes as m:ss, or h:mm:ss past an hour (DESIGN 12)."""
-    return timefmt.duration(round(float(minutes or 0) * 60))
+def _duration(row: dict) -> str:
+    """Clip time as m:ss, or h:mm:ss past an hour (DESIGN 12). Exact seconds when the row has them, else minutes."""
+    seconds = row.get("seconds")
+    if isinstance(seconds, (int, float)) and not isinstance(seconds, bool):
+        return timefmt.duration(round(seconds))
+    return timefmt.duration(round(float(row.get("minutes") or 0) * 60))
 
 
 def _best(tiers: dict) -> str | None:
@@ -93,7 +96,7 @@ def table_html(rows: list[dict]) -> str:
             f'<tr data-testid="{row["testid"]}">'
             f'<td style="{_TD}">{escape(str(row.get("name") or ""))}</td>'
             f'<td style="{_TD_NUM}">{clips}</td>'
-            f'<td style="{_TD_NUM}">{_duration(row.get("minutes"))}</td>'
+            f'<td style="{_TD_NUM}">{_duration(row)}</td>'
             f'<td style="{_TD_NUM}">{scanned} of {clips}</td>'
             f'<td style="{_TD}">{_best_cell(row.get("tiers") or {})}</td>'
             "</tr>")

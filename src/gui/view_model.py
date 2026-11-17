@@ -172,6 +172,7 @@ def snapshot(source, job: dict | None = None, plans: dict | None = None, history
                 "name": c.get("name"),
                 "clips": c.get("clips"),
                 "minutes": c.get("minutes"),
+                "seconds": c.get("seconds"),
                 "scanned": c.get("scanned"),
                 "unscanned": c.get("unscanned"),
                 "tiers": dict(c.get("tiers") or {}),

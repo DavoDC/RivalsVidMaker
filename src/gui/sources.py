@@ -92,6 +92,7 @@ def _character(folder: Path, cfg: Config) -> dict:
         "name": folder.name,
         "clips": len(paths),
         "minutes": round(total / 60, 1),
+        "seconds": round(total),
         "scanned": len(scanned),
         "unscanned": len(paths) - len(scanned),
         "tiers": _tier_counts(paths, clip_cache.character_cache_dir(cfg.cache_dir, folder.name)),
