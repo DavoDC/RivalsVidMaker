@@ -127,12 +127,12 @@ class Actions:
 
     def _sort(self) -> None:
         bridge.sort(self.runner, self.config)
-        _toast("Sorted clips.")
+        _toast("Sorting clips.")
         _go("/tab/clips")
 
     def _scan(self) -> None:
         bridge.scan(self.runner, self.config)
-        _toast("Scanned for KOs.")
+        _toast("Scanning for KOs.")
         _go("/tab/clips")
 
     def _clip_keep(self, name: str) -> None:
@@ -148,7 +148,7 @@ class Actions:
                    "negative")
             return
         bridge.recycle_clip(self.runner, self.config, matches[0])
-        _toast(f'Recycled "{name}".')
+        _toast(f'Recycling "{name}".')
         _go("/tab/clips")
 
     # compile tab
@@ -168,7 +168,7 @@ class Actions:
         merged.update(_decisions(held))
         bridge.compile(self.runner, self.config, nonce, clips=merged, extra=0, force=held["reencode"])
         self._held.pop("compile_plan", None)
-        _toast("Compiled video.")
+        _toast("Compiling video.")
         _go("/tab/compile")
 
     def _decide(self, changes: dict) -> None:
@@ -210,7 +210,7 @@ class Actions:
 
     def _upload(self, slug: str) -> None:
         bridge.upload(self.runner, self.config, self._folder(slug))
-        _toast("Uploaded to YouTube.")
+        _toast("Uploading to YouTube.")
         _go("/tab/videos")
 
     def _mark_live(self, slug: str) -> None:
@@ -220,7 +220,7 @@ class Actions:
 
     def _sign_in(self) -> None:
         bridge.sign_in(self.runner, self.config)
-        _toast("Signed in to YouTube.")
+        _toast("Signing in to YouTube.")
 
     def _replan(self, slug: str, include_video: bool) -> None:
         token, plan = bridge.plan_cleanup(self.config, self._folder(slug), include_video=include_video)
@@ -242,13 +242,13 @@ class Actions:
             return
         bridge.cleanup(self.runner, self.config, token)
         self._held.pop("cleanup_plan", None)
-        _toast(f"Cleaned up {held['slug']}.")
+        _toast(f"Cleaning up {held['slug']}.")
         _go("/tab/videos")
 
     def _restore(self, slug: str) -> None:
         token, _plan = bridge.plan_uncompile(self.config, self._folder(slug))
         bridge.uncompile(self.runner, self.config, token)
-        _toast(f"Restored clips for {slug}.")
+        _toast(f"Restoring clips for {slug}.")
         _go("/tab/videos")
 
 

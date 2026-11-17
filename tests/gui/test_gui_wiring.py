@@ -5,6 +5,7 @@ call and returns plans built by hand under tmp_path; gui.wiring.ui is replaced b
 records toasts and navigations. The real bridge.Refused and jobs.Busy classes are used so the
 error texts are the ones the page shows.
 """
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -181,7 +182,7 @@ def test_clips_sort_and_scan_start_their_jobs(actions, fake_bridge, fake_ui, con
     clips["scan"]()
     assert fake_bridge.calls[0] == ("sort", (actions.runner, config), {})
     assert fake_bridge.calls[1] == ("scan", (actions.runner, config), {})
-    assert fake_ui.notes == [("Sorted clips.", "positive"), ("Scanned for KOs.", "positive")]
+    assert fake_ui.notes == [("Sorting clips.", "positive"), ("Scanning for KOs.", "positive")]
     assert fake_ui.paths == ["/tab/clips", "/tab/clips"]
 
 
@@ -189,7 +190,7 @@ def test_clips_recycle_finds_the_one_file_and_recycles_it(actions, fake_bridge, 
     path = clip_file(config)
     actions.for_tab("clips")["recycle"]("THOR_clip1_KO.mp4")
     assert fake_bridge.calls == [("recycle_clip", (actions.runner, config, path), {})]
-    assert fake_ui.notes == [('Recycled "THOR_clip1_KO.mp4".', "positive")]
+    assert fake_ui.notes == [('Recycling "THOR_clip1_KO.mp4".', "positive")]
 
 
 def test_clips_recycle_refuses_zero_or_two_matches(actions, fake_bridge, fake_ui, config):
@@ -241,7 +242,7 @@ def test_compile_clears_the_held_plan_after_a_start(actions, fake_bridge, fake_u
     compile_tab["plan"]("THOR", 900, False)
     token = actions.held_plans()["compile_plan"]["nonce"]
     compile_tab["compile"](token, {})
-    assert fake_ui.notes[-1] == ("Compiled video.", "positive")
+    assert fake_ui.notes[-1] == ("Compiling video.", "positive")
     assert "compile_plan" not in actions.held_plans()
 
 
@@ -287,7 +288,7 @@ def test_videos_upload_mark_live_and_sign_in(actions, fake_bridge, fake_ui, conf
         ("mark_live", (actions.runner, config, "THOR_FEB_2026"), {}),
         ("sign_in", (actions.runner, config), {}),
     ]
-    assert [t for t, _k in fake_ui.notes] == ["Uploaded to YouTube.", "Marked as live.", "Signed in to YouTube."]
+    assert [t for t, _k in fake_ui.notes] == ["Uploading to YouTube.", "Marked as live.", "Signing in to YouTube."]
 
 
 def test_videos_plan_cleanup_stores_the_plan_and_shows_it(actions, fake_bridge, fake_ui, config):
@@ -305,7 +306,7 @@ def test_videos_apply_cleanup_runs_the_held_plan_once(actions, fake_bridge, fake
     token = actions.held_plans()["cleanup_plan"]["nonce"]
     videos["apply_cleanup"](token, False)
     assert fake_bridge.calls[-1] == ("cleanup", (actions.runner, actions.config, token), {})
-    assert fake_ui.notes[-1] == ("Cleaned up THOR_FEB_2026.", "positive")
+    assert fake_ui.notes[-1] == ("Cleaning up THOR_FEB_2026.", "positive")
     assert "cleanup_plan" not in actions.held_plans()
     videos["apply_cleanup"](token, False)
     assert fake_ui.notes[-1][1] == "negative"
@@ -333,7 +334,21 @@ def test_videos_restore_plans_the_uncompile_then_runs_it(actions, fake_bridge, f
     assert fake_bridge.names() == ["plan_uncompile", "uncompile"]
     assert fake_bridge.calls[0][1] == (config, config.output_path / "THOR_FEB_2026")
     assert fake_bridge.calls[1][1][2] == "tok-1"
-    assert fake_ui.notes == [("Restored clips for THOR_FEB_2026.", "positive")]
+    assert fake_ui.notes == [("Restoring clips for THOR_FEB_2026.", "positive")]
+
+
+# ----- a job-starting action toasts that the job started, never that it finished ------
+
+# The finished-claim wording each job-starting action used before. The prefixes are checked as
+# literal text in wiring.py, so a dynamic f-string toast (Cleaned up {slug}.) still matches.
+FINISHED_CLAIMS = ["Sorted clips.", "Scanned for KOs.", "Compiled video.", "Uploaded to YouTube.",
+                   "Signed in to YouTube.", "Cleaned up ", "Restored clips for ", 'Recycled "']
+
+
+def test_job_starting_toasts_never_claim_the_job_finished():
+    source = Path(wiring.__file__).read_text(encoding="utf-8")
+    for old in FINISHED_CLAIMS:
+        assert old not in source, f"{old!r} is still a toast in wiring.py"
 
 
 # ----- refusals and errors become negative toasts with their text ---------------------
