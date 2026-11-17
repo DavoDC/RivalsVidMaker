@@ -242,6 +242,82 @@ class TestPreprocessDryRun:
         mock_prompt.assert_not_called()
 
 
+class TestPreprocessOnLowValue:
+    """on_low_value callback replaces the interactive delete prompt (GUI path)."""
+
+    def _setup_ko(self, mock_ko, tier_by_name):
+        mock_ko.TIERS = ["KO", "DOUBLE", "TRIPLE", "QUAD", "PENTA", "HEXA"]
+        mock_ko.NULL_RESULT_SUFFIX = "NONE"
+        mock_ko.cache_load.return_value = (False, None)
+        mock_ko.scan_clip.side_effect = lambda path, **kw: {"tier": tier_by_name[Path(path).name]}
+
+    def test_callback_receives_low_value_clips_and_input_never_called(self, tmp_path):
+        char_dir = tmp_path / "THOR"
+        char_dir.mkdir()
+        ko_clip = _make_clip(char_dir, "THOR_2026-02-06_22-38-56.mp4")
+        good_clip = _make_clip(char_dir, "THOR_2026-02-07_18-00-00.mp4")
+        tiers = {
+            ko_clip.name: "KO",
+            good_clip.name: "QUAD",
+        }
+        reported = []
+
+        with patch("preprocess.ko_detect") as mock_ko, \
+             patch("builtins.input", side_effect=AssertionError("prompted")), \
+             patch("preprocess._prompt_delete") as mock_prompt:
+            self._setup_ko(mock_ko, tiers)
+            result = preprocess_all(make_config(tmp_path),
+                                    on_low_value=reported.append)
+
+        assert result == {"THOR": 2}
+        mock_prompt.assert_not_called()
+        # Renamed clip paths: the KO clip gets its _KO suffix before being reported
+        assert len(reported) == 1
+        assert reported[0].name == "THOR_2026-02-06_22-38-56_KO.mp4"
+        assert isinstance(reported[0], Path)
+
+    def test_callback_receives_unknown_tier_clips(self, tmp_path):
+        char_dir = tmp_path / "THOR"
+        char_dir.mkdir()
+        _make_clip(char_dir, "THOR_2026-02-06_22-38-56.mp4")
+        reported = []
+
+        with patch("preprocess.ko_detect") as mock_ko, \
+             patch("builtins.input", side_effect=AssertionError("prompted")):
+            self._setup_ko(mock_ko, {"THOR_2026-02-06_22-38-56.mp4": None})
+            mock_ko.NULL_RESULT_SUFFIX = "UNKNOWN"
+            preprocess_all(make_config(tmp_path), on_low_value=reported.append)
+
+        assert len(reported) == 1
+        assert reported[0].name == "THOR_2026-02-06_22-38-56_UNKNOWN.mp4"
+
+    def test_callback_not_called_for_non_low_value_clips(self, tmp_path):
+        char_dir = tmp_path / "THOR"
+        char_dir.mkdir()
+        _make_clip(char_dir, "THOR_2026-02-06_22-38-56.mp4")
+        reported = []
+
+        with patch("preprocess.ko_detect") as mock_ko, \
+             patch("builtins.input", side_effect=AssertionError("prompted")):
+            self._setup_ko(mock_ko, {"THOR_2026-02-06_22-38-56.mp4": "QUAD"})
+            preprocess_all(make_config(tmp_path), on_low_value=reported.append)
+
+        assert reported == []
+
+    def test_without_callback_prompt_path_runs_unchanged(self, tmp_path):
+        char_dir = tmp_path / "THOR"
+        char_dir.mkdir()
+        _make_clip(char_dir, "THOR_2026-02-06_22-38-56.mp4")
+
+        with patch("preprocess.ko_detect") as mock_ko, \
+             patch("preprocess._prompt_delete") as mock_prompt:
+            self._setup_ko(mock_ko, {"THOR_2026-02-06_22-38-56.mp4": "KO"})
+            preprocess_all(make_config(tmp_path))
+
+        mock_prompt.assert_called_once()
+        assert mock_prompt.call_args.args[1] == "KO"
+
+
 class TestPromptDeleteVlc:
     """Tests for [v]iew in VLC option in _prompt_delete."""
 

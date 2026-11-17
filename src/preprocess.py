@@ -15,6 +15,7 @@ import logging
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import ko_detect
@@ -100,7 +101,11 @@ def _prompt_delete(clip_path: Path, tier: str | None, vlc_path=None) -> bool:
     return deleted_clip
 
 
-def preprocess_all(config: Config, dry_run: bool = False) -> dict[str, int]:
+def preprocess_all(
+    config: Config,
+    dry_run: bool = False,
+    on_low_value: Callable[[Path], None] | None = None,
+) -> dict[str, int]:
     """
     Scan all clips in all character subfolders of config.clips_path.
 
@@ -110,6 +115,10 @@ def preprocess_all(config: Config, dry_run: bool = False) -> dict[str, int]:
       - If config.force_rescan_cache is True, rescan every clip regardless of cache.
         Use this after scanner optimisations to get updated scan_time metrics.
       - Otherwise run KO detection and write the cache entry.
+
+    Low-value clips (KO or UNKNOWN tier) are handled by on_low_value(clip_path)
+    when given (GUI path: report only, never prompt). Without it, the CLI
+    delete prompt runs.
 
     Returns {char_name: clip_count} for every character processed.
     Progress is logged at INFO level so it appears in the terminal.
@@ -215,11 +224,14 @@ def preprocess_all(config: Config, dry_run: bool = False) -> dict[str, int]:
                     )
             char_done += 1
 
-            # Prompt to delete low-value clips (skip during force_rescan data runs or dry run)
+            # Low-value clips: report via callback (GUI) or prompt to delete (CLI).
+            # Skipped during force_rescan data runs or dry run.
             if not force_rescan and tier in _LOW_VALUE_TIERS:
                 if dry_run:
                     reason = "single kill only (KO tier)" if tier == "KO" else "no kill detected"
                     logging.info("[DRY RUN] Would prompt to delete: %s (%s)", clip_path.name, reason)
+                elif on_low_value is not None:
+                    on_low_value(clip_path)
                 else:
                     _prompt_delete(clip_path, tier, vlc_path=config.vlc_path)
 
