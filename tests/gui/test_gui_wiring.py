@@ -421,10 +421,27 @@ def test_held_cleanup_plan_is_accepted_by_view_model(actions, fake_bridge, fake_
     assert fates["THOR_c1_KO.mp4"] == "recycle"
     assert fates["THOR_FEB_2026_BATCH1_description.txt"] == "recycle"
     assert fates["THOR_c2_QUAD.mp4"] == "keep"
-    assert shown["totals"]["remove_count"] == 2
-    assert shown["totals"]["remove_mb"] == pytest.approx(1.0, abs=0.01)
+    assert shown["totals"]["recycle_count"] == 2
+    assert shown["totals"]["archive_count"] == 0
+    assert shown["totals"]["move_mb"] == pytest.approx(1.0, abs=0.01)
     clip = next(i for i in shown["items"] if i["name"] == "THOR_c1_KO.mp4")
     assert clip["size_mb"] == pytest.approx(1.0, abs=0.01)
+
+
+def test_held_cleanup_totals_count_archive_and_recycle_fates_separately(tmp_path):
+    def file_of(name, mb):
+        path = tmp_path / name
+        path.write_bytes(b"\0" * int(mb * 1024 * 1024))
+        return path
+    plan = SimpleNamespace(
+        include_video=False,
+        actions=[SimpleNamespace(path=file_of("clip.mp4", 2), fate="archive"),
+                 SimpleNamespace(path=file_of("old.txt", 1), fate="recycle"),
+                 SimpleNamespace(path=file_of("part.mp4", 3), fate="recycle_video")],
+        skipped=["desc.txt"])
+    held = wiring._held_cleanup("tok", plan, "thor")
+    assert held["totals"] == {"archive_count": 1, "recycle_count": 2, "move_mb": 6.0}
+    assert [i["fate"] for i in held["items"]] == ["archive", "recycle", "recycle_video", "keep"]
 
 
 def test_nothing_is_held_before_a_plan_is_made(actions):

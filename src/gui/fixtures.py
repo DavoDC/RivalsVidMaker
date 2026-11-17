@@ -154,11 +154,12 @@ _CLEANUP = {
     "nonce": "fixture-cleanup-nonce",
     "slug": "thor_vid1",
     "items": [
-        {"name": "thor_vid1_part1.mp4", "fate": "remove", "size_mb": 812.4},
-        {"name": "thor_vid1_part2.mp4", "fate": "remove", "size_mb": 790.1},
+        {"name": "thor_vid1_clip01.mp4", "fate": "archive", "size_mb": 412.0},
+        {"name": "thor_vid1_clip02.mp4", "fate": "archive", "size_mb": 400.4},
+        {"name": "thor_vid1_part1.mp4", "fate": "recycle_video", "size_mb": 790.1},
         {"name": "thor_vid1_description.txt", "fate": "keep", "size_mb": 0.01},
     ],
-    "totals": {"remove_count": 2, "remove_mb": 1602.5},
+    "totals": {"archive_count": 2, "recycle_count": 1, "move_mb": 1602.5},
 }
 
 _HUGE_ARCHIVE = [

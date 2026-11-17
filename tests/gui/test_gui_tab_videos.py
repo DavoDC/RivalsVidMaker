@@ -26,7 +26,7 @@ EMPTY_COPY = "No videos yet. Compile one on the Compile tab."
 CLEANED_NOTE = "Cleaned up. Clips moved to the archive."
 SIGN_IN_LABEL = "Sign in to YouTube again"
 RESTORE_LABEL = "Restore clips"
-APPLY_TEXT = "Remove 2 files, 1.6 GB"
+APPLY_TEXT = "Archive 2 clips, recycle 1 file, 1.6 GB"
 CLEAN_UP_LABEL = "Clean up"
 MARK_LIVE_LABEL = "Mark as live"
 UPLOAD_LABEL = "Upload to YouTube"
@@ -288,8 +288,8 @@ def test_plan_heading_has_8_px_space_below_it_before_the_first_fate_group():
 def test_fate_groups_show_counts_and_sizes():
     items = fixtures.SCENARIOS["cleanup_plan"]["cleanup_plan"]["items"]
     groups = plan_list.groups(items)
-    assert [(g["fate"], g["count"]) for g in groups] == [("remove", 2), ("keep", 1)]
-    assert groups[0]["size_mb"] == pytest.approx(1602.5)
+    assert [(g["fate"], g["count"]) for g in groups] == [("archive", 2), ("recycle_video", 1), ("keep", 1)]
+    assert groups[0]["size_mb"] == pytest.approx(812.4)
     labels = [e.text for e in _session(_no_job("cleanup_plan")) if isinstance(e, ui.label)]
     assert "2 files" in labels
     assert "1 file" in labels
@@ -330,9 +330,27 @@ def test_size_text_never_shows_a_kilobyte_size_as_zero_point_zero_mb():
         assert "MB" not in plan_list.size_text(mb)
 
 
-def test_totals_text_names_the_count_and_the_size():
-    assert plan_list.totals_text({"remove_count": 2, "remove_mb": 1602.5}) == APPLY_TEXT
-    assert plan_list.totals_text({"remove_count": 1, "remove_mb": 3.0}) == "Remove 1 file, 3.0 MB"
+@pytest.mark.parametrize("totals, text", [
+    ({"archive_count": 2, "recycle_count": 1, "move_mb": 1602.5}, APPLY_TEXT),
+    ({"archive_count": 6, "recycle_count": 14, "move_mb": 1638.4}, "Archive 6 clips, recycle 14 files, 1.6 GB"),
+    ({"archive_count": 0, "recycle_count": 1, "move_mb": 3.0}, "Recycle 1 file, 3.0 MB"),
+    ({"archive_count": 1, "recycle_count": 0, "move_mb": 812.4}, "Archive 1 clip, 812.4 MB"),
+    ({"archive_count": 0, "recycle_count": 0, "move_mb": 0.0}, "Nothing to clean up"),
+])
+def test_totals_text_names_the_archive_and_recycle_counts_and_the_size(totals, text):
+    assert plan_list.totals_text(totals) == text
+
+
+def test_apply_is_disabled_when_the_plan_archives_and_recycles_nothing():
+    def nothing_to_do(data):
+        data["job"] = None
+        data["cleanup_plan"] = {"nonce": "fixture-cleanup-nonce", "slug": "thor_vid1",
+                                "items": [{"name": "thor_vid1_description.txt", "fate": "keep", "size_mb": 0.01}],
+                                "totals": {"archive_count": 0, "recycle_count": 0, "move_mb": 0.0}}
+    elements = _session(_Source("cleanup_plan", nothing_to_do))
+    apply = _by_marker(elements, "apply-cleanup")[0]
+    assert apply.text == "Nothing to clean up"
+    assert apply._props.get("disable")
 
 
 # ---- Danger mode and Restore clips --------------------------------------------------------------

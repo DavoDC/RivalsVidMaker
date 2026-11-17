@@ -4,7 +4,7 @@ and a summed size per group, then the "Also recycle the video" checkbox and the 
 build(plan, actions, busy) takes the snapshot "videos"."cleanup_plan" dict (nonce, slug, items, totals). Each item
 row carries its view_model testid. The apply button calls actions["apply_cleanup"](nonce, recycle_video) and does
 nothing when no handler is given. Nothing moves while the plan is shown: only the apply button changes files.
-The apply button is never the default focus (no autofocus), and it is disabled when the plan removes nothing.
+The apply button is never the default focus (no autofocus), and it is disabled when the plan archives and recycles nothing.
 """
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ from nicegui import ui
 from gui import tokens
 
 GB_MB = 1024  # sizes switch from MB to GB at one gigabyte
-FATE_WORDS = {"remove": "Remove", "keep": "Keep"}
+FATE_WORDS = {"remove": "Remove", "keep": "Keep", "archive": "Archive", "recycle_video": "Recycle video",
+              "recycle": "Recycle"}
 RECYCLE_LABEL = "Also recycle the video"
 HEADING_PREFIX = "Clean up plan for"
 
@@ -40,9 +41,18 @@ def _plural(count: int, word: str) -> str:
 
 
 def totals_text(totals: dict) -> str:
-    """The apply button text: "Remove 2 files, 1.6 GB"."""
-    count = int(totals.get("remove_count") or 0)
-    return f"Remove {_plural(count, 'file')}, {size_text(totals.get('remove_mb'))}"
+    """The apply button text: "Archive 2 clips, recycle 1 file, 1.6 GB"; "Nothing to clean up" when both counts are 0."""
+    archive = int(totals.get("archive_count") or 0)
+    recycle = int(totals.get("recycle_count") or 0)
+    if archive + recycle == 0:
+        return "Nothing to clean up"
+    parts = []
+    if archive:
+        parts.append(f"Archive {_plural(archive, 'clip')}")
+    if recycle:
+        parts.append(f"{'recycle' if archive else 'Recycle'} {_plural(recycle, 'file')}")
+    parts.append(size_text(totals.get("move_mb")))
+    return ", ".join(parts)
 
 
 def groups(items: list[dict]) -> list[dict]:
@@ -93,14 +103,14 @@ def build(plan: dict, actions=None, busy: bool = False) -> None:
                 _item_row(item)
 
     nonce = plan.get("nonce")
-    removes = int(totals.get("remove_count") or 0)
+    moves = int(totals.get("archive_count") or 0) + int(totals.get("recycle_count") or 0)
     with ui.row().style("align-items:center;justify-content:space-between;gap:16px;width:100%;flex-wrap:wrap;"):
         recycle = ui.checkbox(RECYCLE_LABEL, value=False).props("dense") \
             .style("padding-left:0;").mark("cleanup-recycle")
         apply = ui.button(totals_text(totals),
                           on_click=lambda: _call(actions, "apply_cleanup", nonce, bool(recycle.value))) \
             .props("no-caps outline").classes("rvm-button").mark("apply-cleanup")
-        if busy or removes == 0:
+        if busy or moves == 0:
             apply.disable()
         if busy:
             recycle.props("disable")

@@ -380,7 +380,7 @@ def test_cleanup_plan_items_get_fate_testids():
     snap = view_model.snapshot(FixtureSource("cleanup_plan"))
     cleanup = snap["videos"]["cleanup_plan"]
     assert cleanup["slug"] == "thor_vid1"
-    assert cleanup["totals"] == {"remove_count": 2, "remove_mb": 1602.5}
+    assert cleanup["totals"] == {"archive_count": 2, "recycle_count": 1, "move_mb": 1602.5}
     item = cleanup["items"][0]
     assert item["testid"] == view_model.testid("fate", item["name"])
 

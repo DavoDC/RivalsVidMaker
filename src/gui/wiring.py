@@ -26,6 +26,8 @@ TAB_ACTIONS = {
 STALE = "This plan is no longer valid. Make the plan again."
 NO_PLAN = "No plan is held. Make a plan first."
 FIXTURE_TEXT = "Fixture: nothing is written."
+# cleanup.py FATE_ARCHIVE, by value
+ARCHIVE_FATE = "archive"
 # cleanup.py FATE_RECYCLE, FATE_RECYCLE_VIDEO, FATE_RECYCLE_FOLDER, by value
 REMOVING_FATES = ("recycle", "recycle_video", "recycle_folder")
 KEEP_FATE = "keep"
@@ -100,6 +102,7 @@ def _held_cleanup(token: str, plan, slug: str) -> dict:
     """The cleanup plan as view_model._cleanup reads it. Skipped files are listed as keep."""
     items = [{"name": a.path.name, "fate": a.fate, "bytes": _size(a.path)} for a in plan.actions]
     items += [{"name": name, "fate": KEEP_FATE, "bytes": 0} for name in plan.skipped]
+    archiving = [i for i in items if i["fate"] == ARCHIVE_FATE]
     removing = [i for i in items if i["fate"] in REMOVING_FATES]
     for i in items:
         i["size_mb"] = round(i.pop("bytes") / MB, 2)
@@ -108,8 +111,9 @@ def _held_cleanup(token: str, plan, slug: str) -> dict:
         "slug": slug,
         "include_video": plan.include_video,
         "items": items,
-        "totals": {"remove_count": len(removing),
-                   "remove_mb": round(sum(i["size_mb"] for i in removing), 2)},
+        "totals": {"archive_count": len(archiving),
+                   "recycle_count": len(removing),
+                   "move_mb": round(sum(i["size_mb"] for i in archiving + removing), 2)},
     }
 
 
