@@ -141,6 +141,7 @@ def serve(args: argparse.Namespace) -> int:
 
     app.add_middleware(security.LoopbackGuard, port_fn=lambda: port)
     state_api.register(app, wired)
+    state_api.register_quit(app, runner, app.shutdown)
     handler = make_page_handler(wired, runner, actions=actions)
 
     @ui.page("/")

@@ -60,6 +60,40 @@ def test_head_html_fills_token_into_error_js_as_json_string():
     assert '"' + security.TOKEN + '"' in head
 
 
+def test_quit_js_posts_to_quit_route_with_the_token_header():
+    assert "/__quit" in chrome.QUIT_JS
+    assert "X-RVM-Token" in chrome.QUIT_JS
+
+
+def test_quit_js_uses_document_delegation_not_an_inline_handler():
+    assert "closest('#rvm-quit')" in chrome.QUIT_JS
+    assert "onclick" not in chrome.head_html()
+
+
+def test_head_html_carries_quit_script_with_the_token_filled():
+    head = chrome.head_html()
+    assert "/__quit" in head
+    assert "closest('#rvm-quit')" in head
+    assert "__TOKEN__" not in head
+    assert '"' + security.TOKEN + '"' in head
+
+
+def test_quit_js_states_the_three_outcomes():
+    js = chrome.QUIT_JS
+    assert "RivalsVidMaker stopped. You can close this tab." in js
+    assert "'Busy: '" in js and "'. Quit when it finishes.'" in js
+    assert "Quit failed. Try again." in js
+
+
+def test_quit_js_escapes_the_job_title_with_textcontent():
+    assert "textContent" in chrome.QUIT_JS
+    assert "innerHTML" not in chrome.QUIT_JS
+
+
+def test_theme_has_toast_rule():
+    assert "#rvm-toast" in theme.HEAD_HTML
+
+
 def test_error_js_sends_rvm_token_header():
     assert "X-RVM-Token" in chrome.ERROR_JS
     assert "X-AM-Token" not in chrome.ERROR_JS

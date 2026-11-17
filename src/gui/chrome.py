@@ -44,6 +44,50 @@ ERROR_JS = r"""
 })();
 """
 
+# Quit uses document-level delegation: NiceGUI strips on* attributes, so the header button has no
+# inline handler. A 202 replaces the page with one line; a 409 names the running job in a toast.
+QUIT_JS = r"""
+(function(){
+  var TOKEN = __TOKEN__;
+  var timer = null;
+  function toast(msg){
+    var t = document.getElementById('rvm-toast');
+    if(!t){
+      t = document.createElement('div');
+      t.id = 'rvm-toast';
+      t.setAttribute('role','status');
+      t.setAttribute('aria-live','polite');
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.display = 'block';
+    clearTimeout(timer);
+    timer = setTimeout(function(){ t.style.display = 'none'; }, 4000);
+  }
+  function stopped(){
+    var p = document.createElement('p');
+    p.textContent = 'RivalsVidMaker stopped. You can close this tab.';
+    p.style.cssText = 'margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;';
+    document.body.textContent = '';
+    document.body.appendChild(p);
+  }
+  document.addEventListener('click', function(e){
+    if(!e.target || !e.target.closest || !e.target.closest('#rvm-quit')) return;
+    fetch('/__quit',{method:'POST',headers:{'X-RVM-Token':TOKEN},cache:'no-store'})
+      .then(function(r){
+        if(r.status===202){ stopped(); return; }
+        if(r.status===409){
+          return r.json().then(function(j){
+            toast('Busy: '+j.busy+'. Quit when it finishes.');
+          }, function(){ toast('Quit failed. Try again.'); });
+        }
+        toast('Quit failed. Try again.');
+      })
+      .catch(function(){ toast('Quit failed. Try again.'); });
+  });
+})();
+"""
+
 DEBUG_JS = r"""
 (function(){
   window.__debug = {
@@ -68,7 +112,9 @@ def head_html() -> str:
     """Styles, error handler and debug surface for the page head. The token is per launch."""
     token_js = json.dumps(security.TOKEN)
     error_js = ERROR_JS.replace("__TOKEN__", token_js)
-    return f"{theme.HEAD_HTML}<script>{error_js}</script><script>{DEBUG_JS}</script>"
+    quit_js = QUIT_JS.replace("__TOKEN__", token_js)
+    return (f"{theme.HEAD_HTML}<script>{error_js}</script><script>{quit_js}</script>"
+            f"<script>{DEBUG_JS}</script>")
 
 
 def header_html(state_word: str = "Idle", state_kind: str = "idle") -> str:

@@ -1,4 +1,7 @@
 """State API routes (design plan sections 6 and 12): in-process, no server is bound."""
+import threading
+from pathlib import Path
+
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
@@ -8,6 +11,25 @@ from gui.sources import FixtureSource
 PORT = 8476
 GOOD_HOST = f"127.0.0.1:{PORT}"
 TOKEN_HEADER = {"X-RVM-Token": security.TOKEN}
+MAIN_SRC = Path(__file__).resolve().parents[2] / "src" / "gui" / "__main__.py"
+
+
+class FakeRunner:
+    """Stands in for jobs.JobRunner: only busy and current() are read by the quit route."""
+
+    def __init__(self, busy=False, title=None):
+        self.busy = busy
+        self._title = title
+
+    def current(self):
+        return {"title": self._title} if self.busy else None
+
+
+def make_quit_client(runner, shutdown):
+    app = FastAPI()
+    state_api.register_quit(app, runner, shutdown)
+    guarded = security.LoopbackGuard(app, lambda: PORT)
+    return TestClient(guarded, base_url=f"http://{GOOD_HOST}")
 
 
 class CountingSource:
@@ -180,9 +202,48 @@ def test_snapshot_is_cached_for_one_poll_interval():
     assert source.reads == 2
 
 
+def test_quit_without_token_is_refused_and_does_not_shut_down():
+    called = threading.Event()
+    client = make_quit_client(FakeRunner(), called.set)
+    res = client.post("/__quit")
+    assert res.status_code == 403
+    assert not called.wait(0.5)
+
+
+def test_quit_route_checks_the_token_itself():
+    app = FastAPI()
+    state_api.register_quit(app, FakeRunner(), lambda: None)
+    res = TestClient(app).post("/__quit", headers={"X-RVM-Token": "wrong"})
+    assert res.status_code == 403
+
+
+def test_idle_quit_returns_202_and_shuts_down_after_the_reply():
+    called = threading.Event()
+    client = make_quit_client(FakeRunner(), called.set)
+    res = client.post("/__quit", headers=TOKEN_HEADER)
+    assert res.status_code == 202
+    assert res.json() == {"stopping": True}
+    assert called.wait(2)
+
+
+def test_busy_quit_returns_409_with_the_job_title_and_keeps_running():
+    called = threading.Event()
+    client = make_quit_client(FakeRunner(busy=True, title="Render clips"), called.set)
+    res = client.post("/__quit", headers=TOKEN_HEADER)
+    assert res.status_code == 409
+    assert res.json() == {"busy": "Render clips"}
+    assert not called.wait(0.6)
+
+
+def test_serve_wires_register_quit_to_the_app_shutdown():
+    text = MAIN_SRC.read_text(encoding="utf-8")
+    assert "state_api.register_quit(app, runner, app.shutdown)" in text
+
+
 def test_every_route_listed_in_endpoints_is_registered():
     app = FastAPI()
     state_api.register(app, FixtureSource("empty"), clock=FakeClock(), sink=lambda k, m: None)
+    state_api.register_quit(app, FakeRunner(), lambda: None)
     registered = {getattr(r, "path", None) for r in app.routes}
     for entry in state_api.ENDPOINTS:
         assert entry["path"] in registered, entry

@@ -32,6 +32,9 @@ _CSS = """
   #error-banner{position:fixed;top:0;left:0;right:0;z-index:9999;background:@@PANEL@@;color:@@TEXT@@;
     border-left:@@SPACE_4@@px solid @@ERROR@@;padding:@@SPACE_8@@px @@SPACE_16@@px;font-size:@@SIZE_UI@@px;}
   #error-banner[hidden]{display:none;}
+  #rvm-toast{position:fixed;right:@@SPACE_16@@px;bottom:@@SPACE_16@@px;z-index:9998;max-width:min(420px,calc(100vw - 32px));
+    background:@@PANEL@@;color:@@TEXT@@;border:1px solid @@LINE@@;border-radius:@@RADIUS_PANEL@@px;
+    padding:@@SPACE_8@@px @@SPACE_16@@px;font-size:@@SIZE_UI@@px;}
   #fixture-banner{background:@@PANEL@@;color:@@TEXT@@;font-size:@@SIZE_FINE@@px;padding:@@SPACE_4@@px @@SPACE_16@@px;
     border-bottom:1px solid @@LINE@@;}
   .rvm-footer{display:flex;flex-wrap:wrap;gap:@@SPACE_16@@px;padding:@@SPACE_8@@px @@SPACE_24@@px;

@@ -4,11 +4,14 @@
 GET /state.json, GET /state/<tab>.json and GET /api/build are read-only and come from one
 cached snapshot per poll interval. POST /__log relays one browser error line; it needs the
 per-launch token in X-RVM-Token and is rate limited, so a page error loop cannot flood the log.
+POST /__quit stops the server when no job runs (202, then shutdown); a busy runner gets 409 with
+the running job's title and the server keeps going. Both POST routes need X-RVM-Token.
 Nothing here writes to the library or starts a job.
 """
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections import deque
 
@@ -23,12 +26,14 @@ LOG_LIMIT = 20      # relayed browser lines allowed per window
 LOG_WINDOW = 10.0   # seconds
 MAX_KIND = 200
 MAX_MESSAGE = 2000
+QUIT_DELAY = 0.3    # seconds between the 202 reply and shutdown, so the browser gets the reply first
 
 ENDPOINTS = [
     {"path": "/api/build", "method": "GET", "returns": "build line, sha, dirty flag, boot id, fixture"},
     {"path": "/state.json", "method": "GET", "returns": "every tab's state contract"},
     {"path": "/state/{tab}.json", "method": "GET", "returns": "one tab's state contract"},
     {"path": "/__log", "method": "POST", "returns": "relay a browser error line (X-RVM-Token)"},
+    {"path": "/__quit", "method": "POST", "returns": "stop the server when idle, 409 when busy (X-RVM-Token)"},
 ]
 
 _log = logging.getLogger("rvm.gui")
@@ -128,3 +133,21 @@ def register(app: FastAPI, source, clock=time.monotonic, sink=None) -> StateApi:
     app.add_api_route("/state/{tab}.json", state_tab, methods=["GET"])
     app.add_api_route("/__log", log_relay, methods=["POST"])
     return api
+
+
+def register_quit(app: FastAPI, runner, shutdown) -> None:
+    """POST /__quit. Idle: 202, then shutdown() runs on a daemon timer so the reply goes out first.
+    Busy: 409 with the running job's title, and shutdown is not called. shutdown is injected for tests."""
+
+    def quit_route(request: Request):
+        if not security.check_token(request.headers.get("x-rvm-token", "")):
+            return _json({"error": "bad token"}, 403)
+        if runner.busy:
+            current = runner.current() or {}
+            return _json({"busy": current.get("title") or "a job"}, 409)
+        timer = threading.Timer(QUIT_DELAY, shutdown)
+        timer.daemon = True
+        timer.start()
+        return _json({"stopping": True}, 202)
+
+    app.add_api_route("/__quit", quit_route, methods=["POST"])
