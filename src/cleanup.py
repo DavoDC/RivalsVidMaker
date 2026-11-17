@@ -19,7 +19,8 @@ Usage (from main menu or pipeline):
 import logging
 import re
 import shutil
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from send2trash import send2trash
@@ -185,6 +186,187 @@ def retry_upload(output_folder: Path, config, confirm: bool = True) -> RetryResu
     return RetryResult(uploaded=True)
 
 
+FATE_ARCHIVE = "archive"
+FATE_RECYCLE = "recycle"
+FATE_RECYCLE_VIDEO = "recycle_video"
+FATE_REMOVE_EMPTY_FOLDER = "remove_empty_folder"
+
+GROUP_ARCHIVE = "archive"
+GROUP_CLIPS = "clips"
+GROUP_VIDEO = "video"
+GROUP_METADATA = "metadata"
+GROUP_FOLDER = "folder"
+
+
+class PlanChanged(RuntimeError):
+    """The output folder changed between plan_cleanup and apply_cleanup. Nothing was touched."""
+
+
+class FolderNotConfirmed(RuntimeError):
+    """apply_cleanup refused: the folder is not marked live on YouTube in state."""
+
+
+@dataclass(frozen=True)
+class PlannedAction:
+    """One file or folder operation with its fate. dest is set only for archive moves."""
+    fate: str
+    path: Path
+    group: str
+    dest: Path | None = None
+
+
+@dataclass(frozen=True)
+class CleanupPlan:
+    """What cleanup would do to one output folder. Building it changes nothing."""
+    folder_name: str
+    output_folder: Path
+    archive_path: Path
+    include_video: bool
+    actions: tuple[PlannedAction, ...]
+    skipped: tuple[str, ...]
+    snapshot: frozenset[str]
+
+
+@dataclass
+class ApplyResult:
+    done: list[PlannedAction] = field(default_factory=list)
+    errors: list[tuple[PlannedAction, str]] = field(default_factory=list)
+
+
+def _snapshot(folder: Path) -> frozenset[str]:
+    """Relative paths of every file under folder. Used to detect changes between plan and apply."""
+    if not folder.is_dir():
+        return frozenset()
+    return frozenset(str(p.relative_to(folder)) for p in folder.rglob("*") if p.is_file())
+
+
+def _clip_files(clips_dir: Path) -> list[Path]:
+    if not clips_dir.is_dir():
+        return []
+    return sorted(p for p in clips_dir.iterdir() if p.is_file() and p.suffix.lower() == ".mp4")
+
+
+def _only_removed(folder: Path, removed: set[Path]) -> bool:
+    return all(child in removed for child in folder.iterdir())
+
+
+def _with_folder_fates(output_folder: Path, actions: list[PlannedAction]) -> list[PlannedAction]:
+    """Add remove_empty_folder for clips/ and the output folder when the planned removals empty them."""
+    kept = [a for a in actions if a.fate != FATE_REMOVE_EMPTY_FOLDER]
+    removed = {a.path for a in kept if a.fate in (FATE_ARCHIVE, FATE_RECYCLE, FATE_RECYCLE_VIDEO)}
+    clips_dir = output_folder / "clips"
+    if clips_dir.is_dir() and _only_removed(clips_dir, removed):
+        kept.append(PlannedAction(FATE_REMOVE_EMPTY_FOLDER, clips_dir, GROUP_FOLDER))
+        removed.add(clips_dir)
+    if output_folder.is_dir() and _only_removed(output_folder, removed):
+        kept.append(PlannedAction(FATE_REMOVE_EMPTY_FOLDER, output_folder, GROUP_FOLDER))
+    return kept
+
+
+def plan_cleanup(output_folder: Path, archive_path: Path, include_video: bool = False) -> CleanupPlan:
+    """Work out what cleanup would do with output_folder. Reads the folder; changes nothing.
+
+    Fates:
+    - archive: QUAD, PENTA, HEXA clips whose archive destination is free
+    - recycle (group clips): every other clip in clips/
+    - recycle (group metadata): *_description.txt and clips.json
+    - recycle_video: compiled .mp4 files, only when include_video
+    - remove_empty_folder: clips/ and the output folder, when the plan empties them
+    Quad+ clips whose archive destination already exists are kept and listed in skipped.
+    """
+    actions: list[PlannedAction] = []
+    skipped: list[str] = []
+
+    for p in _clip_files(output_folder / "clips"):
+        if _tier_from_name(p.name) in ARCHIVE_MIN_TIERS:
+            dest = archive_path / p.stem.split("_")[0] / p.name
+            if dest.exists():
+                skipped.append(p.name)
+            else:
+                actions.append(PlannedAction(FATE_ARCHIVE, p, GROUP_ARCHIVE, dest))
+        else:
+            actions.append(PlannedAction(FATE_RECYCLE, p, GROUP_CLIPS))
+
+    if include_video:
+        for mp4 in sorted(output_folder.glob("*.mp4")):
+            actions.append(PlannedAction(FATE_RECYCLE_VIDEO, mp4, GROUP_VIDEO))
+
+    for txt in sorted(output_folder.glob("*_description.txt")):
+        actions.append(PlannedAction(FATE_RECYCLE, txt, GROUP_METADATA))
+    clips_json = output_folder / "clips.json"
+    if clips_json.exists():
+        actions.append(PlannedAction(FATE_RECYCLE, clips_json, GROUP_METADATA))
+
+    return CleanupPlan(
+        folder_name=output_folder.name,
+        output_folder=output_folder,
+        archive_path=archive_path,
+        include_video=include_video,
+        actions=tuple(_with_folder_fates(output_folder, actions)),
+        skipped=tuple(skipped),
+        snapshot=_snapshot(output_folder),
+    )
+
+
+def restrict_plan(plan: CleanupPlan, keep: Callable[[PlannedAction], bool]) -> CleanupPlan:
+    """Return a copy of plan with only the actions keep() accepts. Folder fates are recomputed."""
+    kept = [a for a in plan.actions if a.fate != FATE_REMOVE_EMPTY_FOLDER and keep(a)]
+    return replace(plan, actions=tuple(_with_folder_fates(plan.output_folder, kept)))
+
+
+def apply_cleanup(plan: CleanupPlan, state_path: Path | None = None) -> ApplyResult:
+    """Carry out exactly the actions in plan.
+
+    Refuses with FolderNotConfirmed unless state_path marks the folder live on YouTube.
+    Raises PlanChanged, before touching anything, if a file appeared or vanished since
+    planning or an archive destination now exists.
+    """
+    if state_path is None or not is_youtube_confirmed(load_state(state_path), plan.folder_name):
+        raise FolderNotConfirmed(f"'{plan.folder_name}' is not marked live on YouTube; nothing was touched.")
+
+    if _snapshot(plan.output_folder) != plan.snapshot:
+        raise PlanChanged(f"Files in '{plan.folder_name}' changed since the plan was made; nothing was touched.")
+    for a in plan.actions:
+        if a.fate == FATE_ARCHIVE and a.dest.exists():
+            raise PlanChanged(f"Archive destination appeared since planning: {a.dest.name}; nothing was touched.")
+
+    result = ApplyResult()
+    for a in plan.actions:
+        if a.fate == FATE_REMOVE_EMPTY_FOLDER:
+            try:
+                a.path.rmdir()
+                result.done.append(a)
+                logging.info("Removed empty folder: %s", a.path.name)
+            except OSError:
+                logging.info("Left %s in place: not empty", a.path.name)
+            continue
+        try:
+            if a.fate == FATE_ARCHIVE:
+                a.dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(a.path), str(a.dest))
+                logging.debug("Archived: %s -> %s", a.path.name, a.dest.parent)
+            elif a.fate in (FATE_RECYCLE, FATE_RECYCLE_VIDEO):
+                send2trash(str(a.path))
+                logging.debug("Sent to Recycle Bin: %s", a.path.name)
+            else:
+                raise ValueError(f"unknown fate: {a.fate}")
+            result.done.append(a)
+        except Exception as e:
+            logging.error("Failed to %s %s: %s", a.fate, a.path.name, e)
+            result.errors.append((a, str(e)))
+    return result
+
+
+def _describe(a: PlannedAction) -> str:
+    if a.fate == FATE_ARCHIVE:
+        return f"  [archive] {a.path.name} -> {a.dest.parent.parent.name}/{a.dest.parent.name}/"
+    if a.fate == FATE_RECYCLE_VIDEO:
+        return f"  [recycle_video] {a.path.name} ({_fmt_size(a.path)})"
+    if a.fate == FATE_REMOVE_EMPTY_FOLDER:
+        return f"  [remove_empty_folder] {a.path.name}/"
+    return f"  [recycle] {a.path.name}"
+
+
 def run_cleanup(
     output_folder: Path,
     archive_path: Path,
@@ -192,186 +374,133 @@ def run_cleanup(
     dry_run: bool = False,
 ) -> None:
     """
-    Interactive post-YouTube cleanup for one output folder.
+    Interactive post-YouTube cleanup for one output folder. A terminal wrapper over
+    plan_cleanup and apply_cleanup.
 
     Parameters
     ----------
     output_folder : path to a compiled output folder (e.g. Output/THOR_FEB-MAR_2026/)
     archive_path  : path to the ClipArchive folder
-    state_path    : path to state.json; if provided, saves YouTube-confirmed status
-    dry_run       : if True, print the plan without moving or deleting anything
+    state_path    : path to state.json; required for a live run (it records the YouTube-confirmed
+                    status that apply_cleanup checks)
+    dry_run       : if True, print the plan and return. No prompts, no state writes, no file changes.
 
-    Steps:
-    0. Confirm the video is live on YouTube (gates the whole cleanup).
-    1. List all clips in output_folder/clips/ with their KO tier (from filename suffix).
-    2. Identify Quad+ clips -> propose moving to archive_path.
-    3. Identify remaining clips -> propose deletion (shows each file).
-    4. Show compiled .mp4 size -> ask whether to delete.
-    5. Nothing happens until the user types 'yes' for each action.
-       With dry_run=True, only the plan is printed.
+    Steps (live run):
+    0. Confirm the video is live on YouTube and record it in state.
+    1. Quad+ clips -> ask before moving them to archive_path.
+    2. Other clips -> ask before sending them to the Recycle Bin.
+    3. Compiled .mp4 -> ask before sending it to the Recycle Bin.
+    Description and clips.json files are part of the plan and are removed with it.
+    Nothing moves until every prompt has been answered.
     """
-    if dry_run:
-        print("[DRY RUN] No files will be moved or deleted.\n")
-
     if not output_folder.exists():
         logging.error("Output folder not found: %s", output_folder)
         return
 
-    # Step 0: confirm video is live on YouTube before proceeding
     folder_name = output_folder.name
-    state = load_state(state_path) if state_path else {}
-    already_confirmed = is_youtube_confirmed(state, folder_name)
+    plan = plan_cleanup(output_folder, archive_path, include_video=True)
 
-    if not already_confirmed:
+    if dry_run:
+        print("[DRY RUN] No files will be moved or deleted, and no state is written.\n")
+        print(f"Cleanup plan: {folder_name}")
+        print("=" * 56)
+        for a in plan.actions:
+            print(_describe(a))
+        for name in plan.skipped:
+            print(f"  [kept] {name} - already in archive")
+        return
+
+    if state_path is None:
+        logging.error("Cleanup needs state_path to record the YouTube confirmation; nothing changed.")
+        print("Cleanup needs a state file to record the YouTube confirmation. Nothing changed.")
+        return
+
+    # Step 0: confirm video is live on YouTube before proceeding
+    state = load_state(state_path)
+    if not is_youtube_confirmed(state, folder_name):
         print(f"\nBefore cleaning up '{folder_name}':")
-        confirmed = _confirm("Is this video live on YouTube?", dry_run=False)
-        if not confirmed:
+        if not _confirm("Is this video live on YouTube?"):
             print("Cleanup aborted - confirm on YouTube first.")
             return
-        if state_path:
-            state = mark_youtube_confirmed(state, folder_name)
-            save_state(state, state_path)
-            logging.info("Marked '%s' as YouTube-confirmed in state log.", folder_name)
-
-    clips_dir = output_folder / "clips"
+        state = mark_youtube_confirmed(state, folder_name)
+        save_state(state, state_path)
+        logging.info("Marked '%s' as YouTube-confirmed in state log.", folder_name)
 
     print()
-    print(f"Cleanup: {output_folder.name}")
+    print(f"Cleanup: {folder_name}")
     print("=" * 56)
 
-    # ── Step 1: list clips ────────────────────────────────────────────────────
-    if clips_dir.exists():
-        clip_files = sorted(
-            p for p in clips_dir.iterdir()
-            if p.is_file() and p.suffix.lower() == ".mp4"
-        )
-    else:
-        clip_files = []
+    archive_actions = [a for a in plan.actions if a.fate == FATE_ARCHIVE]
+    clip_actions = [a for a in plan.actions if a.fate == FATE_RECYCLE and a.group == GROUP_CLIPS]
+    video_actions = [a for a in plan.actions if a.fate == FATE_RECYCLE_VIDEO]
 
-    if not clip_files:
+    if not (archive_actions or clip_actions or plan.skipped):
         print("clips/ folder is empty or missing - nothing to clean up here.")
 
-    # ── Step 2: archive Quad+ clips ───────────────────────────────────────────
-    quad_plus = [p for p in clip_files if _tier_from_name(p.name) in ARCHIVE_MIN_TIERS]
-    if quad_plus:
-        char_name = quad_plus[0].stem.split("_")[0]
-        char_archive = archive_path / char_name
-        print(f"\n{len(quad_plus)} Quad+ clip(s) to archive -> {archive_path.name}/{char_name}/:")
-        for p in quad_plus:
-            print(f"  {p.name}")
-        if _confirm("\nMove these to ClipArchive?", dry_run=dry_run):
-            char_archive.mkdir(parents=True, exist_ok=True)
-
-            before_archive = set(p.name for p in char_archive.iterdir() if p.is_file())
-            before_clips = set(p.name for p in clips_dir.iterdir() if p.is_file())
-
-            moved = 0
-            for p in quad_plus:
-                dest = char_archive / p.name
-                if dest.exists():
-                    logging.warning("Archive destination already exists, skipping: %s", p.name)
-                    print(f"  [skipped] {p.name} - already in archive")
-                    continue
-                try:
-                    shutil.move(str(p), str(dest))
-                    logging.debug("Archived: %s -> %s", p.name, char_archive)
-                    moved += 1
-                except OSError as e:
-                    logging.error("Failed to archive %s: %s", p.name, e)
-                    print(f"  [error] {p.name}: {e}")
-
-            # Verify: expected files added to archive, removed from clips
-            after_archive = set(p.name for p in char_archive.iterdir() if p.is_file())
-            after_clips = set(p.name for p in clips_dir.iterdir() if p.is_file())
-            unexpected_remaining = set(p.name for p in quad_plus) & after_clips
-            unexpected_missing = (before_archive - after_archive)
-            if unexpected_remaining:
-                logging.warning("Archive verify: these files still in clips/ after move: %s", unexpected_remaining)
-            if unexpected_missing:
-                logging.warning("Archive verify: these files disappeared from archive: %s", unexpected_missing)
-            logging.debug("Archive verify: %d added, clips/ went from %d to %d files",
-                          len(after_archive - before_archive), len(before_clips), len(after_clips))
-
-            print(f"{moved}/{len(quad_plus)} clip(s) archived.")
-            # Refresh clip_files - quad_plus clips have moved
-            clip_files = sorted(
-                p for p in clips_dir.iterdir()
-                if p.is_file() and p.suffix.lower() == ".mp4"
-            )
-        else:
+    # ── Step 1: archive Quad+ clips ──────────────────────────────────────────
+    approve_archive = False
+    if archive_actions:
+        print(f"\n{len(archive_actions)} Quad+ clip(s) to archive -> {archive_path.name}/:")
+        for a in archive_actions:
+            print(f"  {a.path.name}")
+        approve_archive = _confirm("\nMove these to ClipArchive?")
+        if not approve_archive:
             print("Skipped archiving.")
     else:
         print("\n(no Quad+ clips to archive)")
+    for name in plan.skipped:
+        print(f"  [kept] {name} - already in archive")
 
-    # ── Step 3: delete remaining clips ───────────────────────────────────────
-    remaining = [p for p in clip_files if p.exists()]
-    if remaining:
-        print(f"\n{len(remaining)} remaining clip(s) to delete:")
-        for p in remaining:
-            print(f"  {p.name}")
-        if _confirm("\nDelete these clips permanently?", dry_run=dry_run):
-            deleted = 0
-            for p in remaining:
-                try:
-                    send2trash(str(p))
-                    logging.debug("Sent to Recycle Bin: %s", p.name)
-                    deleted += 1
-                except Exception as e:
-                    logging.error("Failed to send to Recycle Bin %s: %s", p.name, e)
-                    print(f"  [error] sending to Recycle Bin {p.name}: {e}")
-            print(f"{deleted}/{len(remaining)} clip(s) sent to Recycle Bin.")
-            try:
-                clips_dir.rmdir()
-                logging.debug("Removed empty clips/ directory")
-            except OSError:
-                pass
-        else:
+    # ── Step 2: send remaining clips to the Recycle Bin ──────────────────────
+    approve_clips = False
+    if clip_actions:
+        print(f"\n{len(clip_actions)} remaining clip(s) to delete:")
+        for a in clip_actions:
+            print(f"  {a.path.name}")
+        approve_clips = _confirm("\nSend these clips to the Recycle Bin?")
+        if not approve_clips:
             print("Skipped clip deletion.")
     else:
         print("\n(no remaining clips to delete)")
 
-    # ── Step 4: delete compiled .mp4 ─────────────────────────────────────────
-    mp4s = list(output_folder.glob("*.mp4"))
-    if mp4s:
-        for mp4 in mp4s:
-            size_str = _fmt_size(mp4)
-            print(f"\nCompiled video: {mp4.name}  ({size_str})")
-            if _confirm("Send this file to Recycle Bin to free disk space?", dry_run=dry_run):
-                try:
-                    send2trash(str(mp4))
-                    logging.debug("Sent to Recycle Bin: %s", mp4.name)
-                    print(f"Sent to Recycle Bin: {mp4.name}")
-                except Exception as e:
-                    logging.error("Failed to send to Recycle Bin %s: %s", mp4.name, e)
-                    print(f"[error] sending to Recycle Bin {mp4.name}: {e}")
+    # ── Step 3: compiled .mp4 ────────────────────────────────────────────────
+    approved_videos: set[Path] = set()
+    if video_actions:
+        for a in video_actions:
+            print(f"\nCompiled video: {a.path.name}  ({_fmt_size(a.path)})")
+            if _confirm("Send this file to Recycle Bin to free disk space?"):
+                approved_videos.add(a.path)
             else:
                 print("Kept compiled video.")
     else:
         print("\n(no compiled .mp4 found in output folder)")
 
-    # Remove description .txt files (no longer needed once video is gone)
-    for txt in output_folder.glob("*_description.txt"):
-        try:
-            send2trash(str(txt))
-            logging.info("Sent description file to Recycle Bin: %s", txt.name)
-        except Exception:
-            pass
+    # Description and clips.json always go with the plan, as they always have.
+    selected = restrict_plan(plan, keep=lambda a: (
+        (a.fate == FATE_ARCHIVE and approve_archive)
+        or (a.fate == FATE_RECYCLE and a.group == GROUP_CLIPS and approve_clips)
+        or (a.fate == FATE_RECYCLE_VIDEO and a.path in approved_videos)
+        or a.group == GROUP_METADATA
+    ))
 
-    # Remove clips.json manifest (no longer needed after cleanup)
-    clips_json = output_folder / "clips.json"
-    if clips_json.exists():
-        try:
-            send2trash(str(clips_json))
-            logging.info("Sent clips.json to Recycle Bin")
-        except Exception:
-            pass
-
-    # Remove the output folder itself if now empty
     try:
-        output_folder.rmdir()
-        logging.info("Removed empty output folder: %s", output_folder.name)
-    except OSError:
-        pass  # Not empty - leave it
+        result = apply_cleanup(selected, state_path)
+    except (FolderNotConfirmed, PlanChanged) as e:
+        logging.error("Cleanup stopped: %s", e)
+        print(f"Cleanup stopped: {e}")
+        return
+
+    for a, err in result.errors:
+        print(f"  [error] {a.path.name}: {err}")
+    if approve_archive:
+        n = sum(1 for a in result.done if a.fate == FATE_ARCHIVE)
+        print(f"{n}/{len(archive_actions)} clip(s) archived.")
+    if approve_clips:
+        n = sum(1 for a in result.done if a.fate == FATE_RECYCLE and a.group == GROUP_CLIPS)
+        print(f"{n}/{len(clip_actions)} clip(s) sent to Recycle Bin.")
+    for a in result.done:
+        if a.fate == FATE_RECYCLE_VIDEO:
+            print(f"Sent to Recycle Bin: {a.path.name}")
 
     print()
     print("Cleanup complete.")

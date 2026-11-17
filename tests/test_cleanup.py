@@ -10,7 +10,30 @@ from unittest.mock import patch
 
 import pytest
 
-from cleanup import _tier_from_name, _fmt_size, run_cleanup
+from cleanup import (
+    FATE_ARCHIVE,
+    FATE_RECYCLE,
+    FATE_RECYCLE_VIDEO,
+    FATE_REMOVE_EMPTY_FOLDER,
+    FolderNotConfirmed,
+    PlanChanged,
+    _tier_from_name,
+    _fmt_size,
+    apply_cleanup,
+    plan_cleanup,
+    restrict_plan,
+    run_cleanup,
+)
+from state import mark_youtube_confirmed, save as save_state
+
+
+@pytest.fixture(autouse=True)
+def fake_trash():
+    """send2trash is always patched: a call unlinks the file and is recorded, nothing reaches a real Recycle Bin."""
+    def _trash(path):
+        Path(path).unlink()
+    with patch("cleanup.send2trash", side_effect=_trash) as mock:
+        yield mock
 
 
 # ── _tier_from_name ───────────────────────────────────────────────────────────
@@ -84,7 +107,7 @@ class TestRunCleanupArchiving:
 
         # Confirm YT, confirm archive, decline delete, decline video delete
         with patch("builtins.input", side_effect=["y", "y", "n", "n"]):
-            run_cleanup(out, archive)
+            run_cleanup(out, archive, state_path=out.parent / "state.json")
 
         assert (archive / "THOR" / quad_clip.name).exists()
         assert not quad_clip.exists()
@@ -96,7 +119,7 @@ class TestRunCleanupArchiving:
 
         # Confirm YT, decline archive, decline delete, decline video delete
         with patch("builtins.input", side_effect=["y", "n", "n", "n"]):
-            run_cleanup(out, archive)
+            run_cleanup(out, archive, state_path=out.parent / "state.json")
 
         assert quad_clip.exists()
         assert not archive.exists()
@@ -110,7 +133,7 @@ class TestRunCleanupArchiving:
         existing.write_bytes(b"already archived")
 
         with patch("builtins.input", side_effect=["y", "y", "n", "n"]):
-            run_cleanup(out, archive)
+            run_cleanup(out, archive, state_path=out.parent / "state.json")
 
         # Existing archive file is not overwritten
         assert existing.read_bytes() == b"already archived"
@@ -125,7 +148,7 @@ class TestRunCleanupDeletion:
 
         # Confirm YT, no quad+ to archive, confirm delete, decline video delete
         with patch("builtins.input", side_effect=["y", "y", "n"]):
-            run_cleanup(out, archive)
+            run_cleanup(out, archive, state_path=out.parent / "state.json")
 
         assert not clip.exists()
 
@@ -135,7 +158,7 @@ class TestRunCleanupDeletion:
         clip.write_bytes(b"no tier")
 
         with patch("builtins.input", side_effect=["y", "n", "n"]):
-            run_cleanup(out, archive)
+            run_cleanup(out, archive, state_path=out.parent / "state.json")
 
         assert clip.exists()
 
@@ -149,7 +172,7 @@ class TestRunCleanupDeletion:
 
         # Confirm YT, confirm archive, confirm delete remaining, decline video delete
         with patch("builtins.input", side_effect=["y", "y", "y", "n"]):
-            run_cleanup(out, archive)
+            run_cleanup(out, archive, state_path=out.parent / "state.json")
 
         assert (archive / "THOR" / quad.name).exists()
         assert not plain.exists()
@@ -162,7 +185,7 @@ class TestRunCleanupVideoFile:
 
         # Confirm YT, no clips: skip archive, skip deletion, confirm video delete
         with patch("builtins.input", side_effect=["y", "y"]):
-            run_cleanup(out, archive)
+            run_cleanup(out, archive, state_path=out.parent / "state.json")
 
         assert not mp4.exists()
 
@@ -170,7 +193,7 @@ class TestRunCleanupVideoFile:
         out, clips_dir, mp4, archive = _make_output_folder(tmp_path)
 
         with patch("builtins.input", side_effect=["y", "n"]):
-            run_cleanup(out, archive)
+            run_cleanup(out, archive, state_path=out.parent / "state.json")
 
         assert mp4.exists()
 
@@ -181,7 +204,7 @@ class TestRunCleanupVideoFile:
 
         # YT confirmation fires, then nothing else (no clips, no video)
         with patch("builtins.input", side_effect=["y"]) as mock_input:
-            run_cleanup(out, archive)
+            run_cleanup(out, archive, state_path=out.parent / "state.json")
         assert mock_input.call_count == 1
 
 
@@ -341,3 +364,182 @@ class TestPipelineRetryDelegates:
                           return_value=cleanup.RetryResult(uploaded=True)) as mock_retry:
             pipeline._retry_youtube_upload(out, config)
         mock_retry.assert_called_once_with(out, config, confirm=False)
+
+
+# ── plan_cleanup / apply_cleanup ──────────────────────────────────────────────
+
+QUAD = "THOR_2026-02-06_22-38-56_QUAD.mp4"
+PENTA = "THOR_2026-02-07_10-00-00_PENTA.mp4"
+HEXA = "THOR_2026-02-08_10-00-00_HEXA.mp4"
+PLAIN = "THOR_2026-02-09_10-00-00.mp4"
+
+
+def _build_tree(tmp_path: Path):
+    """Output folder with Quad+ clips, one plain clip, the compiled video, a description and clips.json."""
+    out, clips_dir, mp4, archive = _make_output_folder(tmp_path)
+    for name in (QUAD, PENTA, HEXA, PLAIN):
+        (clips_dir / name).write_bytes(b"clip " + name.encode())
+    desc = out / "THOR_Feb-Mar_2026_description.txt"
+    desc.write_text("Title\n\nBody", encoding="utf-8")
+    clips_json = out / "clips.json"
+    clips_json.write_text("{}", encoding="utf-8")
+    return out, clips_dir, mp4, archive, desc, clips_json
+
+
+def _live_state(tmp_path: Path, folder_name: str) -> Path:
+    path = tmp_path / "state.json"
+    save_state(mark_youtube_confirmed({"output_folders": {}}, folder_name), path)
+    return path
+
+
+def _tree_fingerprint(root: Path) -> list:
+    """Every path under root with its kind, size and mtime. Equal fingerprints mean nothing changed."""
+    rows = []
+    for p in sorted(root.rglob("*")):
+        st = p.stat()
+        rows.append((str(p.relative_to(root)), p.is_dir(), st.st_size, st.st_mtime_ns))
+    return rows
+
+
+class TestPlanCleanup:
+
+    def test_every_file_gets_a_fate(self, tmp_path):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        plan = plan_cleanup(out, archive)
+        fates = {a.path.name: a.fate for a in plan.actions}
+        assert fates[QUAD] == FATE_ARCHIVE
+        assert fates[PENTA] == FATE_ARCHIVE
+        assert fates[HEXA] == FATE_ARCHIVE
+        assert fates[PLAIN] == FATE_RECYCLE
+        assert fates[desc.name] == FATE_RECYCLE
+        assert fates["clips.json"] == FATE_RECYCLE
+        assert fates["clips"] == FATE_REMOVE_EMPTY_FOLDER
+        assert mp4.name not in fates, "compiled video is planned only with include_video"
+        assert out.name not in fates, "output folder keeps the compiled video, so it stays"
+        quad_action = next(a for a in plan.actions if a.path.name == QUAD)
+        assert quad_action.dest == archive / "THOR" / QUAD
+
+    def test_include_video_adds_recycle_video(self, tmp_path):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        plan = plan_cleanup(out, archive, include_video=True)
+        video = [a for a in plan.actions if a.fate == FATE_RECYCLE_VIDEO]
+        assert [a.path for a in video] == [mp4]
+        assert any(a.fate == FATE_REMOVE_EMPTY_FOLDER and a.path == out for a in plan.actions), \
+            "with the video planned, nothing is left in the output folder"
+
+    def test_planning_changes_nothing(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        before = _tree_fingerprint(tmp_path)
+        plan_cleanup(out, archive, include_video=True)
+        assert _tree_fingerprint(tmp_path) == before
+        assert not archive.exists()
+        fake_trash.assert_not_called()
+
+    def test_quad_with_existing_archive_copy_is_kept_not_recycled(self, tmp_path):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        (archive / "THOR").mkdir(parents=True)
+        (archive / "THOR" / QUAD).write_bytes(b"already archived")
+        plan = plan_cleanup(out, archive)
+        assert QUAD in plan.skipped
+        assert all(a.path.name != QUAD for a in plan.actions)
+
+
+class TestApplyCleanup:
+
+    def test_apply_performs_exactly_the_planned_operations(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        plan = plan_cleanup(out, archive)
+        result = apply_cleanup(plan, _live_state(tmp_path, out.name))
+        assert (archive / "THOR" / QUAD).exists()
+        assert (archive / "THOR" / PENTA).exists()
+        assert (archive / "THOR" / HEXA).exists()
+        assert not (clips_dir / QUAD).exists()
+        sent = sorted(Path(c.args[0]) for c in fake_trash.call_args_list)
+        assert sent == sorted([clips_dir / PLAIN, desc, clips_json])
+        assert not clips_dir.exists(), "clips/ is removed once the plan empties it"
+        assert mp4.exists(), "compiled video was not planned, so it stays"
+        assert result.errors == []
+
+    def test_apply_refuses_unless_folder_marked_live(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        plan = plan_cleanup(out, archive)
+        before = _tree_fingerprint(tmp_path)
+        with pytest.raises(FolderNotConfirmed):
+            apply_cleanup(plan, None)
+        with pytest.raises(FolderNotConfirmed):
+            apply_cleanup(plan, tmp_path / "state.json")
+        assert _tree_fingerprint(tmp_path) == before
+        fake_trash.assert_not_called()
+
+    def test_apply_raises_plan_changed_when_file_appeared(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        plan = plan_cleanup(out, archive)
+        (clips_dir / "THOR_2026-02-10_09-00-00.mp4").write_bytes(b"new clip")
+        with pytest.raises(PlanChanged):
+            apply_cleanup(plan, _live_state(tmp_path, out.name))
+        assert (clips_dir / QUAD).exists()
+        assert (clips_dir / PLAIN).exists()
+        assert not archive.exists()
+        fake_trash.assert_not_called()
+
+    def test_apply_raises_plan_changed_when_file_vanished(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        plan = plan_cleanup(out, archive)
+        (clips_dir / PLAIN).unlink()
+        with pytest.raises(PlanChanged):
+            apply_cleanup(plan, _live_state(tmp_path, out.name))
+        assert (clips_dir / QUAD).exists()
+        assert not archive.exists()
+        fake_trash.assert_not_called()
+
+    def test_apply_raises_plan_changed_when_archive_destination_appeared(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        plan = plan_cleanup(out, archive)
+        (archive / "THOR").mkdir(parents=True)
+        (archive / "THOR" / QUAD).write_bytes(b"appeared after planning")
+        with pytest.raises(PlanChanged):
+            apply_cleanup(plan, _live_state(tmp_path, out.name))
+        assert (clips_dir / QUAD).exists()
+        fake_trash.assert_not_called()
+
+
+class TestDryRunAndPlanBugs:
+
+    def test_dry_run_writes_no_state_and_changes_nothing(self, tmp_path, fake_trash):
+        """Old run_cleanup wrote the YouTube-confirmed state even on a dry run."""
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        state_path = tmp_path / "state.json"
+        before = _tree_fingerprint(tmp_path)
+        with patch("builtins.input", side_effect=AssertionError("dry run must not prompt")):
+            run_cleanup(out, archive, state_path=state_path, dry_run=True)
+        assert not state_path.exists()
+        assert _tree_fingerprint(tmp_path) == before
+        fake_trash.assert_not_called()
+
+    def test_run_cleanup_without_state_path_changes_nothing(self, tmp_path, fake_trash):
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        before = _tree_fingerprint(tmp_path)
+        with patch("builtins.input", side_effect=AssertionError("no state_path, so no prompts")):
+            run_cleanup(out, archive)
+        assert _tree_fingerprint(tmp_path) == before
+        fake_trash.assert_not_called()
+
+    def test_description_and_clips_json_removed_only_via_plan(self, tmp_path, fake_trash):
+        """Old run_cleanup sent description and clips.json to the Recycle Bin outside any plan."""
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        plan = plan_cleanup(out, archive)
+        metadata = [a.path for a in plan.actions if a.group == "metadata"]
+        assert sorted(metadata) == sorted([desc, clips_json])
+        apply_cleanup(restrict_plan(plan, keep=lambda a: False), _live_state(tmp_path, out.name))
+        assert desc.exists()
+        assert clips_json.exists()
+        fake_trash.assert_not_called()
+
+    def test_prompts_no_longer_say_permanently(self, tmp_path):
+        """send2trash is recoverable, so no prompt may claim the deletion is permanent."""
+        out, clips_dir, mp4, archive, desc, clips_json = _build_tree(tmp_path)
+        with patch("builtins.input", return_value="y") as mock_input:
+            run_cleanup(out, archive, state_path=tmp_path / "state.json")
+        prompts = [c.args[0] for c in mock_input.call_args_list]
+        assert prompts, "expected at least one prompt"
+        assert not any("permanent" in p.lower() for p in prompts)
