@@ -36,8 +36,21 @@ def _toast(text: str, kind: str = "positive") -> None:
     ui.notify(text, type=kind)
 
 
-def _go(path: str) -> None:
-    ui.navigate.to(path)
+def _client_repaint():
+    """The repaint shell.build_page registered on this page's client, or None outside a page."""
+    try:
+        return getattr(ui.context.client, "rvm_repaint", None)
+    except (RuntimeError, AttributeError):
+        return None
+
+
+def _refresh(path: str) -> None:
+    """Repaint the open page in place, so the toast just shown survives. Falls back to a page load."""
+    repaint = _client_repaint()
+    if repaint is not None:
+        repaint()
+    else:
+        ui.navigate.to(path)
 
 
 def _guarded(fn):
@@ -128,12 +141,12 @@ class Actions:
     def _sort(self) -> None:
         bridge.sort(self.runner, self.config)
         _toast("Sorting clips.")
-        _go("/tab/clips")
+        _refresh("/tab/clips")
 
     def _scan(self) -> None:
         bridge.scan(self.runner, self.config)
         _toast("Scanning for KOs.")
-        _go("/tab/clips")
+        _refresh("/tab/clips")
 
     def _clip_keep(self, name: str) -> None:
         _toast(f'Kept "{name}".')
@@ -149,7 +162,7 @@ class Actions:
             return
         bridge.recycle_clip(self.runner, self.config, matches[0])
         _toast(f'Recycling "{name}".')
-        _go("/tab/clips")
+        _refresh("/tab/clips")
 
     # compile tab
 
@@ -157,7 +170,7 @@ class Actions:
         token, plan = bridge.plan_compile(self.config, character, float(length_s))
         self._held["compile_plan"] = _held_compile(token, plan, bool(reencode))
         _toast(f"Planned video for {character}.")
-        _go("/tab/compile")
+        _refresh("/tab/compile")
 
     def _compile(self, nonce: str, decisions: dict) -> None:
         held = self._held.get("compile_plan")
@@ -169,7 +182,7 @@ class Actions:
         bridge.compile(self.runner, self.config, nonce, clips=merged, extra=0, force=held["reencode"])
         self._held.pop("compile_plan", None)
         _toast("Compiling video.")
-        _go("/tab/compile")
+        _refresh("/tab/compile")
 
     def _decide(self, changes: dict) -> None:
         held = self._held.get("compile_plan")
@@ -185,23 +198,23 @@ class Actions:
     def _keep(self, name: str) -> None:
         self._decide({name: "keep"})
         _toast(f'Will keep "{name}".')
-        _go("/tab/compile")
+        _refresh("/tab/compile")
 
     def _recycle(self, name: str) -> None:
         self._decide({name: "recycle"})
         _toast(f'Will recycle "{name}".')
-        _go("/tab/compile")
+        _refresh("/tab/compile")
 
     def _keep_both(self, a: str, b: str) -> None:
         self._decide({a: "keep", b: "keep"})
         _toast(f'Will keep both "{a}" and "{b}".')
-        _go("/tab/compile")
+        _refresh("/tab/compile")
 
     def _drop_one(self, a: str, b: str) -> None:
         # In a duplicate pair the second clip is the one dropped; the first is kept.
         self._decide({b: "recycle"})
         _toast(f'Will recycle "{b}".')
-        _go("/tab/compile")
+        _refresh("/tab/compile")
 
     # videos tab
 
@@ -211,12 +224,12 @@ class Actions:
     def _upload(self, slug: str) -> None:
         bridge.upload(self.runner, self.config, self._folder(slug))
         _toast("Uploading to YouTube.")
-        _go("/tab/videos")
+        _refresh("/tab/videos")
 
     def _mark_live(self, slug: str) -> None:
         bridge.mark_live(self.runner, self.config, slug)
         _toast("Marked as live.")
-        _go("/tab/videos")
+        _refresh("/tab/videos")
 
     def _sign_in(self) -> None:
         bridge.sign_in(self.runner, self.config)
@@ -225,7 +238,7 @@ class Actions:
     def _replan(self, slug: str, include_video: bool) -> None:
         token, plan = bridge.plan_cleanup(self.config, self._folder(slug), include_video=include_video)
         self._held["cleanup_plan"] = _held_cleanup(token, plan, slug)
-        _go("/tab/videos")
+        _refresh("/tab/videos")
 
     def _plan_cleanup(self, slug: str) -> None:
         self._replan(slug, False)
@@ -243,13 +256,13 @@ class Actions:
         bridge.cleanup(self.runner, self.config, token)
         self._held.pop("cleanup_plan", None)
         _toast(f"Cleaning up {held['slug']}.")
-        _go("/tab/videos")
+        _refresh("/tab/videos")
 
     def _restore(self, slug: str) -> None:
         token, _plan = bridge.plan_uncompile(self.config, self._folder(slug))
         bridge.uncompile(self.runner, self.config, token)
         _toast(f"Restoring clips for {slug}.")
-        _go("/tab/videos")
+        _refresh("/tab/videos")
 
 
 class FixtureActions:

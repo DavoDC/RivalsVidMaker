@@ -481,3 +481,74 @@ def test_make_actions_uses_the_stand_in_for_a_fixture_and_the_real_actions_other
     runner = jobs.JobRunner(tmp_path / "jobs.json")
     assert isinstance(gui_main._make_actions(runner, config, "empty"), wiring.FixtureActions)
     assert isinstance(gui_main._make_actions(runner, config, None), wiring.Actions)
+
+
+# ----- an action repaints the tab in place instead of reloading the page ------------------
+
+class FakeClient:
+    """A page client that has a repaint registered by shell.build_page."""
+
+    def __init__(self):
+        self.repaints = 0
+
+    def repaint(self):
+        self.repaints += 1
+
+
+def test_sort_repaints_the_page_in_place_and_does_not_navigate(actions, fake_bridge, fake_ui, monkeypatch):
+    client = FakeClient()
+    monkeypatch.setattr(wiring, "_client_repaint", lambda: client.repaint)
+    actions.for_tab("clips")["sort"]()
+    assert client.repaints == 1
+    assert fake_ui.paths == []
+    assert fake_ui.notes == [("Sorting clips.", "positive")]
+
+
+def test_mark_live_repaints_the_page_in_place_and_keeps_its_toast(actions, fake_bridge, fake_ui, monkeypatch):
+    client = FakeClient()
+    monkeypatch.setattr(wiring, "_client_repaint", lambda: client.repaint)
+    actions.for_tab("videos")["mark_live"]("THOR_FEB_2026")
+    assert client.repaints == 1
+    assert fake_ui.paths == []
+    assert fake_ui.notes == [("Marked as live.", "positive")]
+
+
+def test_plan_repaints_the_page_in_place_and_does_not_navigate(actions, fake_bridge, fake_ui, monkeypatch):
+    client = FakeClient()
+    monkeypatch.setattr(wiring, "_client_repaint", lambda: client.repaint)
+    actions.for_tab("compile")["plan"]("THOR", 900, True)
+    assert client.repaints == 1
+    assert fake_ui.paths == []
+
+
+def test_without_a_registered_repaint_an_action_navigates_to_its_tab(actions, fake_bridge, fake_ui, monkeypatch):
+    monkeypatch.setattr(wiring, "_client_repaint", lambda: None)
+    actions.for_tab("clips")["sort"]()
+    actions.for_tab("videos")["mark_live"]("THOR_FEB_2026")
+    assert fake_ui.paths == ["/tab/clips", "/tab/videos"]
+
+
+def test_the_client_repaint_lookup_is_none_without_a_page_context(monkeypatch):
+    class NoContextUi:
+        @property
+        def context(self):
+            raise RuntimeError("slot stack empty")
+
+    monkeypatch.setattr(wiring, "ui", NoContextUi())
+    assert wiring._client_repaint() is None
+
+
+def test_the_client_repaint_lookup_reads_the_attribute_the_shell_sets(monkeypatch):
+    client = FakeClient()
+    client.rvm_repaint = client.repaint
+    monkeypatch.setattr(wiring, "ui", SimpleNamespace(context=SimpleNamespace(client=client)))
+    assert wiring._client_repaint() == client.repaint
+
+
+def test_wiring_calls_navigate_only_inside_the_refresh_fallback():
+    import re
+    source = Path(wiring.__file__).read_text(encoding="utf-8")
+    assert len(re.findall(r"ui\.navigate\.to\(", source)) == 1
+    refresh = re.search(r"^def _refresh\(.*?(?=^def |\Z)", source, re.S | re.M)
+    assert refresh is not None and "ui.navigate.to(" in refresh.group(0)
+    assert "_go(" not in source

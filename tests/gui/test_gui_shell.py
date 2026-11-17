@@ -375,3 +375,42 @@ def test_default_builder_hands_the_actions_as_a_key_lookup_to_build_page(monkeyp
 
     gui_main._default_builder(object(), object(), "clips", Lookup())
     assert seen["actions"]("clips") == {"key": "clips"}
+
+
+# ----- build_page registers its repaint on the page's client ----------------------------
+
+def test_register_repaint_sets_the_attribute_on_the_client(monkeypatch):
+    from types import SimpleNamespace
+    client = SimpleNamespace()
+    monkeypatch.setattr(shell, "ui", SimpleNamespace(context=SimpleNamespace(client=client)))
+
+    def repaint():
+        pass
+
+    shell._register_repaint(repaint)
+    assert client.rvm_repaint is repaint
+
+
+def test_register_repaint_swallows_the_no_context_error(monkeypatch):
+    class NoContextUi:
+        @property
+        def context(self):
+            raise RuntimeError("slot stack empty")
+
+    monkeypatch.setattr(shell, "ui", NoContextUi())
+    shell._register_repaint(lambda: None)
+
+
+def test_a_simulated_page_registers_a_repaint_on_its_client():
+    seen = {}
+
+    def root():
+        shell.build_page(FixtureSource("empty"), initial_tab="clips", builders=_recording_builders([]))
+
+    async def run():
+        async with user_simulation(root) as user:
+            await user.open("/?tab=clips")
+            seen["repaint"] = getattr(user.client, "rvm_repaint", None)
+
+    asyncio.run(run())
+    assert callable(seen["repaint"])

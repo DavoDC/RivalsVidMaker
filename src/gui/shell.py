@@ -122,6 +122,14 @@ def _sync_url(key: str) -> None:
         pass
 
 
+def _register_repaint(repaint: Callable[[], None]) -> None:
+    """Keep the page's repaint on its client so wiring actions can refresh the page in place."""
+    try:
+        ui.context.client.rvm_repaint = repaint
+    except (RuntimeError, AttributeError):  # no client context (for example in a unit test)
+        pass
+
+
 def build_page(source, *, initial_tab: str | None = None, state_word: str | None = None,
                state_kind: str | None = None, updated_seconds: float | None = None,
                builders: dict[str, Callable] | None = None,
@@ -216,6 +224,7 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
             header.set_content(chrome.header_html(*_header_from_source(source)))
             paint(current)
 
+        _register_repaint(repaint)
         paint(active)
 
         ui.html(chrome.footer_html(build_info.line(), build_info.STARTED_AT, updated_seconds))
