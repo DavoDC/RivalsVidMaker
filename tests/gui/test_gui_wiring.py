@@ -114,7 +114,7 @@ def compile_plan(tmp_path, character="THOR"):
         character=character, folder=tmp_path / character, target_s=900.0,
         batches=[pipeline.PlanBatch(number=1, duration_s=105.0, clips=[keep, low]),
                  pipeline.PlanBatch(number=2, duration_s=30.0, clips=[later])],
-        duplicates=[pipeline.PlanDuplicate(a=keep.name, b=low.name, score=0.91)],
+        duplicates=[pipeline.PlanDuplicate(a=keep.name, b=low.name, score=0.0)],
         low_value=[low.name])
 
 
@@ -409,7 +409,14 @@ def test_held_compile_plan_is_accepted_by_view_model(actions, fake_bridge, fake_
     assert [c["name"] for c in first] == ["THOR_a_KO.mp4", "THOR_b_KO.mp4"]
     assert first[0]["tier"] == "HEXA" and first[0]["decision"] == "keep"
     assert first[1]["start_s"] == 60.0 and first[1]["duration_s"] == 45.0
-    assert shown["duplicates"] == [{"a": "THOR_a_KO.mp4", "b": "THOR_b_KO.mp4", "score": 0.91}]
+    assert shown["duplicates"] == [{"a": "THOR_a_KO.mp4", "b": "THOR_b_KO.mp4", "score": 1.0}]
+
+
+def test_match_score_maps_hamming_distance_to_similarity():
+    assert wiring.match_score(0) == 1.0
+    assert wiring.match_score(10) == 0.84
+    assert wiring.match_score(64) == 0.0
+    assert wiring.match_score(80) == 0.0
 
 
 def test_held_cleanup_plan_is_accepted_by_view_model(actions, fake_bridge, fake_ui):

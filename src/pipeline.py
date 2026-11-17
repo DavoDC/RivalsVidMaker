@@ -554,7 +554,7 @@ class PlanBatch:
 class PlanDuplicate:
     a: str
     b: str
-    score: float
+    score: float  # avg Hamming distance per frame (dedup.py); 0 means identical
 
 
 @dataclass

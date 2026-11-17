@@ -32,6 +32,13 @@ ARCHIVE_FATE = "archive"
 REMOVING_FATES = ("recycle", "recycle_video", "recycle_folder")
 KEEP_FATE = "keep"
 MB = 1024 * 1024
+# dedup.py imagehash.phash default hash: 8x8 = 64 bits, by value
+PHASH_BITS = 64
+
+
+def match_score(distance) -> float:
+    """Hamming distance (0 = identical) to the 0..1 similarity the compile tab shows."""
+    return round(max(0.0, 1 - float(distance) / PHASH_BITS), 2)
 
 
 def _toast(text: str, kind: str = "positive") -> None:
@@ -86,7 +93,7 @@ def _held_compile(token: str, plan, reencode: bool) -> dict:
                      "clips": [{"name": c.name, "start_s": c.start_s, "duration_s": c.duration_s,
                                 "tier": c.tier, "decision": "keep"} for c in b.clips]}
                     for b in plan.batches],
-        "duplicates": [{"a": d.a, "b": d.b, "score": d.score} for d in plan.duplicates],
+        "duplicates": [{"a": d.a, "b": d.b, "score": match_score(d.score)} for d in plan.duplicates],
     }
 
 

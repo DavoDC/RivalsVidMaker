@@ -112,6 +112,10 @@ def _style_value(tag, prop):
 
 # ---- reel: pure percentages ----------------------------------------------------------------------
 
+def test_match_text_shows_a_similarity_of_one_as_100_percent():
+    assert compile_tab._match_text(1.0) == "Match 100%"
+
+
 def test_segment_percentages_are_proportional_and_sum_to_100():
     durations = [300, 312, 300]
     pcts = reel.segment_percentages(durations)
