@@ -266,3 +266,46 @@ def test_no_pre_element_on_either_tab(scenario, builder):
 def test_both_tabs_opt_in_to_the_painted_row_check():
     assert archive.PAINTS_ROWS is True
     assert activity.PAINTS_ROWS is True
+
+
+# ---- job bar layout (DESIGN.md sections 5 and 8, task 27b) -------------------------------------
+
+BAR_JOB = {"id": "enc-1", "title": "Encode THOR batch 1", "phase": "encoding", "done": 3, "total": 9,
+           "unit": "steps", "eta_s": 240, "cancellable": False}
+BAD_BAR_CHARS = (chr(0x00B7), chr(0x2014), chr(0x2013))
+
+
+def test_job_bar_has_no_middle_dot_or_dash_in_any_state():
+    states = (BAR_JOB, {**BAR_JOB, "done": None, "eta_s": None},
+              {**BAR_JOB, "phase": None, "total": None}, {**BAR_JOB, "eta_s": 40})
+    for job in states:
+        html = job_bar.bar_html(job)
+        for ch in BAD_BAR_CHARS:
+            assert ch not in html
+
+
+def test_job_bar_count_and_eta_are_separate_elements_with_a_16px_gap():
+    html = job_bar.bar_html(BAR_JOB)
+    assert f"gap:{tokens.SPACE_16}px" in html
+    assert re.search(r'data-part="count"[^>]*>3 of 9 steps</span>', html)
+    assert re.search(r'data-part="eta"[^>]*>About 4 min left</span>', html)
+    assert ">3 of 9 steps</span><span data-part=\"eta\"" in html
+
+
+def test_track_spans_the_panel_width_with_a_640px_maximum():
+    html = job_bar.bar_html(BAR_JOB)
+    track = re.search(r'role="progressbar"[^>]*style="([^"]*)"', html).group(1)
+    assert "width:100%" in track
+    assert "max-width:640px" in track
+
+
+def test_done_none_renders_starting_for_the_eta():
+    html = job_bar.bar_html({**BAR_JOB, "done": None, "eta_s": None})
+    assert re.search(r'data-part="eta"[^>]*>Starting</span>', html)
+
+
+def test_phase_word_is_shown_before_the_title_when_the_phase_is_set():
+    html = job_bar.bar_html(BAR_JOB)
+    assert "Encoding" in html
+    assert html.index("Encoding") < html.index("Encode THOR batch 1")
+    assert "Encoding" not in job_bar.bar_html({**BAR_JOB, "phase": None})

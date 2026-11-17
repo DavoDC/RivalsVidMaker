@@ -42,19 +42,30 @@ def eta_text(job: dict) -> str:
     return f"About {math.ceil(seconds / 60)} min left"
 
 
-def _bar_html(job: dict) -> str:
+def phase_word(job: dict) -> str:
+    phase = str(job.get("phase") or "").strip()
+    return phase[:1].upper() + phase[1:]
+
+
+def bar_html(job: dict) -> str:
     percent = round(progress_fraction(job) * 100)
     title = escape(str(job.get("title") or "Working"))
-    detail = " · ".join(part for part in (progress_text(job), eta_text(job)) if part)
-    track = (f"height:{tokens.SPACE_8}px;background:{tokens.LINE};border-radius:{tokens.RADIUS_CHIP}px;"
-             f"overflow:hidden;margin:{tokens.SPACE_8}px 0;")
+    word = phase_word(job)
+    phase = (f'<span data-part="phase" style="color:{tokens.TEXT_DIM};margin-right:{tokens.SPACE_16}px;">'
+             f'{escape(word)}</span>') if word else ""
+    # Track spans the panel width up to 640 px; count and ETA are two elements with a 16 px gap (DESIGN 8).
+    track = (f"width:100%;max-width:640px;height:{tokens.SPACE_8}px;background:{tokens.LINE};"
+             f"border-radius:{tokens.RADIUS_CHIP}px;overflow:hidden;margin:{tokens.SPACE_8}px 0;")
     fill = (f"height:100%;width:{percent}%;background:{tokens.WORKING};")
+    meta = (f'<div style="display:flex;gap:{tokens.SPACE_16}px;font-size:{tokens.SIZE_UI}px;'
+            f'color:{tokens.TEXT_DIM};font-variant-numeric:tabular-nums;">'
+            f'<span data-part="count">{escape(progress_text(job))}</span>'
+            f'<span data-part="eta">{escape(eta_text(job))}</span></div>')
     return (
-        f'<div style="font-size:{tokens.SIZE_BODY}px;color:{tokens.TEXT};">{title}</div>'
+        f'<div style="font-size:{tokens.SIZE_BODY}px;color:{tokens.TEXT};">{phase}{title}</div>'
         f'<div role="progressbar" aria-label="{title}" aria-valuemin="0" aria-valuemax="100" '
         f'aria-valuenow="{percent}" style="{track}"><div style="{fill}"></div></div>'
-        f'<div style="font-size:{tokens.SIZE_UI}px;color:{tokens.TEXT_DIM};'
-        f'font-variant-numeric:tabular-nums;">{escape(detail)}</div>'
+        f'{meta}'
     )
 
 
@@ -72,7 +83,7 @@ def render(job: dict | None, on_stop: Callable[[], None] | None = None) -> None:
     with ui.row().props('data-testid=current-job role=group aria-label="Current job"').style(
             f"align-items:center;gap:{tokens.SPACE_16}px;width:100%;"):
         with ui.column().style("flex:1;gap:0;min-width:0;"):
-            ui.html(_bar_html(job))
+            ui.html(bar_html(job)).style("width:100%;")
         if job.get("cancellable"):
             ui.button("Stop", on_click=stop).classes("rvm-button").mark("stop-current-job").props(
                 'data-testid=stop-current-job')
