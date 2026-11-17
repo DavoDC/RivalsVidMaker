@@ -220,3 +220,124 @@ class TestRunUncompile:
                 calls = [str(call) for call in mock_trash.call_args_list]
                 assert any("clips.json" in call for call in calls), \
                     f"clips.json not sent to trash. Calls: {calls}"
+
+
+# ── retry_upload (unified retry path) ─────────────────────────────────────────
+
+from types import SimpleNamespace
+
+
+def _make_retry_folder(tmp_path: Path) -> Path:
+    """Output folder holding a compiled .mp4 and a description file."""
+    out = tmp_path / "THOR_Feb-Mar_2026"
+    out.mkdir()
+    (out / "THOR_Feb-Mar_2026.mp4").write_bytes(b"compiled video")
+    (out / "THOR_Feb-Mar_2026_description.txt").write_text("Title line\n\nBody", encoding="utf-8")
+    return out
+
+
+def _retry_config(tmp_path: Path):
+    return SimpleNamespace(youtube_channel_id="UCtestchannel", state_path=tmp_path / "state.json")
+
+
+class TestRetryUploadUnified:
+
+    def test_confirm_false_never_calls_input(self, tmp_path):
+        import cleanup
+        out = _make_retry_folder(tmp_path)
+        with patch("builtins.input", side_effect=AssertionError("input must not be called")), \
+             patch("uploader.get_authenticated_service", return_value=object()), \
+             patch("uploader.validate_channel_id"), \
+             patch("uploader.parse_description_file", return_value=("Title", "Body")), \
+             patch("uploader.upload_and_save_state") as mock_upload, \
+             patch("builtins.print"):
+            result = cleanup.retry_upload(out, _retry_config(tmp_path), confirm=False)
+        assert mock_upload.call_count == 1
+        assert result.uploaded is True
+
+    def test_confirm_true_asks_first_and_cancel_skips_upload(self, tmp_path):
+        import cleanup
+        out = _make_retry_folder(tmp_path)
+        with patch("builtins.input", return_value="n") as mock_input, \
+             patch("uploader.get_authenticated_service") as mock_auth, \
+             patch("uploader.upload_and_save_state") as mock_upload, \
+             patch("builtins.print"):
+            result = cleanup.retry_upload(out, _retry_config(tmp_path), confirm=True)
+        assert mock_input.call_count == 1
+        mock_auth.assert_not_called()
+        mock_upload.assert_not_called()
+        assert result.uploaded is False
+        assert result.cancelled is True
+
+    def test_auth_value_error_returns_needs_sign_in_and_keeps_token(self, tmp_path):
+        import cleanup
+        import uploader
+        out = _make_retry_folder(tmp_path)
+        token = tmp_path / "token.json"
+        token.write_text('{"type": "authorized_user"}', encoding="utf-8")
+        with patch("uploader.TOKEN_PATH", token), \
+             patch("uploader.get_authenticated_service",
+                   side_effect=ValueError("Could not retrieve channel info from YouTube")), \
+             patch("uploader.upload_and_save_state") as mock_upload, \
+             patch("uploader.parse_description_file", return_value=("Title", "Body")), \
+             patch("builtins.print"):
+            result = cleanup.retry_upload(out, _retry_config(tmp_path), confirm=False)
+        assert result.needs_sign_in is True
+        assert result.uploaded is False
+        assert token.exists(), "auth failure must not delete the token file"
+        mock_upload.assert_not_called()
+
+    def test_channel_mismatch_value_error_keeps_token(self, tmp_path):
+        import cleanup
+        out = _make_retry_folder(tmp_path)
+        token = tmp_path / "token.json"
+        token.write_text('{"type": "authorized_user"}', encoding="utf-8")
+        with patch("uploader.TOKEN_PATH", token), \
+             patch("uploader.get_authenticated_service", return_value=object()), \
+             patch("uploader.validate_channel_id", side_effect=ValueError("Channel mismatch")), \
+             patch("uploader.parse_description_file", return_value=("Title", "Body")), \
+             patch("builtins.print"):
+            result = cleanup.retry_upload(out, _retry_config(tmp_path), confirm=False)
+        assert result.needs_sign_in is True
+        assert token.exists()
+
+    def test_upload_value_error_is_not_an_auth_failure(self, tmp_path):
+        import cleanup
+        out = _make_retry_folder(tmp_path)
+        token = tmp_path / "token.json"
+        token.write_text('{"type": "authorized_user"}', encoding="utf-8")
+        with patch("uploader.TOKEN_PATH", token), \
+             patch("uploader.get_authenticated_service", return_value=object()), \
+             patch("uploader.validate_channel_id"), \
+             patch("uploader.parse_description_file", return_value=("Title", "Body")), \
+             patch("uploader.upload_and_save_state", side_effect=ValueError("Upload failed: 500")), \
+             patch("builtins.print"):
+            result = cleanup.retry_upload(out, _retry_config(tmp_path), confirm=False)
+        assert result.needs_sign_in is False
+        assert result.uploaded is False
+        assert "500" in result.error
+        assert token.exists()
+
+    def test_missing_video_returns_error_without_auth(self, tmp_path):
+        import cleanup
+        out = _make_retry_folder(tmp_path)
+        (out / "THOR_Feb-Mar_2026.mp4").unlink()
+        with patch("uploader.get_authenticated_service") as mock_auth, \
+             patch("builtins.print"):
+            result = cleanup.retry_upload(out, _retry_config(tmp_path), confirm=False)
+        mock_auth.assert_not_called()
+        assert result.uploaded is False
+        assert result.error
+
+
+class TestPipelineRetryDelegates:
+
+    def test_pipeline_retry_delegates_to_cleanup_without_prompt(self, tmp_path):
+        import cleanup
+        import pipeline
+        out = _make_retry_folder(tmp_path)
+        config = _retry_config(tmp_path)
+        with patch.object(cleanup, "retry_upload",
+                          return_value=cleanup.RetryResult(uploaded=True)) as mock_retry:
+            pipeline._retry_youtube_upload(out, config)
+        mock_retry.assert_called_once_with(out, config, confirm=False)

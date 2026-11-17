@@ -19,6 +19,7 @@ Usage (from main menu or pipeline):
 import logging
 import re
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 
 from send2trash import send2trash
@@ -88,21 +89,31 @@ def locate_video_and_description(output_folder: Path) -> tuple[Path, Path]:
     return mp4_path, desc_path
 
 
-def retry_upload(
-    output_folder: Path,
-    state_path: Path | None = None,
-) -> None:
-    """Retry uploading a compiled video to YouTube.
+@dataclass
+class RetryResult:
+    """Outcome of retry_upload. needs_sign_in means the token was kept and the user must sign in again."""
+    uploaded: bool = False
+    needs_sign_in: bool = False
+    cancelled: bool = False
+    error: str | None = None
 
-    Finds the .mp4 and _description.txt in the output folder,
-    parses metadata, and uploads using YouTube API.
+
+def retry_upload(output_folder: Path, config, confirm: bool = True) -> RetryResult:
+    """Retry uploading a compiled video to YouTube. The single retry path.
+
+    Finds the .mp4 and _description.txt in the output folder, authenticates,
+    validates the channel against config.youtube_channel_id, and uploads.
 
     Parameters
     ----------
     output_folder : path to the output folder (e.g. Output/THOR_FEB-MAR_2026/)
-    state_path    : path to state.json; if provided, saves YouTube confirmation status
+    config        : Config (needs youtube_channel_id and state_path)
+    confirm       : True asks "Upload this video?" first; False never prompts (GUI, pipeline)
+
+    An auth or channel-check ValueError returns needs_sign_in=True and leaves
+    the token file in place; it is never deleted here.
     """
-    from uploader import get_authenticated_service, upload_and_save_state, parse_description_file
+    import uploader
 
     print(f"\n📤 Retry YouTube Upload: {output_folder.name}")
     print("=" * 56)
@@ -110,52 +121,68 @@ def retry_upload(
     if not output_folder.exists():
         logging.error("Output folder not found: %s", output_folder)
         print("Output folder not found.")
-        return
+        return RetryResult(error="Output folder not found")
 
     try:
         mp4_path, desc_path = locate_video_and_description(output_folder)
     except FileNotFoundError as e:
         logging.error("Cannot retry upload: %s", e)
         print(f"Error: {e}")
-        return
+        return RetryResult(error=str(e))
 
     print(f"Video file: {mp4_path.name}")
     print(f"Description: {desc_path.name}")
     print()
 
     try:
-        title, description = parse_description_file(desc_path)
+        title, description = uploader.parse_description_file(desc_path)
         print(f"Title: {title[:50]}..." if len(title) > 50 else f"Title: {title}")
         print()
     except Exception as e:
         logging.error("Failed to parse description file: %s", e)
         print(f"Error parsing description: {e}")
-        return
+        return RetryResult(error=f"Error parsing description: {e}")
 
-    if not _confirm("Upload this video to YouTube?", dry_run=False):
+    if confirm and not _confirm("Upload this video to YouTube?", dry_run=False):
         print("Upload cancelled.")
-        return
+        return RetryResult(cancelled=True)
 
     try:
-        youtube = get_authenticated_service()
-        slug = output_folder.name
+        youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
+        uploader.validate_channel_id(youtube, config.youtube_channel_id)
+    except FileNotFoundError as e:
+        logging.warning("YouTube credentials not set up: %s", e)
+        print(f"YouTube credentials not set up: {e}")
+        return RetryResult(error=str(e))
+    except ValueError as e:
+        # Auth or channel mismatch: keep the token, let the user sign in again deliberately.
+        logging.warning("YouTube sign-in or channel check failed: %s", e)
+        logging.warning("Token kept. Sign in again with the correct account, or verify youtube_channel_id in config.json.")
+        print(f"YouTube sign-in or channel check failed: {e}")
+        return RetryResult(needs_sign_in=True, error=str(e))
+    except Exception as e:
+        logging.error("YouTube sign-in failed: %s", e)
+        print(f"YouTube sign-in failed: {e}")
+        return RetryResult(error=str(e))
 
-        upload_and_save_state(
+    try:
+        uploader.upload_and_save_state(
             youtube,
             mp4_path,
             title,
             description,
-            slug,
-            state_path
+            output_folder.name,
+            config.state_path,
         )
-
-        print()
-        print("✅ Upload complete! Video is now on YouTube (private).")
-        print()
     except Exception as e:
         logging.error("Upload failed: %s", e)
         print(f"Upload failed: {e}")
-        return
+        return RetryResult(error=str(e))
+
+    print()
+    print("✅ Upload complete! Video is now on YouTube (private).")
+    print()
+    return RetryResult(uploaded=True)
 
 
 def run_cleanup(

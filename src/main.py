@@ -140,7 +140,7 @@ def _run_cleanup_mode(config, dry_run: bool = False) -> None:
             if action in ("q", "quit", ""):
                 return
             if action == "1":
-                retry_upload(out_folder, state_path=config.state_path)
+                retry_upload(out_folder, config)
                 return
             elif action == "2":
                 run_cleanup(out_folder, config.archive_path, state_path=config.state_path, dry_run=dry_run)
