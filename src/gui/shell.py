@@ -49,55 +49,61 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str = "Idl
     built: set[str] = set()
 
     ui.add_head_html(chrome.head_html())
-    # Same markup as chrome.body_html's error banner; the footer must sit below the panels,
-    # so the pieces are placed one by one.
-    ui.html('<div id="error-banner" role="alert" data-testid="error-banner" hidden></div>')
-    ui.html(chrome.header_html(state_word, state_kind))
-    ui.html(chrome.fixture_banner_html(source.fixture))
+    # One content column: header, banner, tabs, panels and footer all span it, capped at
+    # 1280 px (docs/DESIGN.md section 11). Without it each piece shrink-wraps its content.
+    root = ui.column().style("width:100%;max-width:1280px;margin:0 auto;padding:16px 24px 0;"
+                             "box-sizing:border-box;gap:0;align-items:stretch;")
+    root.mark("page-root")
+    with root:
+        # Same markup as chrome.body_html's error banner; the footer must sit below the panels,
+        # so the pieces are placed one by one.
+        ui.html('<div id="error-banner" role="alert" data-testid="error-banner" hidden></div>')
+        ui.html(chrome.header_html(state_word, state_kind))
+        ui.html(chrome.fixture_banner_html(source.fixture))
 
-    def paint(key: str) -> None:
-        if key in built:
-            return
-        built.add(key)
-        with panels[key]:
-            try:
-                build = overrides.get(key) or _default_builder(key)
-                build(source)
-            except Exception as e:  # a broken tab must not kill the page
-                _log.exception("tab build failed: %s", key)
-                ui.label(f"This tab failed to build: {e}").props(
-                    f'data-testid=tab-error-{key} role=alert').mark(f"tab-error-{key}")
+        def paint(key: str) -> None:
+            if key in built:
+                return
+            built.add(key)
+            with panels[key]:
+                try:
+                    build = overrides.get(key) or _default_builder(key)
+                    build(source)
+                except Exception as e:  # a broken tab must not kill the page
+                    _log.exception("tab build failed: %s", key)
+                    ui.label(f"This tab failed to build: {e}").props(
+                        f'data-testid=tab-error-{key} role=alert').mark(f"tab-error-{key}")
 
-    def show(key: str) -> None:
-        for k, panel in panels.items():
-            panel.set_visibility(k == key)
-        for k, button in buttons.items():
-            button.props(f'aria-selected={"true" if k == key else "false"}')
-        paint(key)
+        def show(key: str) -> None:
+            for k, panel in panels.items():
+                panel.set_visibility(k == key)
+            for k, button in buttons.items():
+                button.props(f'aria-selected={"true" if k == key else "false"}')
+            paint(key)
 
-    def switch(key: str) -> None:
-        show(key)
-        _sync_url(key)
+        def switch(key: str) -> None:
+            show(key)
+            _sync_url(key)
 
-    with ui.element("div").classes("rvm-tabs").props('role=tablist aria-label="Sections"'):
+        with ui.element("div").classes("rvm-tabs").props('role=tablist aria-label="Sections"'):
+            for key in tabdefs.KEYS:
+                button = ui.element("button").classes("rvm-tab").props(
+                    f'id=tab-{key} type=button role=tab data-testid=nav-{key} aria-controls=panel-{key} '
+                    f'aria-selected={"true" if key == active else "false"}')
+                button.mark(f"nav-{key}")
+                with button:
+                    ui.html(tabdefs.label_of(key))
+                button.on("click", lambda _e=None, k=key: switch(k))
+                buttons[key] = button
+
         for key in tabdefs.KEYS:
-            button = ui.element("button").classes("rvm-tab").props(
-                f'id=tab-{key} type=button role=tab data-testid=nav-{key} aria-controls=panel-{key} '
-                f'aria-selected={"true" if key == active else "false"}')
-            button.mark(f"nav-{key}")
-            with button:
-                ui.html(tabdefs.label_of(key))
-            button.on("click", lambda _e=None, k=key: switch(k))
-            buttons[key] = button
+            panel = ui.column().props(
+                f'id=panel-{key} role=tabpanel data-testid=tab-{key} aria-labelledby=tab-{key}'
+            ).style(f"gap:0;padding:{tokens.SPACE_24}px;align-items:stretch;")
+            panel.mark(f"tab-{key}")
+            panel.set_visibility(key == active)
+            panels[key] = panel
 
-    for key in tabdefs.KEYS:
-        panel = ui.column().props(
-            f'id=panel-{key} role=tabpanel data-testid=tab-{key} aria-labelledby=tab-{key}'
-        ).style(f"gap:0;padding:{tokens.SPACE_24}px;")
-        panel.mark(f"tab-{key}")
-        panel.set_visibility(key == active)
-        panels[key] = panel
+        paint(active)
 
-    paint(active)
-
-    ui.html(chrome.footer_html(build_info.line(), build_info.STARTED_AT, updated_seconds))
+        ui.html(chrome.footer_html(build_info.line(), build_info.STARTED_AT, updated_seconds))

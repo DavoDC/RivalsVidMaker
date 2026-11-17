@@ -10,7 +10,7 @@ import pytest
 from nicegui.element_filter import ElementFilter
 from nicegui.testing.user_simulation import user_simulation
 
-from gui import shell, tabdefs, ui_check
+from gui import shell, tabdefs, theme, ui_check
 from gui.sources import FixtureSource
 
 KEYS = ("clips", "compile", "videos", "archive", "activity")
@@ -146,6 +146,50 @@ def test_clicking_a_tab_builds_it_once_and_hides_the_others():
 def test_tab_keys_and_labels_match_the_design_table():
     assert tuple(key for key, _label in tabdefs.TABS) == KEYS
     assert [label for _key, label in tabdefs.TABS] == ["Clips", "Compile", "Videos", "Archive", "Activity"]
+
+
+# ---- one content column: 100% wide, capped at 1280 px (docs/DESIGN.md section 11) ----
+
+def test_page_root_column_is_full_width_capped_at_1280():
+    async def action(user):
+        with user.client:
+            return list(ElementFilter(marker="page-root", only_visible=False))
+
+    roots = asyncio.run(_open("clips", _recording_builders([]), action))
+    assert len(roots) == 1
+    assert roots[0]._style["width"] == "100%"
+    assert roots[0]._style["max-width"] == "1280px"
+    # NiceGUI columns default to align-items:flex-start, which shrink-wraps each child to its content
+    assert roots[0]._style["align-items"] == "stretch"
+    # centred, 24 px side gutters, header 16 px from the top (docs/DESIGN.md section 11)
+    assert roots[0]._style["margin"] == "0 auto"
+    assert roots[0]._style["padding"] == "16px 24px 0"
+
+
+def test_each_tab_panel_stretches_to_the_content_column():
+    async def action(user):
+        with user.client:
+            return {k: list(ElementFilter(marker=f"tab-{k}", only_visible=False)) for k in KEYS}
+
+    panels = asyncio.run(_open("clips", _recording_builders([]), action))
+    for key in KEYS:
+        assert len(panels[key]) == 1
+        assert panels[key][0]._style["align-items"] == "stretch"
+
+
+def test_shared_css_gives_table_cells_horizontal_padding_and_full_width_tables():
+    css = theme.HEAD_CSS
+    assert "table{width:100%;}" in css
+    assert "table th,table td{padding-left:12px !important;padding-right:12px !important;}" in css
+
+
+def test_shared_css_removes_the_nicegui_wrapper_padding_so_the_header_sits_16px_down():
+    # NiceGUI's .nicegui-content adds 1rem padding and gap; the root column owns the spacing now
+    assert ".nicegui-content{padding:0 !important;gap:0 !important;}" in theme.HEAD_CSS
+
+
+def test_shared_css_header_is_one_row_with_the_state_pushed_right():
+    assert ".rvm-header{display:flex;align-items:center;justify-content:space-between;" in theme.HEAD_CSS
 
 
 # ---- ui_check: painted testids against the state rows, both ways ----

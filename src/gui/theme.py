@@ -35,6 +35,9 @@ _CSS = """
     border-bottom:1px solid @@LINE@@;}
   .rvm-footer{display:flex;flex-wrap:wrap;gap:@@SPACE_16@@px;padding:@@SPACE_8@@px @@SPACE_24@@px;
     border-top:1px solid @@LINE@@;font-size:@@SIZE_FINE@@px;color:@@TEXT_DIM@@;}
+  .nicegui-content{padding:0 !important;gap:0 !important;}
+  table{width:100%;}
+  table th,table td{padding-left:@@SPACE_12@@px !important;padding-right:@@SPACE_12@@px !important;}
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{transition:none !important;animation:none !important;scroll-behavior:auto !important;}
   }
