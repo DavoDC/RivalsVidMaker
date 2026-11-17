@@ -7,6 +7,7 @@ All fields are optional - only written when available.
 
 import json
 import os
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -185,3 +186,30 @@ class TestFieldPresence:
         hit, entry = clip_cache.cache_load(str(clip), str(tmp_path / "cache"))
         assert hit is True
         assert "fingerprint" not in entry
+
+
+# ── Per-character cache folder ────────────────────────────────────────────────
+
+class TestCharacterCacheDir:
+    def test_str_cache_dir_gives_character_folder(self, tmp_path):
+        """A str cache_dir gives <cache_dir>/<character> as a Path."""
+        got = clip_cache.character_cache_dir(str(tmp_path), "THOR")
+        assert isinstance(got, Path)
+        assert got == tmp_path / "THOR"
+
+    def test_path_cache_dir_gives_character_folder(self, tmp_path):
+        """A Path cache_dir gives the same folder."""
+        assert clip_cache.character_cache_dir(tmp_path, "SQUIRREL_GIRL") == tmp_path / "SQUIRREL_GIRL"
+
+    def test_src_never_spells_character_folder_by_hand(self):
+        """Only clip_cache.py may spell cache_dir / <name>; every other src file calls the helper."""
+        src = Path(__file__).resolve().parent.parent / "src"
+        pattern = re.compile(r"cache_dir\s*/\s*[A-Za-z_]")
+        offenders = []
+        for py in sorted(src.rglob("*.py")):
+            if py.name == "clip_cache.py":
+                continue
+            for lineno, line in enumerate(py.read_text(encoding="utf-8").splitlines(), 1):
+                if pattern.search(line):
+                    offenders.append(f"{py.relative_to(src)}:{lineno}: {line.strip()}")
+        assert offenders == []

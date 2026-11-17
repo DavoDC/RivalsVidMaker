@@ -91,9 +91,9 @@ def _build_tree(root: Path) -> config.Config:
     arch = _clip(cfg.archive_path / "THOR" / "THOR_2026-05-01_08-00-00.mp4")
 
     # The scan pipeline keys the cache by character folder: <cache_dir>/<CHARACTER>/.
-    clip_cache.cache_save(str(thor_a), str(cfg.cache_dir / "THOR"), duration=700.0, ko_result={"tier": "KO"})
-    clip_cache.cache_save(str(squirrel), str(cfg.cache_dir / "SQUIRREL_GIRL"), duration=100.0, ko_result=None)
-    clip_cache.cache_save(str(arch), str(cfg.cache_dir / "THOR"), duration=50.0, ko_result={"tier": "QUAD"})
+    clip_cache.cache_save(str(thor_a), str(clip_cache.character_cache_dir(cfg.cache_dir, "THOR")), duration=700.0, ko_result={"tier": "KO"})
+    clip_cache.cache_save(str(squirrel), str(clip_cache.character_cache_dir(cfg.cache_dir, "SQUIRREL_GIRL")), duration=100.0, ko_result=None)
+    clip_cache.cache_save(str(arch), str(clip_cache.character_cache_dir(cfg.cache_dir, "THOR")), duration=50.0, ko_result={"tier": "QUAD"})
 
     cfg.state_path.write_text(json.dumps({
         "output_folders": {
@@ -400,7 +400,7 @@ def test_sources_only_uses_read_only_helpers():
             if node.value.id == "state":
                 assert node.attr in {"load", "is_youtube_confirmed"}  # both pure reads
             if node.value.id == "clip_cache":
-                assert node.attr == "cache_load"
+                assert node.attr in {"cache_load", "character_cache_dir"}  # pure path/read helpers
         if isinstance(node, ast.Attribute):
             assert node.attr not in WRITE_NAMES, node.attr
         if isinstance(node, ast.Name):

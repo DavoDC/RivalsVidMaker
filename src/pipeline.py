@@ -21,6 +21,7 @@ import ko_detect
 from send2trash import send2trash
 from batcher import Batch, make_batches
 from dedup import find_duplicates, print_dup_table
+import clip_cache
 from clip_scanner import VIDEO_EXTS, Clip, scan_folder, summarize_folder
 from clip_sorter import sort_clips
 from config import Config
@@ -62,7 +63,7 @@ def _scan_batch(
     ko_detect.configure(
         ffmpeg=str(config.ffmpeg),
         tesseract=str(config.tesseract),
-        cache_dir=str(config.cache_dir / batch.clips[0].path.parent.name),
+        cache_dir=str(clip_cache.character_cache_dir(config.cache_dir, batch.clips[0].path.parent.name)),
     )
 
     total = len(batch.clips)
@@ -457,7 +458,7 @@ def _print_multizone_status(config: Config) -> None:
     if char_folders:
         with ThreadPoolExecutor() as pool:
             summaries = list(pool.map(
-                lambda f: summarize_folder(f, config.ffprobe, cache_dir=config.cache_dir / f.name),
+                lambda f: summarize_folder(f, config.ffprobe, cache_dir=clip_cache.character_cache_dir(config.cache_dir, f.name)),
                 char_folders,
             ))
         h_rows = []
@@ -465,7 +466,7 @@ def _print_multizone_status(config: Config) -> None:
             cached = sum(
                 1 for p in folder.iterdir()
                 if p.is_file() and p.suffix.lower() in VIDEO_EXTS
-                and _cache_exists(p, config.cache_dir / folder.name)
+                and _cache_exists(p, clip_cache.character_cache_dir(config.cache_dir, folder.name))
             )
             h_rows.append((
                 folder.name,
@@ -602,7 +603,7 @@ def _duplicate_pairs(config: Config, char_name: str, clips: list[Clip]) -> list[
     pairs = find_duplicates(
         clips, str(config.ffmpeg),
         tmp_dir=config.cache_dir.parent / "dedup_tmp",
-        cache_dir=config.cache_dir / char_name,
+        cache_dir=clip_cache.character_cache_dir(config.cache_dir, char_name),
     )
     logging.info("Fingerprint took %.1fs total (%.1fs/clip)",
                  time.perf_counter() - t_fp, (time.perf_counter() - t_fp) / max(len(clips), 1))
@@ -626,7 +627,7 @@ def plan_compile(config: Config, character: Path | str, target_s: float) -> Comp
     folder = _resolve_folder(config, character)
     char_name = folder.name
     clips = scan_folder(folder, config.ffprobe, protect_recent=0,
-                        cache_dir=config.cache_dir / char_name)
+                        cache_dir=clip_cache.character_cache_dir(config.cache_dir, char_name))
     plan = CompilePlan(character=char_name, folder=folder, target_s=target_s,
                        batches=[], duplicates=[], low_value=[])
     batches = make_batches(clips, target_s)
@@ -945,7 +946,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
     # --- Step 4: scan Highlights folders for the menu ---
     with ThreadPoolExecutor() as pool:
         summaries = list(pool.map(
-            lambda f: summarize_folder(f, config.ffprobe, cache_dir=config.cache_dir / f.name),
+            lambda f: summarize_folder(f, config.ffprobe, cache_dir=clip_cache.character_cache_dir(config.cache_dir, f.name)),
             char_folders,
         ))
     for folder, (count, dur) in zip(char_folders, summaries):
@@ -987,7 +988,7 @@ def run(config: Config, force_encode: bool = False, dry_run: bool = False) -> No
             # Refresh summaries and loop back to menu
             with ThreadPoolExecutor() as pool:
                 summaries = list(pool.map(
-                    lambda f: summarize_folder(f, config.ffprobe, cache_dir=config.cache_dir / f.name),
+                    lambda f: summarize_folder(f, config.ffprobe, cache_dir=clip_cache.character_cache_dir(config.cache_dir, f.name)),
                     char_folders,
                 ))
             continue

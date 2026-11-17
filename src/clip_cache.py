@@ -68,6 +68,11 @@ def cache_path(clip_path: str, cache_dir: str) -> str:
     return os.path.join(cache_dir, f"{stem}.clip.json")
 
 
+def character_cache_dir(cache_dir, character: str) -> Path:
+    """The cache folder for one character's clips; scans write there and every reader must use it."""
+    return Path(cache_dir) / character
+
+
 def cache_load(clip_path: str, cache_dir: str) -> tuple[bool, dict | None]:
     """Load cache entry for a clip.
 

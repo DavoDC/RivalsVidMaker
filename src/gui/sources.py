@@ -5,7 +5,8 @@ turns them into the /state.json contract; nothing here shapes UI rows.
 
 READ-ONLY: this module must never move, rename, delete or write a file, and
 must never create a folder. It may use only these engine helpers:
-  state.load, clip_cache.cache_load, batcher.make_batches,
+  state.load, clip_cache.cache_load, clip_cache.character_cache_dir,
+  batcher.make_batches,
   clip_scanner (VIDEO_EXTS, Clip) and the Config type.
 tests/gui/test_gui_sources.py parses this file and fails on anything else.
 """
@@ -81,7 +82,7 @@ def _character(folder: Path, cfg: Config) -> dict:
     paths = _video_files(folder)
     scanned: list[Clip] = []
     for path in paths:
-        entry = _cache_entry(path, cfg.cache_dir / folder.name)
+        entry = _cache_entry(path, clip_cache.character_cache_dir(cfg.cache_dir, folder.name))
         duration = entry.get("duration") if entry else None
         if isinstance(duration, (int, float)) and duration > 0:
             scanned.append(Clip(path=path, duration=float(duration)))
@@ -93,7 +94,7 @@ def _character(folder: Path, cfg: Config) -> dict:
         "minutes": round(total / 60, 1),
         "scanned": len(scanned),
         "unscanned": len(paths) - len(scanned),
-        "tiers": _tier_counts(paths, cfg.cache_dir / folder.name),
+        "tiers": _tier_counts(paths, clip_cache.character_cache_dir(cfg.cache_dir, folder.name)),
         "ready": any(b.total_duration >= cfg.min_batch_seconds for b in batches),
     }
 
@@ -176,7 +177,7 @@ def _archive(cfg: Config) -> dict:
         rows.append({
             "name": folder.name,
             "count": len(paths),
-            "tiers": _tier_counts(paths, cfg.cache_dir / folder.name),
+            "tiers": _tier_counts(paths, clip_cache.character_cache_dir(cfg.cache_dir, folder.name)),
         })
     return {"total": sum(r["count"] for r in rows), "by_character": rows}
 

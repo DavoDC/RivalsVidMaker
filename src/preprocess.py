@@ -20,6 +20,7 @@ from pathlib import Path
 
 import ko_detect
 from send2trash import send2trash
+import clip_cache
 from clip_scanner import VIDEO_EXTS
 from config import Config
 
@@ -168,7 +169,7 @@ def preprocess_all(
             ffmpeg=str(config.ffmpeg),
             ffprobe=str(config.ffprobe),
             tesseract=str(config.tesseract),
-            cache_dir=str(config.cache_dir / char_name),
+            cache_dir=str(clip_cache.character_cache_dir(config.cache_dir, char_name)),
         )
 
         char_done = 0
