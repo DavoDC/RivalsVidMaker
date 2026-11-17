@@ -364,10 +364,20 @@ def test_restore_stays_disabled_until_the_slug_is_typed_then_calls_restore():
     assert calls == [("restore", "thor_vid1")]
 
 
-def test_restore_is_absent_from_rows_that_are_not_live_or_cleaned():
-    source = _with_folders([fixtures.folder("thor_vid1", 1, clips=3, video_url="fixture.test/watch?v=u")])
+def test_restore_is_absent_from_uploaded_and_encoded_rows_with_danger_mode_off():
+    source = _with_folders([fixtures.folder("ray_vid1", 1, clips=2),
+                            fixtures.folder("kit_vid1", 1, clips=2, video_url="fixture.test/watch?v=u2")])
+    elements = _session(source)
+    assert not _by_marker(elements, "restore-ray_vid1")
+    assert not _by_marker(elements, "restore-kit_vid1")
+
+
+def test_restore_shows_on_encoded_and_uploaded_rows_in_danger_mode():
+    source = _with_folders([fixtures.folder("ray_vid1", 1, clips=2),
+                            fixtures.folder("kit_vid1", 1, clips=2, video_url="fixture.test/watch?v=u2")])
     elements = _session(source, steps=_set("danger-mode", True))
-    assert RESTORE_LABEL not in _button_texts(elements)
+    assert _by_marker(elements, "restore-ray_vid1")
+    assert _by_marker(elements, "restore-kit_vid1")
 
 
 def test_restore_shows_on_cleaned_partly_rows_in_danger_mode():

@@ -32,7 +32,7 @@ CLEAN_UP_LABEL = "Clean up"
 QUAD_LABEL = "QUAD or better"
 STAGE_ORDER = ("encoded", "uploaded", "live", "cleaned_partly")
 _STAGE_RANK = {stage: rank for rank, stage in enumerate(STAGE_ORDER)}
-RESTORABLE = ("live", "cleaned_partly")
+RESTORABLE = STAGE_ORDER  # every compiled video can be uncompiled, not only the uploaded ones
 
 _BODY = f"font-size:{tokens.SIZE_BODY}px;color:{tokens.TEXT_DIM};"
 _UI = f"font-size:{tokens.SIZE_UI}px;"
