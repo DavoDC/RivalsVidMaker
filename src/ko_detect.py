@@ -31,6 +31,7 @@ from pathlib import Path
 from PIL import Image, ImageOps, ImageFilter
 import pytesseract
 import clip_cache
+import winproc
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -133,7 +134,8 @@ def extract_frames(clip_path: str, tmpdir: str, fps: int = SCAN_FPS_FAST) -> lis
         [FFMPEG, "-y", "-loglevel", "quiet",
          "-ss", str(SKIP_SECS), "-i", clip_path,
          "-vf", f"fps={fps}", "-q:v", "2", pat],
-        check=True
+        check=True,
+        creationflags=winproc.NO_WINDOW,
     )
     frames = sorted(glob.glob(os.path.join(tmpdir, "f_*.png")))
     return [(SKIP_SECS + i / fps, p) for i, p in enumerate(frames)]
@@ -144,7 +146,8 @@ def get_duration(clip_path: str) -> float:
         [FFPROBE, "-v", "error",
          "-show_entries", "format=duration",
          "-of", "default=noprint_wrappers=1:nokey=1", clip_path],
-        capture_output=True, text=True
+        capture_output=True, text=True,
+        creationflags=winproc.NO_WINDOW,
     )
     try:
         return float(r.stdout.strip())

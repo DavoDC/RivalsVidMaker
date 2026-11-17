@@ -22,6 +22,7 @@ import imagehash
 from PIL import Image
 
 import clip_cache
+import winproc
 from clip_scanner import Clip
 from progress import AnimatedTicker
 
@@ -59,6 +60,7 @@ def _extract_frames(
             timeout=_FFMPEG_TIMEOUT,
             capture_output=True,
             text=True,
+            creationflags=winproc.NO_WINDOW,
         )
         if result.stderr:
             logging.debug("Dedup: ffmpeg stderr for %s:\n%s", clip_name, result.stderr.strip())

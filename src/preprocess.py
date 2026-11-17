@@ -21,6 +21,7 @@ from pathlib import Path
 import ko_detect
 from send2trash import send2trash
 import clip_cache
+import winproc
 from clip_scanner import VIDEO_EXTS
 from config import Config
 
@@ -77,7 +78,7 @@ def _prompt_delete(clip_path: Path, tier: str | None, vlc_path=None) -> bool:
         vlc_hint = "  [v] view in VLC  " if vlc_path else ""
         answer = input(f"  {vlc_hint}Delete? [y/N] ").strip().lower()
         if answer == "v" and vlc_path:
-            subprocess.Popen([str(vlc_path), str(clip_path)])
+            subprocess.Popen([str(vlc_path), str(clip_path)], creationflags=winproc.NO_WINDOW)
             continue
         break
     if answer != "y":

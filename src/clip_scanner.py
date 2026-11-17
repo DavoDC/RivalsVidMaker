@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import clip_cache
+import winproc
 
 VIDEO_EXTS = {".mp4"}  # Marvel Rivals only saves .mp4
 
@@ -33,6 +34,7 @@ def probe_duration(path: Path, ffprobe: Path) -> float:
          "-of", "default=noprint_wrappers=1:nokey=1",
          str(path)],
         capture_output=True, text=True,
+        creationflags=winproc.NO_WINDOW,
     )
     try:
         return float(result.stdout.strip())

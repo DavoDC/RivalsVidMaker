@@ -11,6 +11,7 @@ import pytest
 
 from config import Config
 from preprocess import preprocess_all, _prompt_delete
+import winproc
 
 
 def make_config(clips_path: Path, protect_recent_clips: int = 0) -> Config:
@@ -389,7 +390,7 @@ class TestPromptDeleteVlc:
         with patch("builtins.input", side_effect=inputs), \
              patch("subprocess.Popen") as mock_popen:
             _prompt_delete(clip, "KO", vlc_path=vlc)
-        mock_popen.assert_called_once_with([str(vlc), str(clip)])
+        mock_popen.assert_called_once_with([str(vlc), str(clip)], creationflags=winproc.NO_WINDOW)
 
     def test_no_vlc_path_skips_option(self, tmp_path):
         clip = tmp_path / "THOR_clip_KO.mp4"

@@ -15,6 +15,7 @@ from pathlib import Path
 
 from batcher import Batch
 from progress import AnimatedTicker
+import winproc
 
 # ffmpeg writes machine-readable progress (key=value lines) to stdout.
 PROGRESS_FLAGS = ["-progress", "pipe:1", "-nostats"]
@@ -49,6 +50,7 @@ def _run_with_progress(cmd: list, total: float, on_progress) -> tuple[int, str]:
             text=True,
             encoding="utf-8",
             errors="replace",
+            creationflags=winproc.NO_WINDOW,
         )
         for line in proc.stdout:
             encoded = _parse_out_time_seconds(line.strip())
@@ -121,7 +123,7 @@ def encode(
     try:
         with AnimatedTicker("Muxing"):
             if on_progress is None:
-                result = subprocess.run(cmd, capture_output=True, text=True)
+                result = subprocess.run(cmd, capture_output=True, text=True, creationflags=winproc.NO_WINDOW)
                 returncode, stdout, stderr = result.returncode, result.stdout, result.stderr
             else:
                 returncode, stderr = _run_with_progress(cmd, batch.total_duration, on_progress)

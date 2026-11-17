@@ -30,6 +30,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import winproc
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -170,6 +172,7 @@ def probe_combined(clip_path: str, ffprobe: str) -> tuple[float, int, int]:
          "-of", "json",
          clip_path],
         capture_output=True, text=True,
+        creationflags=winproc.NO_WINDOW,
     )
     try:
         data = json.loads(r.stdout)
