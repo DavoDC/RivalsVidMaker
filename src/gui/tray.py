@@ -174,7 +174,8 @@ def _run(port, is_busy, shutdown, state_word) -> None:
         ti = None
 
         def quit_cb():
-            quit_or_note(is_busy, shutdown, lambda m: ti.notify(m, "RivalsVidMaker"))
+            if quit_or_note(is_busy, shutdown, lambda m: ti.notify(m, "RivalsVidMaker")):
+                ti.stop()  # remove the icon now, not when Windows notices the dead process
 
         menu = pystray.Menu(*build_menu_items(pystray, port, quit_cb))
         ti = pystray.Icon("RivalsVidMaker", icon.render(64), tooltip(state_word()), menu)

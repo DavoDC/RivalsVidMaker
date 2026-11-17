@@ -1,4 +1,4 @@
-"""The tray icon (task 54): Open, Reload and Quit from a Windows tray icon hosted in the GUI process.
+"""The tray icon: Open, Reload and Quit from a Windows tray icon hosted in the GUI process.
 
 Nothing here imports pystray for real or creates an icon. The fake pystray records MenuItem arguments,
 the open and reload callbacks are swapped for recorders so no browser opens and no trigger file is
