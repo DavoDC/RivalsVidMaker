@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import time
 from collections.abc import Callable
 
 from nicegui import ui
@@ -19,6 +20,65 @@ from gui import build_info, chrome, jobs, tabdefs, tokens, view_model
 
 _log = logging.getLogger("rvm.gui")
 ACTION_TABS = ("clips", "compile", "videos")  # the tabs whose build() takes an actions dict
+POLL_SECONDS = 1.0     # how often a page with a job runner checks the job signature
+REPAINT_SECONDS = 2.0  # least gap between repaints when only a running job's progress changed
+CLOCK = time.monotonic  # module-level so tests can replace the throttle clock
+
+
+def job_signature(source) -> tuple | None:
+    """What a page repaints on: (running id, state, done, newest history id, newest history state).
+
+    None when the source has no runner. Reads only the runner, never source.read(), because a
+    real read scans the library on disk.
+    """
+    runner = getattr(source, "runner", None)
+    if runner is None:
+        return None
+    current = runner.current()
+    if current is None:
+        running = (None, None, None)
+    else:
+        running = (current.get("id"), current.get("state"), int(current.get("done") or 0))
+    history = runner.history()
+    newest = (history[0].get("id"), history[0].get("state")) if history else (None, None)
+    return running + newest
+
+
+def _structure(sig: tuple) -> tuple:
+    """The signature without the running job's done count."""
+    return (sig[0], sig[1], sig[3], sig[4])
+
+
+class Poller:
+    """Repaints when the job signature changes. A start, finish or failure repaints on the next
+    tick; a progress-only change repaints at most once per REPAINT_SECONDS. The signature is
+    re-read on every tick, so a held-back change lands on a later tick without another change."""
+
+    def __init__(self, signature_fn: Callable[[], tuple], repaint_fn: Callable[[], None],
+                 clock: Callable[[], float] | None = None):
+        self._signature_fn = signature_fn
+        self._repaint_fn = repaint_fn
+        self._clock = clock
+        self._last = signature_fn()  # the page was painted from this signature
+        self._last_paint: float | None = None
+
+    def _now(self) -> float:
+        return self._clock() if self._clock is not None else CLOCK()
+
+    def tick(self) -> bool:
+        """Repaint if the page is stale. True when a repaint ran."""
+        sig = self._signature_fn()
+        if sig == self._last:
+            return False
+        now = self._now()
+        structural = _structure(sig) != _structure(self._last)
+        due = self._last_paint is None or now - self._last_paint >= REPAINT_SECONDS
+        if not (structural or due):
+            return False
+        self._last = sig
+        self._last_paint = now
+        self._repaint_fn()
+        return True
 
 
 def _default_builder(key: str) -> Callable:
@@ -85,6 +145,7 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
     panels: dict[str, ui.element] = {}
     buttons: dict[str, ui.element] = {}
     built: set[str] = set()
+    current = active  # the visible tab; show() keeps it in step
 
     ui.add_head_html(chrome.head_html())
     # One content column: header, banner, tabs, panels and footer all span it, capped at
@@ -96,7 +157,7 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
         # Same markup as chrome.body_html's error banner; the footer must sit below the panels,
         # so the pieces are placed one by one.
         ui.html('<div id="error-banner" role="alert" data-testid="error-banner" hidden></div>')
-        ui.html(chrome.header_html(state_word, state_kind))
+        header = ui.html(chrome.header_html(state_word, state_kind))
         ui.html(chrome.fixture_banner_html(source.fixture))
 
         def paint(key: str) -> None:
@@ -116,6 +177,8 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
                         f'data-testid=tab-error-{key} role=alert').mark(f"tab-error-{key}")
 
         def show(key: str) -> None:
+            nonlocal current
+            current = key
             for k, panel in panels.items():
                 panel.set_visibility(k == key)
             for k, button in buttons.items():
@@ -145,6 +208,18 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
             panel.set_visibility(key == active)
             panels[key] = panel
 
+        def repaint() -> None:
+            # Stale tabs clear now; the visible one repaints at once, the others when shown.
+            built.clear()
+            for panel in panels.values():
+                panel.clear()
+            header.set_content(chrome.header_html(*_header_from_source(source)))
+            paint(current)
+
         paint(active)
 
         ui.html(chrome.footer_html(build_info.line(), build_info.STARTED_AT, updated_seconds))
+
+        if job_signature(source) is not None:  # only a page with a job runner can go stale
+            poller = Poller(lambda: job_signature(source), repaint)
+            ui.timer(POLL_SECONDS, poller.tick)
