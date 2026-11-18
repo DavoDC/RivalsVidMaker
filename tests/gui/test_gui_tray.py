@@ -63,12 +63,12 @@ def test_menu_labels_are_open_reload_quit_and_never_stop():
 
 
 def test_app_url_is_loopback_with_the_port():
-    assert tray.app_url(8765) == "http://127.0.0.1:8765/"
+    assert tray.app_url(8765) == "http://localhost:8765/"
 
 
 def test_app_url_with_a_tab_adds_the_tab_query():
-    assert tray.app_url(8000, "videos") == "http://127.0.0.1:8000/?tab=videos"
-    assert tray.app_url(8000) == "http://127.0.0.1:8000/"
+    assert tray.app_url(8000, "videos") == "http://localhost:8000/?tab=videos"
+    assert tray.app_url(8000) == "http://localhost:8000/"
 
 
 def test_open_item_opens_the_remembered_tab_at_click_time(monkeypatch):
@@ -79,7 +79,7 @@ def test_open_item_opens_the_remembered_tab_at_click_time(monkeypatch):
     open_cb()
     last_tab.reset()
     open_cb()
-    assert opened == ["http://127.0.0.1:8000/?tab=videos", "http://127.0.0.1:8000/"]
+    assert opened == ["http://localhost:8000/?tab=videos", "http://localhost:8000/"]
 
 
 def test_double_click_item_opens_the_remembered_tab_at_click_time(monkeypatch):
@@ -90,7 +90,7 @@ def test_double_click_item_opens_the_remembered_tab_at_click_time(monkeypatch):
     last_tab.remember("archive")
     default.action(None, None)  # first click only arms
     default.action(None, None)  # second click, back to back, lands inside the 0.75 s window
-    assert opened == ["http://127.0.0.1:8000/?tab=archive"]
+    assert opened == ["http://localhost:8000/?tab=archive"]
 
 
 def test_open_once_opens_once_for_two_calls_0_2_seconds_apart():
@@ -173,7 +173,7 @@ def test_menu_action_callbacks_take_icon_and_item(monkeypatch):
     items = tray.build_menu_items(FAKE_PYSTRAY, 8765, lambda: quits.append(1))
     for item in items:
         item.action(None, None)  # pystray calls every action with (icon, item)
-    assert ("open", "http://127.0.0.1:8765/") in calls
+    assert ("open", "http://localhost:8765/") in calls
     assert ("reload",) in calls
     assert quits == [1]
 
@@ -208,3 +208,10 @@ def test_acquire_lock_is_exclusive_on_windows_and_released_after():
 @pytest.mark.skipif(sys.platform == "win32", reason="non-Windows path only")
 def test_acquire_lock_off_windows_always_returns_a_handle():
     assert tray.acquire_lock(tray.LOCK_NAME) is not None
+
+
+def test_tray_urls_never_use_the_127_literal():
+    # webapp standard: URLs David's browser opens say localhost, never 127.0.0.1
+    import inspect
+    assert "127.0.0.1" not in inspect.getsource(tray.app_url)
+    assert tray.app_url(1, "clips").startswith("http://localhost:")

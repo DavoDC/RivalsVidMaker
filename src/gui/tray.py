@@ -15,7 +15,7 @@ import time
 import webbrowser
 from pathlib import Path
 
-from gui import hot_reload, icon, last_tab, launcher
+from gui import hot_reload, icon, last_tab, launcher, security
 
 LOCK_NAME = "Local" + chr(92) + "RivalsVidMakerTray"
 LOCK_RETRY_SECONDS = 8.0
@@ -75,9 +75,10 @@ def _acquire_with_retry(name: str = LOCK_NAME, seconds: float = LOCK_RETRY_SECON
 
 
 def app_url(port: int, tab: str | None = None) -> str:
+    # David-facing URLs say localhost (webapp standard); one source: security.open_url
     if tab is None:
-        return f"http://127.0.0.1:{port}/"
-    return f"http://127.0.0.1:{port}/?tab={tab}"
+        return security.open_url(port)
+    return security.open_url(port, f"/?tab={tab}")
 
 
 def open_once(url: str, opener=None, clock=time.monotonic) -> bool:
