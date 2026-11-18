@@ -122,6 +122,8 @@ def _root_html(rows: list[dict]) -> str:
     """The root list as a table: character (avatar and display name), capture date, capture time. The file name
     is hover text on each row. A row with no character shows its file name with the unreadable note and empty
     date and time cells. One dim kept line leads the table when any row is protected."""
+    td = _TD + f"padding-right:{tokens.SPACE_32}px;"
+    th = _TH + f"padding-right:{tokens.SPACE_32}px;"
     body = []
     for row in rows:
         name = escape(str(row.get("name") or ""))
@@ -133,16 +135,16 @@ def _root_html(rows: list[dict]) -> str:
             first = f'<div>{name}</div><div style="color:{tokens.TEXT_DIM};">{UNREADABLE_NOTE}</div>'
             date = time = ""
         body.append(f'<tr data-testid="{row["testid"]}" title="{name}">'
-                    f'<td style="{_TD}">{first}</td>'
-                    f'<td style="{_TD}">{date}</td>'
-                    f'<td style="{_TD}">{time}</td>'
+                    f'<td style="{td}">{first}</td>'
+                    f'<td style="{td}">{date}</td>'
+                    f'<td style="{td}">{time}</td>'
                     "</tr>")
     kept = (f'<div style="color:{tokens.TEXT_DIM};padding-bottom:{tokens.SPACE_8}px;">{ROOT_NOTE}</div>'
             if any(row.get("protected") for row in rows) else "")
-    table = (f'<table style="{_TABLE}"><thead><tr>'
-             f'<th style="{_TH}">Character</th>'
-             f'<th style="{_TH}">Date</th>'
-             f'<th style="{_TH}">Time</th>'
+    table = (f'<table style="{_TABLE.replace("width:100%", "width:auto")}"><thead><tr>'
+             f'<th style="{th}">Character</th>'
+             f'<th style="{th}">Date</th>'
+             f'<th style="{th}">Time</th>'
              "</tr></thead><tbody>" + "".join(body) + "</tbody></table>")
     return '<div style="width:100%;">' + kept + table + "</div>"
 

@@ -530,3 +530,20 @@ def test_root_list_kept_line_sits_above_the_table_only_when_a_row_is_protected()
     assert html.find(clips.ROOT_NOTE) != -1 and html.find(clips.ROOT_NOTE) < html.find("<table")
     plain = clips._root_html([_root_row("clip-root-a", "THOR_2026-11-18_00-42-48.mp4")])
     assert clips.ROOT_NOTE not in plain
+
+
+def test_root_table_is_sized_to_its_content_not_the_column():
+    html = clips._root_html([_root_row("clip-root-a", "THOR_2026-11-18_00-42-48.mp4")])
+    table = html.split("<table", 1)[1].split(">", 1)[0]
+    assert "width:auto" in table
+    assert "width:100%" not in table
+
+
+def test_root_table_cells_have_32px_right_padding_and_character_table_keeps_full_width():
+    html = clips._root_html([_root_row("clip-root-a", "THOR_2026-11-18_00-42-48.mp4")])
+    cells = html.count("<th ") + html.count("<td ")
+    assert cells == 6
+    assert html.count(f"padding-right:{tokens.SPACE_32}px") == cells
+    character = clips.table_html([{"testid": "clip-char-x-000020", "name": "THOR", "clips": 1, "minutes": 1.0,
+                                   "scanned": 1, "unscanned": 0, "tiers": {}}])
+    assert "<table style=\"width:100%;" in character
