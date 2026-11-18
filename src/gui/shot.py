@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import re
 import sys
 import time
 import urllib.request
@@ -31,7 +32,8 @@ DEFAULT_FIXTURE = "ready"
 
 BODY_JS = "document.body ? document.body.innerText : ''"
 HDR_JS = "(document.querySelector('header')||document.body).innerText.slice(0,200)"
-TOAST_JS = "JSON.stringify([...document.querySelectorAll('.q-notification, #rvm-toast')].map(e=>(e.innerText||'').trim()))"
+TOAST_JS = "JSON.stringify([...document.querySelectorAll('.q-notification__message, #rvm-toast')].map(e=>(e.innerText||'').trim()))"
+ICON_WORD = re.compile(r"^[a-z_]+$")
 
 
 class Missing(Exception):
@@ -150,8 +152,18 @@ def click_target(session, js: str, step: str, what: str, css: str) -> None:
     click_xy(session, pos["x"], pos["y"])
 
 
+def clean_toast(text: str) -> str:
+    """One toast as one line: whitespace collapsed, and a leading Material icon word (check_circle) dropped."""
+    collapsed = " ".join(text.split())
+    head, sep, rest = collapsed.partition(" ")
+    if sep and rest and ICON_WORD.match(head):
+        return rest
+    return collapsed
+
+
 def note_toasts(session, seen: list) -> None:
     for text in json.loads(session.evaluate(TOAST_JS) or "[]"):
+        text = clean_toast(text)
         if text and text not in seen:
             seen.append(text)
 

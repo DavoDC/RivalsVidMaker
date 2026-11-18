@@ -59,6 +59,21 @@ def test_fixture_and_url_together_are_refused():
         shot.parse_args(["compile", "--fixture", "plan", "--url", "http://127.0.0.1:9"])
 
 
+@pytest.mark.parametrize("raw, clean", [
+    ("check_circle\nSorted clips.", "Sorted clips."),
+    ("  Kept  \"a\".  ", 'Kept "a".'),
+    ("check_circle   Sorting clips.", "Sorting clips."),
+    ("check_circle", "check_circle"),
+])
+def test_clean_toast_drops_the_icon_word_and_collapses_whitespace(raw, clean):
+    assert shot.clean_toast(raw) == clean
+
+
+def test_toast_js_reads_the_quasar_message_node():
+    assert ".q-notification__message" in shot.TOAST_JS
+    assert "#rvm-toast" in shot.TOAST_JS
+
+
 def test_shot_is_wired_in_main_like_capture(monkeypatch):
     seen = []
     monkeypatch.setattr(shot, "main", lambda argv: seen.append(list(argv)) or 0)
