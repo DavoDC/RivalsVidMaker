@@ -21,7 +21,19 @@ NO_NEW_COPY = "No new clips. Save highlights in game, then press Sort clips."
 NO_CHARACTERS_COPY = "No characters yet. Scan for KOs to count the clips in each character folder."
 SORT_TIP = "Moves new clips from your Highlights folder into a folder per character. Recent clips stay put so the game still lists them."
 SCAN_TIP = "Reads each character folder to count its clips and flag low-value ones. Nothing is moved or deleted."
-ROOT_NOTE = "Kept in place: the game lists these as recent clips."
+ROOT_NOTE = "Locked clips stay here because the game lists your newest clips as recent. The rest move on the next Sort."
+COLUMN_TIPS = {
+    "Character": "The character the clip file name says it is.",
+    "Clips": "How many clip files are in this character's folder.",
+    "Length": "Total running time of the scanned clips only. Clips not scanned yet are not counted.",
+    "Scanned": "How many clips Scan for KOs has read, out of all clips in the folder.",
+    "Best": "The best kill streak found in this character's scanned clips.",
+    "Date": "The day the game saved the clip.",
+    "Time": "The time of day the game saved the clip.",
+    "Status": "Held: Sort leaves the clip here. Next sort: Sort moves it into its character folder.",
+}
+HELD_LABEL = "Held"
+SORT_NEXT_LABEL = "Next sort"
 UNREADABLE_NOTE = "Sort cannot read this name."
 DECISION_HEADING = "Needs a decision"
 ROOT_HEADING = "In Highlights root"
@@ -96,6 +108,19 @@ def _best_cell(tiers: dict) -> str:
     return tier_chip.chip_html(tier)
 
 
+def _th(label: str, style: str, right: bool = False) -> str:
+    """A header cell whose hover box (styled in theme.py, .rvm-tip) explains the column."""
+    cls = "rvm-tip rvm-tip-r" if right else "rvm-tip"
+    return f'<th class="{cls}" data-tip="{escape(COLUMN_TIPS[label])}" style="{style}">{label}</th>'
+
+
+def _partial_hint(clips: int, scanned: int) -> str:
+    """Length counts scanned clips only, so a folder with unscanned clips says so beside the number."""
+    if scanned >= clips:
+        return ""
+    return f'<div style="color:{tokens.TEXT_DIM};font-weight:400;">{clips - scanned} unscanned</div>'
+
+
 def table_html(rows: list[dict]) -> str:
     """The character table: Character, Clips, Length, Scanned and Best; one row per character with its testid."""
     body = []
@@ -107,17 +132,32 @@ def table_html(rows: list[dict]) -> str:
             f'<tr data-testid="{row["testid"]}">'
             f'<td style="{_TD}">{avatars.name_cell_html(folder)}</td>'
             f'<td style="{_TD_NUM}">{clips}</td>'
-            f'<td style="{_TD_NUM}">{_duration(row)}</td>'
+            f'<td style="{_TD_NUM}">{_duration(row)}{_partial_hint(clips, scanned)}</td>'
             f'<td style="{_TD_NUM}">{scanned} of {clips}</td>'
             f'<td style="{_TD}">{_best_cell(row.get("tiers") or {})}</td>'
             "</tr>")
     return (f'<table style="{_TABLE}"><thead><tr>'
-            f'<th style="{_TH}">Character</th>'
-            f'<th style="{_TH_NUM}">Clips</th>'
-            f'<th style="{_TH_NUM}">Length</th>'
-            f'<th style="{_TH_NUM}">Scanned</th>'
-            f'<th style="{_TH}">Best</th>'
-            "</tr></thead><tbody>" + "".join(body) + "</tbody></table>")
+            + _th('Character', _TH)
+            + _th('Clips', _TH_NUM, right=True)
+            + _th('Length', _TH_NUM, right=True)
+            + _th('Scanned', _TH_NUM, right=True)
+            + _th('Best', _TH)
+            + "</tr></thead><tbody>" + "".join(body) + "</tbody></table>")
+
+
+_LOCK_SVG = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+             'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+             '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>')
+
+
+def _status_cell(row: dict) -> str:
+    """Held rows get a lock and the word Held; clips Sort will move say Next sort; unreadable names stay blank."""
+    if row.get("protected"):
+        return (f'<span style="display:inline-flex;align-items:center;gap:{tokens.SPACE_8}px;color:{tokens.TEXT};'
+                f'font-weight:600;">{_LOCK_SVG}{HELD_LABEL}</span>')
+    if row.get("character"):
+        return f'<span style="color:{tokens.TEXT_DIM};">{SORT_NEXT_LABEL}</span>'
+    return ""
 
 
 def _root_html(rows: list[dict]) -> str:
@@ -140,14 +180,16 @@ def _root_html(rows: list[dict]) -> str:
                     f'<td style="{td}">{first}</td>'
                     f'<td style="{td}">{date}</td>'
                     f'<td style="{td}">{time}</td>'
+                    f'<td style="{td}">{_status_cell(row)}</td>'
                     "</tr>")
     kept = (f'<div style="color:{tokens.TEXT_DIM};padding-bottom:{tokens.SPACE_8}px;">{ROOT_NOTE}</div>'
             if any(row.get("protected") for row in rows) else "")
     table = (f'<table style="{_TABLE.replace("width:100%", "width:auto")}"><thead><tr>'
-             f'<th style="{th}">Character</th>'
-             f'<th style="{th}">Date</th>'
-             f'<th style="{th}">Time</th>'
-             "</tr></thead><tbody>" + "".join(body) + "</tbody></table>")
+             + _th('Character', th)
+             + _th('Date', th)
+             + _th('Time', th)
+             + _th('Status', th)
+             + "</tr></thead><tbody>" + "".join(body) + "</tbody></table>")
     return '<div style="width:100%;">' + kept + table + "</div>"
 
 

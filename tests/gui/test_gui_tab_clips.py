@@ -299,7 +299,7 @@ def test_table_best_is_empty_when_no_quad_or_better():
     row = {"testid": "clip-char-x-000002", "name": "SQUIRREL GIRL", "clips": 12, "minutes": 7.0833,
            "scanned": 10, "unscanned": 2, "tiers": {"KO": 9, "DOUBLE": 2}}
     html = clips.table_html([row])
-    assert ">7:05</td>" in html
+    assert "7:05" in html and "2 unscanned" in html
     assert ">10 of 12</td>" in html
     assert "None" not in html and "data-tier" not in html
     assert ">-</span>" not in html
@@ -345,7 +345,7 @@ def test_table_names_from_data_are_escaped():
 
 def test_root_list_marks_protected_rows_with_one_kept_line_above_the_rows():
     html, _props, _labels, _buttons = _render(clips.build, FixtureSource("fresh_intake"))
-    assert "Kept in place: the game lists these as recent clips." in html
+    assert "Kept in place" not in html
     assert html.count(clips.ROOT_NOTE) == 1
     assert "kept: in the game's recent list" not in html
 
@@ -524,7 +524,7 @@ def test_root_row_without_a_character_shows_the_name_and_note_and_empty_date_and
                                        character=None, date=None, time=None)])
     row = html.split('data-testid="clip-root-x"')[1].split("</tr>")[0]
     cells = row.split("<td")[1:]
-    assert len(cells) == 3
+    assert len(cells) == 4
     assert ">random.mp4<" in cells[0] and clips.UNREADABLE_NOTE in cells[0]
     for cell in cells[1:]:
         assert cell.split(">", 1)[1].split("</td>")[0] == ""
@@ -555,8 +555,35 @@ def test_root_table_is_sized_to_its_content_not_the_column():
 def test_root_table_cells_have_32px_right_padding_and_character_table_keeps_full_width():
     html = clips._root_html([_root_row("clip-root-a", "THOR_2026-11-18_00-42-48.mp4")])
     cells = html.count("<th ") + html.count("<td ")
-    assert cells == 6
+    assert cells == 8
     assert html.count(f"padding-right:{tokens.SPACE_32}px") == cells
     character = clips.table_html([{"testid": "clip-char-x-000020", "name": "THOR", "clips": 1, "minutes": 1.0,
                                    "scanned": 1, "unscanned": 0, "tiers": {}}])
     assert "<table style=\"width:100%;" in character
+
+
+def test_root_list_status_column_locks_only_held_rows():
+    rows = [
+        {"testid": "clip-root-a", "name": "THOR_a.mp4", "protected": True, "recognised": True,
+         "character": "THOR", "date": "18/11/2026", "time": "12:42am"},
+        {"testid": "clip-root-b", "name": "THOR_b.mp4", "protected": False, "recognised": True,
+         "character": "THOR", "date": "18/11/2026", "time": "11:37pm"},
+    ]
+    html = clips._root_html(rows)
+    held = html.split('data-testid="clip-root-a"')[1].split('data-testid="clip-root-b"')[0]
+    loose = html.split('data-testid="clip-root-b"')[1]
+    assert "<svg" in held and clips.HELD_LABEL in held
+    assert "<svg" not in loose and clips.SORT_NEXT_LABEL in loose and clips.HELD_LABEL not in loose
+
+
+def test_every_table_header_has_a_tooltip_and_length_says_scanned_only():
+    row = {"testid": "clip-char-x-000001", "name": "THOR", "clips": 19, "seconds": 559, "scanned": 18, "tiers": {}}
+    html = clips.table_html([row]) + clips._root_html([_root_row("clip-root-a", "THOR_a.mp4")])
+    assert html.count("<th ") == html.count('data-tip="')
+    assert "scanned clips only" in html
+
+
+def test_length_cell_flags_unscanned_clips_only_when_some_remain():
+    base = {"testid": "clip-char-x-000001", "name": "THOR", "clips": 19, "seconds": 559, "tiers": {}}
+    assert "1 unscanned" in clips.table_html([dict(base, scanned=18)])
+    assert "unscanned" not in clips.table_html([dict(base, scanned=19)])

@@ -30,6 +30,12 @@ _CSS = """
     border-radius:@@RADIUS_PANEL@@px !important;padding:@@SPACE_12@@px @@SPACE_16@@px !important;}
   .nicegui-error-popup{background-color:@@PANEL@@ !important;color:@@TEXT@@ !important;font-size:@@SIZE_UI@@px;
     border:1px solid @@LINE@@ !important;border-left:@@SPACE_4@@px solid @@ERROR@@ !important;border-radius:@@RADIUS_PANEL@@px;}
+  .rvm-tip{position:relative;cursor:help;text-decoration:underline dotted @@TEXT_DIM@@;text-underline-offset:4px;}
+  .rvm-tip:hover::after,.rvm-tip:focus-visible::after{content:attr(data-tip);position:absolute;top:100%;left:0;z-index:9000;
+    width:max-content;max-width:300px;white-space:normal;font-weight:400;font-size:@@SIZE_UI@@px;line-height:1.45;
+    background:@@PANEL@@;color:@@TEXT@@;border:1px solid @@LINE@@;border-radius:@@RADIUS_PANEL@@px;
+    padding:@@SPACE_12@@px @@SPACE_16@@px;text-align:left;}
+  .rvm-tip-r:hover::after,.rvm-tip-r:focus-visible::after{left:auto;right:0;}
   .rvm-tabs{display:flex;gap:@@SPACE_24@@px;padding:0 @@SPACE_24@@px;border-bottom:1px solid @@LINE@@;}
   .rvm-tab{font:inherit;font-size:@@SIZE_NAV@@px;font-weight:600;font-stretch:87.5%;color:@@TEXT_DIM@@;
     background:none;border:none;border-bottom:@@SPACE_4@@px solid transparent;padding:@@SPACE_8@@px 0;cursor:pointer;}
