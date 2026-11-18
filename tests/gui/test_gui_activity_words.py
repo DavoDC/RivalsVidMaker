@@ -1,4 +1,4 @@
-"""Activity table (task 49): times stay on one line with a full-stamp hover, the Job column takes 40%,
+"""Activity table: times stay on one line with a full-stamp hover, the Job column takes 40%,
 and a sign-in error reads as plain words instead of a Python repr."""
 import re
 

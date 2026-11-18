@@ -1,4 +1,4 @@
-"""Character avatars and display names (task 47), the app icon and the serve wiring that carries both.
+"""Character avatars and display names, the app icon and the serve wiring that carries both.
 
 Nothing here downloads an image or writes outside tmp_path: register() is pointed at a tmp asset folder.
 """

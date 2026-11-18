@@ -296,7 +296,7 @@ def test_real_source_reports_missing_tools(tmp_path):
     assert any("ffmpeg" in p for p in problems)
 
 
-# -- Output-folder rows (task 13b) -----------------------------------------------
+# -- Output-folder rows -----------------------------------------------
 
 FOLDER_KEYS = {
     "slug", "character", "months", "video_count", "has_video", "has_desc", "clips",

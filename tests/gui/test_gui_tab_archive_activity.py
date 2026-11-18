@@ -320,7 +320,7 @@ def test_both_tabs_opt_in_to_the_painted_row_check():
     assert activity.PAINTS_ROWS is True
 
 
-# ---- job bar layout (DESIGN.md sections 5 and 8, task 27b) -------------------------------------
+# ---- job bar layout (DESIGN.md sections 5 and 8) -------------------------------------
 
 BAR_JOB = {"id": "enc-1", "title": "Encode THOR batch 1", "phase": "encoding", "done": 3, "total": 9,
            "unit": "steps", "eta_s": 240, "cancellable": False}

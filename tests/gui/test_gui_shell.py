@@ -164,7 +164,7 @@ def test_page_root_column_is_full_width_capped_at_1280():
     assert roots[0]._style["max-width"] == "1280px"
     # NiceGUI columns default to align-items:flex-start, which shrink-wraps each child to its content
     assert roots[0]._style["align-items"] == "stretch"
-    # centred, 24 px side gutters, no top padding: the header sits at the top edge (task 51)
+    # centred, 24 px side gutters, no top padding: the header sits at the top edge
     assert roots[0]._style["margin"] == "0 auto"
     assert roots[0]._style["padding"] == "0 24px 0"
 
@@ -181,7 +181,7 @@ def test_each_tab_panel_stretches_to_the_content_column():
 
 
 def test_each_tab_panel_has_16px_top_padding_and_24px_elsewhere():
-    # task 51: the header's own padding already gives the space above the title; the panel adds 16, not 24
+    # The header's own padding already gives the space above the title; the panel adds 16, not 24
     async def action(user):
         with user.client:
             return {k: list(ElementFilter(marker=f"tab-{k}", only_visible=False)) for k in KEYS}
@@ -192,7 +192,7 @@ def test_each_tab_panel_has_16px_top_padding_and_24px_elsewhere():
 
 
 def test_tab_buttons_do_not_take_focus_on_mouse_down():
-    # task 51: a mouse click must not leave the focus box; keyboard Tab still focuses the button
+    # A mouse click must not leave the focus box; keyboard Tab still focuses the button
     async def action(user):
         with user.client:
             return {k: list(ElementFilter(marker=f"nav-{k}", only_visible=False)) for k in KEYS}

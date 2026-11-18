@@ -1,4 +1,4 @@
-"""The app mark (task 52): one renderer in src/gui/icon.py feeds the favicon, and the tray later.
+"""The app mark: one renderer in src/gui/icon.py feeds the favicon, and the tray later.
 
 Nothing here opens a window or touches config; the preview script writes only into tmp_path.
 """

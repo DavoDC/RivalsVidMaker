@@ -82,7 +82,7 @@ COOLDOWN_SECS        = 2.0   # min gap between distinct kill events (keep low --
 SCAN_STOP_SECS       = 22    # pass 1 early exit if no KO found; data: p90 start_ts = 18.5s + 3.5s buffer
 POST_KO_SILENCE_SECS = 16    # exit after N seconds silence post-sequence; data: p90 sequence duration = 16s
 
-# Banner region: right 25% of frame width, vertically 40–62%
+# Banner region: right 25% of frame width, vertically 40 to 62%
 CROP_X  = 0.75
 CROP_Y1 = 0.40
 CROP_Y2 = 0.62

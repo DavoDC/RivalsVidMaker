@@ -30,7 +30,7 @@ TITLE:
 <see title examples below>
 
 DESCRIPTION:
-<one-liner — see description examples below>
+<one-liner, see description examples below>
 
 TIMESTAMPS:
 <streak start> - <max kill time> = <Tier> Kill
@@ -53,9 +53,9 @@ HIGHLIGHTS:
 4:13 - 4:19 = Quad Kill
 ```
 
-- Left time  = when the FIRST KO banner appears (streak start — gives viewers the build-up)
+- Left time  = when the FIRST KO banner appears (streak start, gives viewers the build-up)
 - Right time = when the highest-tier banner (Quad/Penta/Hexa) first appears
-- Quad and above only — Triple and below are detected internally but not shown
+- Quad and above only: Triple and below are detected internally but not shown
 
 ---
 
@@ -91,20 +91,20 @@ MARVEL RIVALS Gameplay (1st Nov 2025)
 ## One-liner description examples
 
 ```
-⚡ The storm answers only to the worthy — Mjölnir unleashed, lightning combos, and relentless Thor multikills across Feb–Mar 2026 in Marvel Rivals 🔥⚡
+⚡ The storm answers only to the worthy: Mjölnir unleashed, lightning combos, and relentless Thor multikills across Feb to Mar 2026 in Marvel Rivals 🔥⚡
 ```
-*(vid2 — confirmed perfect)*
+*(vid2, confirmed perfect)*
 
 ```
-⚡ The God of Thunder answers the call — Mjölnir strikes, lightning crashes, and Thor unleashes unstoppable multikills in Marvel Rivals 🔨⚡🔥
-```
-
-```
-WORTHY OF MJÖLNIR ⚡ God of Thunder unleashed — insane Thor multikills, lightning combos, and clutch moments in Marvel Rivals 🔨🔥
+⚡ The God of Thunder answers the call: Mjölnir strikes, lightning crashes, and Thor unleashes unstoppable multikills in Marvel Rivals 🔨⚡🔥
 ```
 
 ```
-⚡ BY THE POWER OF MJÖLNIR 🔨 Thor goes god-mode — nonstop multikills, thunder slams, and pure domination ⚡🔥
+WORTHY OF MJÖLNIR ⚡ God of Thunder unleashed, insane Thor multikills, lightning combos, and clutch moments in Marvel Rivals 🔨🔥
+```
+
+```
+⚡ BY THE POWER OF MJÖLNIR 🔨 Thor goes god-mode: nonstop multikills, thunder slams, and pure domination ⚡🔥
 ```
 
 ```

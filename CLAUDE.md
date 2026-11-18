@@ -1,4 +1,4 @@
-# RivalsVidMaker — Project Context for Claude
+# RivalsVidMaker: Project Context for Claude
 
 ## What this project does
 Python pipeline that batches short Marvel Rivals gameplay clips into ~15-min YouTube compilations using FFmpeg. Detects multi-kill banners via OCR (Tesseract) and generates timestamped YouTube descriptions automatically.
@@ -6,22 +6,22 @@ Python pipeline that batches short Marvel Rivals gameplay clips into ~15-min You
 ## Repo structure
 ```
 src/
-  main.py               — entry point (run from repo root); supports --force flag
-  config.py             — load config/config.json
-  pipeline.py           — main orchestrator: sort → scan → batch → detect → encode → describe
-  clip_sorter.py        — auto-sort unsorted clips from Highlights/ root into character subfolders
-  clip_scanner.py       — scan folder for clips, probe durations in parallel
-  batcher.py            — group clips into ~15-min batches
-  encoder.py            — FFmpeg concat encode (NVENC GPU / libx264 CPU fallback); skip-if-exists
-  description_writer.py — write YouTube description .txt files
-  ko_detect.py          — KO banner detection (OCR via Tesseract) — standalone + imported
-  ai_prompt.py          — generate pre-filled AI prompts markdown file after each pipeline run
-  cleanup.py            — interactive post-YouTube cleanup (move Quad+ to archive, delete rest)
-  preprocess.py         — pre-process mode: warm KO cache for all clips without encoding
+  main.py               : entry point (run from repo root); supports --force flag
+  config.py             : load config/config.json
+  pipeline.py           : main orchestrator: sort → scan → batch → detect → encode → describe
+  clip_sorter.py        : auto-sort unsorted clips from Highlights/ root into character subfolders
+  clip_scanner.py       : scan folder for clips, probe durations in parallel
+  batcher.py            : group clips into ~15-min batches
+  encoder.py            : FFmpeg concat encode (NVENC GPU / libx264 CPU fallback); skip-if-exists
+  description_writer.py : write YouTube description .txt files
+  ko_detect.py          : KO banner detection (OCR via Tesseract), standalone and imported
+  ai_prompt.py          : generate pre-filled AI prompts markdown file after each pipeline run
+  cleanup.py            : interactive post-YouTube cleanup (move Quad+ to archive, delete rest)
+  preprocess.py         : pre-process mode: warm KO cache for all clips without encoding
   gui/                  PLANNED local NiceGUI app (port 8476); only gui/bridge.py may import modules that change files; see docs/GUI.md
 scripts/
-  run.bat               — double-click launcher (opens Git Bash terminal)
-  run.sh                — runs python src/main.py from repo root
+  run.bat               : double-click launcher (opens Git Bash terminal)
+  run.sh                : runs python src/main.py from repo root
 tests/
   test_batcher.py
   test_clip_scanner.py
@@ -32,19 +32,19 @@ tests/
   test_ai_prompt.py
   test_cleanup.py
 data/
-  cache/                — *.ko.json per-clip KO scan cache (tracked)
-  logs/                 — runtime logs (gitignored)
-  output/               — description.txt files per batch
-  examples/             — ground_truth/ labelled frames, ko_frames/ reference screenshots
+  cache/                : *.ko.json per-clip KO scan cache (tracked)
+  logs/                 : runtime logs (gitignored)
+  output/               : description.txt files per batch
+  examples/             : ground_truth/ labelled frames, ko_frames/ reference screenshots
 docs/                   MULTIKILL_DETECTION.md, YOUTUBE_API.md, YOUTUBE_TITLE_AND_DESC.md,
                         DESIGN.md (GUI design source of truth), GUI.md (GUI architecture, built)
 dependencies/
   ffmpeg/               ffmpeg.exe + ffprobe.exe + ffplay.exe (gitignored, user provides)
   yt-dlp.exe            used by scripts/download_playlist.py (gitignored)
 config/
-  config.json           — your local config (gitignored)
-  config.example.json   — template (tracked)
-pytest.ini              — test config (testpaths=tests, pythonpath=src)
+  config.json           : your local config (gitignored)
+  config.example.json   : template (tracked)
+pytest.ini              : test config (testpaths=tests, pythonpath=src)
 ```
 
 ## How to run
@@ -89,15 +89,15 @@ pytest
 Note: `--cleanup` as a standalone flag is being phased into the interactive menu. Eventually all actions will be accessible from within run.bat with no extra flags needed.
 
 ## Development principles
-- **Single language rule** — Python only. No mixed languages.
-- **TDD** — write tests first for every feature.
-- **One clip first** — get a single clip working perfectly before scaling to batch.
+- **Single language rule**: Python only. No mixed languages.
+- **TDD**: write tests first for every feature.
+- **One clip first**: get a single clip working perfectly before scaling to batch.
 
 ## Logging architecture
-- **FileHandler (DEBUG)** — full timestamped log of everything, including internal details (per-clip probe results, ffmpeg commands, ffmpeg stderr, KO scan details per clip).
-- **StreamHandler (INFO)** — terminal shows the same user-facing messages, plain format (no timestamps, no level prefix for INFO; `[WARNING]`/`[ERROR]` prefix for those).
+- **FileHandler (DEBUG)**: full timestamped log of everything, including internal details (per-clip probe results, ffmpeg commands, ffmpeg stderr, KO scan details per clip).
+- **StreamHandler (INFO)**: terminal shows the same user-facing messages, plain format (no timestamps, no level prefix for INFO; `[WARNING]`/`[ERROR]` prefix for those).
 - Rule: **everything shown in the terminal also appears in the log; the log has more.**
-- Log files are created lazily (`delay=True`) — if the user exits before any work starts, no empty log file is left behind.
+- Log files are created lazily (`delay=True`), so if the user exits before any work starts, no empty log file is left behind.
 - Log location: `data/logs/run_YYYYMMDD_HHMMSS.log`
 
 ## Clip filename convention
@@ -119,13 +119,13 @@ BLACK WIDOW_2026-01-15_08-00-00.mp4   →  Highlights/BLACK_WIDOW/
 On every run the pipeline first calls `sort_clips(clips_path)` to move any video files sitting directly in the `Highlights/` root into per-character subfolders.
 
 **Safety guarantees:**
-- Uses `shutil.move()` — atomic rename on the same filesystem, no copy+delete risk.
+- Uses `shutil.move()`: atomic rename on the same filesystem, no copy+delete risk.
 - Only touches files **directly in** `clips_path/` root. Existing subfolders are never entered.
 - Skips any file whose character name cannot be parsed (logged as WARNING).
-- Skips if the destination already exists — never overwrites (logged as WARNING).
+- Skips if the destination already exists: never overwrites (logged as WARNING).
 
-**Character folder convention — Highlights subfolders contain ONLY raw `.mp4` clips.**
-No further subfolders. Once a clip is compiled into a video it moves to `Output\CHARACTER_DATE\clips\` — it does NOT stay in Highlights. Highlights is a pure intake zone: new clips arrive → get sorted → stay until compiled.
+**Character folder convention: Highlights subfolders contain ONLY raw `.mp4` clips.**
+No further subfolders. Once a clip is compiled into a video it moves to `Output\CHARACTER_DATE\clips\`. It does NOT stay in Highlights. Highlights is a pure intake zone: new clips arrive → get sorted → stay until compiled.
 
 ## Video folder structure
 Root: `C:\Users\David\Videos\MarvelRivals\`
@@ -189,9 +189,9 @@ All compiled videos live here. One subfolder per published video.
 - Multi-month: `THOR_FEB-MAR_2026`
 
 **Each output folder contains exactly:**
-1. `CHARACTER_DATE.mp4` — the compiled video
-2. `CHARACTER_DATE_description.txt` — YouTube title, description, and timestamps
-3. `clips\` — the source clip files used in this video (tier already in filename from scan stage)
+1. `CHARACTER_DATE.mp4`: the compiled video
+2. `CHARACTER_DATE_description.txt`: YouTube title, description, and timestamps
+3. `clips\`: the source clip files used in this video (tier already in filename from scan stage)
 
 When the user confirms the YouTube video is in good shape, the cleanup process:
 - Moves Quad+ clips from `clips\` → `ClipArchive\` (preserved for future Best-of)
@@ -202,7 +202,7 @@ When the user confirms the YouTube video is in good shape, the cleanup process:
 Long-term archive for Quad+ clips. Never deleted automatically.
 - Purpose: source material for a future "Best of 202X" compilation.
 - Clips land here during Output cleanup (after YouTube confirmation).
-- No subfolders required — flat structure is fine.
+- No subfolders required, flat structure is fine.
 
 ## KO detection (src/ko_detect.py)
 Detects multi-kill banners (KO → DOUBLE → TRIPLE → QUAD → PENTA → HEXA) via OCR. Full technical reference: `docs/MULTIKILL_DETECTION.md`.
@@ -226,7 +226,7 @@ Full format reference, title/description examples: `docs/YOUTUBE_TITLE_AND_DESC.
 5. Click each timestamp to verify it lands at the right moment in the video
 6. Adjust manually if any are wrong
 
-### Verified vid1 timestamps (complete — all 7 Quad kills confirmed ✅):
+### Verified vid1 timestamps (complete, all 7 Quad kills confirmed ✅):
 ```
 1:36 - 1:45 = Quad Kill
 2:30 - 2:37 = Quad Kill

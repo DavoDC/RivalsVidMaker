@@ -569,7 +569,7 @@ def test_batch_length_label_sums_only_the_kept_clips():
     assert timefmt.duration(batch["duration_s"]) not in labels
 
 
-# ---- stamps at the right edge (task 27c) ---------------------------------------------------------
+# ---- stamps at the right edge ---------------------------------------------------------
 
 def _batch_with_lit_clip_at(percent):
     """Two clips: a KO of percent seconds, then a HEXA that starts at percent of the bar."""
@@ -600,7 +600,7 @@ def test_stamp_at_or_under_ninety_percent_keeps_its_left_offset():
         assert "right:0;" not in style
 
 
-# ---- decision word and pressed buttons (task 27c) ------------------------------------------------
+# ---- decision word and pressed buttons ------------------------------------------------
 
 def _decide(name, decision):
     def change(data):

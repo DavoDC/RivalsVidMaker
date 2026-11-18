@@ -1,4 +1,4 @@
-"""Launcher, __main__ wiring and hot reload (task 19).
+"""Launcher, __main__ wiring and hot reload.
 
 Nothing here binds a real port except port 0, opens a browser, or spawns a server: every
 process and browser call is injected. Files go under tmp_path only.

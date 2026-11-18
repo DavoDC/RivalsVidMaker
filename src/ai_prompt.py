@@ -57,7 +57,7 @@ def write_ai_prompts(
     out_dir          : output folder (e.g. Output/THOR_Feb-Mar_2026/)
     char_name        : e.g. "THOR"
     clip_count       : number of clips in the batch
-    date_range       : human-readable date range, e.g. "Feb–Mar 2026"
+    date_range       : human-readable date range, e.g. "Feb to Mar 2026"
     ko_tiers         : {tier: count} for kills detected in this batch
     description_path : Path to the written *_description.txt (for reference)
     out_stem         : slug used for the output filename, e.g. "THOR_Feb-Mar_2026"
@@ -105,7 +105,7 @@ def write_ai_prompts(
         f"\n"
         f"Format: <CHARACTER> <CAPS TAGLINE> ⚡ <subtitle> (<date range>)\n"
         f"Examples:\n"
-        f"  THOR OVERLOAD ⚡ Back-to-Back Multikills (Feb–Mar 2026)\n"
+        f"  THOR OVERLOAD ⚡ Back-to-Back Multikills (Feb to Mar 2026)\n"
         f"  THOR AWAKENS ⚡ Multikill Highlights (Feb 2026)\n"
         f"\n"
         f"Return 3 title options. Keep each under 80 characters.\n"
@@ -128,7 +128,7 @@ def write_ai_prompts(
         f"Format: starts with a hype phrase, ends with 'in Marvel Rivals' "
         f"or a reference to the game. Include emojis throughout.\n"
         f"Example: ⚡ The storm answers only to the worthy - Mjolnir unleashed, "
-        f"lightning combos, and relentless Thor multikills across Feb–Mar 2026 "
+        f"lightning combos, and relentless Thor multikills across Feb to Mar 2026"
         f"in Marvel Rivals 🔥⚡\n"
         f"\n"
         f"Return 3 options.\n"
