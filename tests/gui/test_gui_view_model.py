@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 import clip_cache
+import clip_names
 import config
 from gui import build_info, fixtures, view_model
 from gui.sources import FixtureSource, RealSource
@@ -499,6 +500,17 @@ def test_parse_clip_name_keeps_multi_word_character_and_ignores_suffix():
 def test_parse_clip_name_is_none_for_unreadable_or_invalid_names():
     assert view_model.parse_clip_name("random.mp4") is None
     assert view_model.parse_clip_name("THOR_2026-13-40_00-00-00.mp4") is None
+
+
+def test_parse_clip_name_takes_a_spaced_mixed_case_character_as_the_sorter_does():
+    parsed = view_model.parse_clip_name("SQUIRREL GIRL_2026-03-13_21-51-02.mp4")
+    assert parsed is not None and parsed["character"] == "SQUIRREL_GIRL"
+    assert parsed is not None and parsed["captured"] == datetime(2026, 3, 13, 21, 51, 2)
+
+
+def test_parse_clip_name_character_is_whatever_the_sorter_extracts():
+    parsed = view_model.parse_clip_name("Thor_2026-11-18_00-42-48.mp4")
+    assert parsed is not None and parsed["character"] == clip_names.extract_character("Thor_2026-11-18_00-42-48")
 
 
 def test_unsorted_row_carries_character_date_and_time_from_its_name():

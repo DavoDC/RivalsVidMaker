@@ -9,6 +9,7 @@ import re
 import zlib
 from datetime import datetime
 
+import clip_names
 from gui import build_info, timefmt
 
 SCHEMA = 1
@@ -60,22 +61,28 @@ def _recognised(clip: dict) -> bool:
     return bool(clip.get("recognised", True))
 
 
-_CLIP_NAME = re.compile(r"^(?P<char>[A-Z0-9_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_(?P<time>\d{2}-\d{2}-\d{2})")
+_CAPTURED = re.compile(r"_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})")
 
 
 def parse_clip_name(name) -> dict | None:
     """Character and capture time from a clip file name such as THOR_2026-11-18_00-42-48.mp4.
 
-    Anything may follow the time (e.g. _TRIPLE). None when the name has no such shape or the date is invalid.
+    The character comes from clip_names.extract_character, the same rule Sort files by, so a spaced name such as
+    "SQUIRREL GIRL_2026-03-13_21-51-02.mp4" reads as SQUIRREL_GIRL. Anything may follow the time (e.g. _TRIPLE).
+    None when Sort cannot read the character, the date and time are missing, or the date is invalid.
     """
-    match = _CLIP_NAME.match(str(name or ""))
-    if match is None:
+    stem = str(name or "")
+    if stem.lower().endswith(".mp4"):
+        stem = stem[:-4]
+    character = clip_names.extract_character(stem)
+    match = _CAPTURED.search(stem)
+    if character is None or match is None:
         return None
     try:
-        captured = datetime.strptime(f"{match['date']}_{match['time']}", "%Y-%m-%d_%H-%M-%S")
+        captured = datetime.strptime(f"{match[1]}_{match[2]}", "%Y-%m-%d_%H-%M-%S")
     except ValueError:
         return None
-    return {"character": match["char"], "captured": captured}
+    return {"character": character, "captured": captured}
 
 
 def _capture_fields(name) -> dict:
