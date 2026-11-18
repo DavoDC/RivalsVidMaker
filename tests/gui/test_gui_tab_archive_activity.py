@@ -225,8 +225,9 @@ def test_activity_without_a_summary_renders_no_summary_line(summary):
     assert f'<div style="color:{tokens.TEXT_DIM};">' not in html
 
 
-def test_activity_log_path_becomes_a_file_link(tmp_path):
-    log = tmp_path / "gui_2026-11-17.log"
+def test_activity_log_path_links_to_the_app_route(tmp_path):
+    log = tmp_path / "data" / "logs" / "gui_2026-11-18.log"
+    log.parent.mkdir(parents=True)
     log.write_text("", encoding="utf-8")
 
     def change(data):
@@ -234,8 +235,17 @@ def test_activity_log_path_becomes_a_file_link(tmp_path):
                              "log_path": str(log)}]
     jobs = view_model.snapshot(_Source("empty", change))["activity"]["jobs"]
     html = activity.table_html(jobs)
-    assert 'href="file:///' in html
+    assert 'href="/log/gui_2026-11-18.log"' in html
+    assert 'target="_blank"' in html
     assert "Open log" in html
+    assert "file:" not in html
+
+
+def test_log_cell_without_a_day_log_name_shows_the_name_and_no_link(tmp_path):
+    cell = activity._log_cell(str(tmp_path / "notes.txt"))
+    assert "<a " not in cell
+    assert "notes.txt" in cell
+    assert "file:" not in cell
 
 
 def test_result_word_is_regular_weight_and_failed_keeps_the_error_colour():

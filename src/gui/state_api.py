@@ -11,9 +11,11 @@ Nothing here writes to the library or starts a job.
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import time
 from collections import deque
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
@@ -133,6 +135,22 @@ def register(app: FastAPI, source, clock=time.monotonic, sink=None) -> StateApi:
     app.add_api_route("/state/{tab}.json", state_tab, methods=["GET"])
     app.add_api_route("/__log", log_relay, methods=["POST"])
     return api
+
+
+LOG_NAME = re.compile(r"gui_\d{4}-\d{2}-\d{2}\.log")
+
+
+def register_log(app: FastAPI, log_dir: Path) -> None:
+    """GET /log/<name>: one day's job log as plain text. Only gui_<date>.log files in log_dir are served."""
+
+    def log_file(name: str):
+        path = log_dir / name
+        if not LOG_NAME.fullmatch(name) or not path.is_file():
+            return _json({"error": "no such log"}, 404)
+        text = path.read_text(encoding="utf-8", errors="replace")
+        return Response(content=text, media_type="text/plain; charset=utf-8", headers=NO_STORE)
+
+    app.add_api_route("/log/{name}", log_file, methods=["GET"])
 
 
 def register_quit(app: FastAPI, runner, shutdown) -> None:

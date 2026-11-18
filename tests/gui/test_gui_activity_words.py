@@ -70,10 +70,10 @@ def test_started_and_ended_cells_are_short_nowrap_with_the_full_stamp_as_title()
 
 
 def test_log_cell_is_nowrap(tmp_path):
-    log = tmp_path / "gui.log"
+    log = tmp_path / "gui_2026-11-18.log"
     log.write_text("", encoding="utf-8")
     html = activity.table_html([_job(log_path=str(log))])
-    cell = re.search(r'<td style="([^"]*)"><a href="file:', html)
+    cell = re.search(r'<td style="([^"]*)"><a href="/log/', html)
     assert cell and "white-space:nowrap;" in cell.group(1)
 
 

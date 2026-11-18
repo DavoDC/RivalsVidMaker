@@ -255,3 +255,48 @@ def test_fixture_scenarios_all_serve_state_json():
         res = client.get("/state.json")
         assert res.status_code == 200, name
         assert res.json()["fixture"] == name
+
+
+LOG_DAY = "gui_2026-11-18.log"
+
+
+def make_log_client(log_dir):
+    app = FastAPI()
+    state_api.register_log(app, log_dir)
+    guarded = security.LoopbackGuard(app, lambda: PORT)
+    return TestClient(guarded, base_url=f"http://{GOOD_HOST}")
+
+
+def test_log_route_serves_the_day_log_as_plain_text(tmp_path):
+    text = "first line\nsecond line é\n"
+    (tmp_path / LOG_DAY).write_text(text, encoding="utf-8")
+    res = make_log_client(tmp_path).get(f"/log/{LOG_DAY}")
+    assert res.status_code == 200
+    assert res.text == text
+    assert res.headers["content-type"] == "text/plain; charset=utf-8"
+
+
+def test_log_route_404_for_a_day_log_that_is_missing(tmp_path):
+    assert make_log_client(tmp_path).get(f"/log/{LOG_DAY}").status_code == 404
+
+
+def test_log_route_never_serves_a_path_outside_the_log_folder(tmp_path):
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (tmp_path / "secret.log").write_text("SECRET", encoding="utf-8")
+    res = make_log_client(logs).get("/log/..%2Fsecret.log")
+    assert res.status_code == 404
+    assert "SECRET" not in res.text
+
+
+def test_log_route_404_for_a_file_that_is_not_a_day_log(tmp_path):
+    (tmp_path / "config.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "gui_x.log").write_text("x", encoding="utf-8")
+    client = make_log_client(tmp_path)
+    assert client.get("/log/config.json").status_code == 404
+    assert client.get("/log/gui_x.log").status_code == 404
+
+
+def test_serve_registers_the_log_route_beside_the_state_api():
+    text = MAIN_SRC.read_text(encoding="utf-8")
+    assert "state_api.register_log(app, launcher.log_path(root).parent)" in text

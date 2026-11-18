@@ -11,7 +11,7 @@ from pathlib import Path
 
 from nicegui import ui
 
-from gui import timefmt, tokens, view_model
+from gui import state_api, timefmt, tokens, view_model
 from gui.components import job_bar
 from gui.tabs import heading
 
@@ -72,11 +72,12 @@ def _result_cell(job: dict) -> str:
 def _log_cell(log_path) -> str:
     if not log_path:
         return f'<span style="color:{tokens.TEXT_DIM};">{NO_LOG}</span>'
-    try:
-        href = Path(str(log_path)).as_uri()
-    except ValueError:  # a relative path has no file URI; show its name without a link
-        return f'<span style="color:{tokens.TEXT_DIM};">{escape(Path(str(log_path)).name)}</span>'
-    return f'<a href="{escape(href, quote=True)}" style="color:{tokens.TEXT};">Open log</a>'
+    name = Path(str(log_path)).name
+    if not state_api.LOG_NAME.fullmatch(name):  # not a day log the app serves: name only, no link
+        return f'<span style="color:{tokens.TEXT_DIM};">{escape(name)}</span>'
+    href = f"/log/{name}"
+    return (f'<a href="{escape(href, quote=True)}" target="_blank" rel="noopener" '
+            f'style="color:{tokens.TEXT};">Open log</a>')
 
 
 def _time_cell(value) -> str:

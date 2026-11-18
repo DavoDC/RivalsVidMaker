@@ -158,6 +158,7 @@ def serve(args: argparse.Namespace) -> int:
 
     app.add_middleware(security.LoopbackGuard, port_fn=lambda: port)
     state_api.register(app, wired)
+    state_api.register_log(app, launcher.log_path(root).parent)
     state_api.register_quit(app, runner, app.shutdown)
     tray.start(port, is_busy=lambda: runner.busy, shutdown=app.shutdown,
                state_word=lambda: shell._header_from_source(wired)[0], fixture=args.fixture)
