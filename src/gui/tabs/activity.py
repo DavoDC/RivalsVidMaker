@@ -23,6 +23,7 @@ INTERRUPTED_NOTE = "The app stopped while this job was running."
 
 RESULT_WORDS = {"done": "Done", "failed": "Failed", "cancelled": "Cancelled",
                 "interrupted": "Interrupted", "running": "Running"}
+NO_LOG = "No log"
 
 _TABLE = (f"width:100%;border-collapse:collapse;font-size:{tokens.SIZE_UI}px;"
           f"font-variant-numeric:tabular-nums;")
@@ -59,7 +60,7 @@ def _result_cell(job: dict) -> str:
     result = str(job.get("result") or "")
     word = RESULT_WORDS.get(result, result.capitalize() or "-")
     colour = tokens.ERROR if result == "failed" else tokens.TEXT
-    parts = [f'<span style="color:{colour};font-weight:600;">{escape(word)}</span>']
+    parts = [f'<span style="color:{colour};">{escape(word)}</span>']
     if result == "interrupted":
         parts.append(f'<div style="color:{tokens.TEXT_DIM};">{escape(INTERRUPTED_NOTE)}</div>')
     summary = str(job.get("summary") or "").strip()
@@ -70,7 +71,7 @@ def _result_cell(job: dict) -> str:
 
 def _log_cell(log_path) -> str:
     if not log_path:
-        return f'<span style="color:{tokens.TEXT_DIM};">-</span>'
+        return f'<span style="color:{tokens.TEXT_DIM};">{NO_LOG}</span>'
     try:
         href = Path(str(log_path)).as_uri()
     except ValueError:  # a relative path has no file URI; show its name without a link

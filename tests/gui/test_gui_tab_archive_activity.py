@@ -238,6 +238,19 @@ def test_activity_log_path_becomes_a_file_link(tmp_path):
     assert "Open log" in html
 
 
+def test_result_word_is_regular_weight_and_failed_keeps_the_error_colour():
+    done = activity._result_cell({"result": "done"})
+    failed = activity._result_cell({"result": "failed"})
+    assert "font-weight:600" not in done
+    assert f"color:{tokens.ERROR};" in failed
+
+
+def test_log_cell_without_a_log_reads_no_log_not_a_dash():
+    html = activity._log_cell(None)
+    assert "No log" in html
+    assert ">-<" not in html
+
+
 def test_activity_empty_copy_names_the_next_action():
     html, _props, _n = _render(activity.build, FixtureSource("empty"))
     assert activity.EMPTY_COPY in html
