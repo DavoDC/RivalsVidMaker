@@ -4,7 +4,8 @@
 Launcher verbs (--launch, --stop, --check, --status, --preflight) run in the caller's process and
 return an exit code. Without one of them the module serves the GUI: state routes, the loopback
 guard, the page shell and, unless --no-watch, the hot-reload watcher. Subcommands verify and capture
-take their own flags and are handed the rest of argv; ui_check is still a stub.
+take their own flags and are handed the rest of argv; shot prints one tab in one state as a PNG;
+ui_check is still a stub.
 
 The page shell is imported lazily (gui.shell), so the launcher verbs run before it exists.
 """
@@ -19,7 +20,7 @@ import config as engine_config
 from gui import hot_reload, icon, jobs, launcher, security
 from gui.sources import FixtureSource, RealSource
 
-CHECK_COMMANDS = ("verify", "capture")
+CHECK_COMMANDS = ("verify", "capture", "shot")
 STUB_COMMANDS = ("ui_check",)
 
 
@@ -118,6 +119,9 @@ def _check_verb(name: str, rest: list[str]) -> int:
     if name == "verify":
         from gui import verify
         return verify.main(rest)
+    if name == "shot":
+        from gui import shot
+        return shot.main(rest)
     from gui import capture
     return capture.main(rest)
 
