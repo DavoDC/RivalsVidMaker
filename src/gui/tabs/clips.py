@@ -90,7 +90,7 @@ def _best(tiers: dict) -> str | None:
 def _best_cell(tiers: dict) -> str:
     tier = _best(tiers)
     if tier is None:
-        return f'<span style="color:{tokens.TEXT_DIM};">-</span>'
+        return ""
     return tier_chip.chip_html(tier)
 
 

@@ -291,14 +291,19 @@ def test_table_and_root_list_fill_their_column():
     assert "width:100%" in clips._root_html(view_model.snapshot(FixtureSource("fresh_intake"))["clips"]["unsorted"])
 
 
-def test_table_best_is_a_dim_dash_when_no_quad_or_better():
+def test_best_cell_is_empty_without_a_tier():
+    assert clips._best_cell({}) == ""
+
+
+def test_table_best_is_empty_when_no_quad_or_better():
     row = {"testid": "clip-char-x-000002", "name": "SQUIRREL GIRL", "clips": 12, "minutes": 7.0833,
            "scanned": 10, "unscanned": 2, "tiers": {"KO": 9, "DOUBLE": 2}}
     html = clips.table_html([row])
     assert ">7:05</td>" in html
     assert ">10 of 12</td>" in html
     assert "None" not in html and "data-tier" not in html
-    assert f'color:{tokens.TEXT_DIM};">-</span>' in html
+    assert ">-</span>" not in html
+    assert f'<td style="{clips._TD}"></td></tr>' in html
 
 
 def test_table_shows_display_names_not_folder_names(monkeypatch, tmp_path):
