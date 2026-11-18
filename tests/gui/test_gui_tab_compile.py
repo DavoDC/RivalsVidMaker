@@ -391,6 +391,13 @@ def test_empty_state_lists_closest_characters_as_progress():
     assert view_model.testid("compile-closest", "SQUIRREL GIRL") in props
 
 
+def test_closest_name_cells_sit_in_a_fixed_width_box():
+    source = _with_characters([_clip_row("SQUIRREL GIRL", 1350), _clip_row("BLACK WIDOW", 400),
+                               _clip_row("IRON MAN", 540), _clip_row("HULK", 60)])
+    html, _props, _labels, _buttons = _render(compile_tab.build, source)
+    assert html.count("width:220px;flex:none;") == 3
+
+
 def test_no_closest_list_when_there_are_no_clips():
     _html, props, labels, _buttons = _render(compile_tab.build, FixtureSource("empty"))
     assert not any(text.endswith(f"of {compile_tab.READY_MINUTES}:00") for text in labels)

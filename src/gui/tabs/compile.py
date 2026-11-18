@@ -17,6 +17,7 @@ from gui.tabs import heading
 
 PAINTS_ROWS = True
 
+NAME_COL = 220          # the near-ready name cell's fixed width, so the time labels and bars line up across rows
 READY_MINUTES = 10      # a character is ready with one batch of this much clip time (config min_batch_seconds)
 DEFAULT_MINUTES = 15    # the default video length, about fifteen minutes (DESIGN.md section 7)
 LENGTH_MINUTES = (10, 15, 20)
@@ -75,7 +76,7 @@ def _closest_row(folder: str, seconds: int) -> None:
     """One near-ready character: its avatar and name, then its progress as M:SS of the ready length."""
     tid = view_model.testid("compile-closest", folder)
     with ui.row().props(f"data-testid={tid}").style(_ROW + "gap:16px;align-items:center;width:100%;flex-wrap:wrap;"):
-        ui.html(avatars.name_cell_html(folder))
+        ui.html(f'<div style="width:{NAME_COL}px;flex:none;">' + avatars.name_cell_html(folder) + '</div>')
         ui.label(f"{timefmt.duration(seconds)} of {READY_MINUTES}:00").style(_UI + _NUM + f"color:{tokens.TEXT_DIM};")
         ui.html(progress_bar_html(seconds))
 
