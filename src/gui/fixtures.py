@@ -237,6 +237,7 @@ SCENARIOS = {
         activity=[activity("compile", "Encode THOR batch 1", "interrupted"),
                   activity("uncompile", "Uncompile thor_vid2", "interrupted")],
     ),
+    "near_ready": _scenario("near_ready", characters=[_SQUIRREL, _WIDOW]),
 }
 
 DESCRIPTIONS = {
@@ -256,6 +257,7 @@ DESCRIPTIONS = {
     "config_broken": "start-up checks report missing tools",
     "busy_refused": "a request was refused because a job is already running",
     "interrupted": "past jobs ended as interrupted",
+    "near_ready": "characters with clips but none ready to compile",
 }
 
 

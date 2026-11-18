@@ -18,11 +18,11 @@ from gui.sources import FixtureSource, RealSource, Source
 
 SRC_FILE = Path(sources.__file__).resolve()
 
-# Section 11 scenario names, in the order the design lists them.
+# Section 11 scenario names, in the order the design lists them, then near_ready (the Compile closest-list fixture).
 SECTION_11 = [
     "empty", "fresh_intake", "needs_decision", "ready", "plan", "scanning",
     "encoding", "upload_failed", "awaiting_live", "cleanup_plan", "huge_archive",
-    "long_names", "stale", "config_broken", "busy_refused", "interrupted",
+    "long_names", "stale", "config_broken", "busy_refused", "interrupted", "near_ready",
 ]
 
 REQUIRED_KEYS = {
@@ -127,7 +127,7 @@ def _strings(value):
 
 def test_fixture_catalogue_matches_section_11():
     assert set(fixtures.SCENARIOS) == set(SECTION_11)
-    assert len(SECTION_11) == 16
+    assert len(SECTION_11) == 17
 
 
 @pytest.mark.parametrize("name", SECTION_11)
