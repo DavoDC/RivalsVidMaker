@@ -5,7 +5,8 @@ toast and goes back to its tab. A refused, busy or failed action shows its text 
 and changes nothing. A plan made on the compile or videos tab is held here under the nonce the
 bridge issued; held_plans() returns it so WiredSource can add it to the snapshot.
 
-FixtureActions is the stand-in for a --fixture run: every key toasts that nothing is written.
+FixtureActions is the stand-in for a --fixture run: every key toasts that nothing is written, except
+that Sort clips and Scan for KOs start a short fake job on the runner when one is given.
 This module must not import the engine (tests/gui/test_gui_seam.py), so the cleanup fates are
 named by their string values, which cleanup.py defines.
 """
@@ -292,14 +293,41 @@ class Actions:
         _refresh("/tab/videos")
 
 
+FAKE_STEP_SECONDS = 1.0
+
+
+def fake_job(ctx, unit: str, phase: str):
+    """A fixture run's stand-in job: three paced steps, then a summary. It touches no clip, config or library file."""
+    for i in range(1, 4):
+        ctx.progress(i, 3, unit, phase)
+        if ctx.wait_cancelled(FAKE_STEP_SECONDS):
+            return
+    ctx.summary("Fixture run: nothing was changed.")
+
+
 class FixtureActions:
     """Stand-in for a --fixture run: every key toasts that nothing is written and never calls the bridge."""
+
+    def __init__(self, runner=None):
+        self.runner = runner
 
     def held_plans(self) -> dict:
         return {}
 
     def for_tab(self, tab: str) -> dict:
-        return {name: self._stand_in for name in TAB_ACTIONS[tab]}
+        table = {name: self._stand_in for name in TAB_ACTIONS[tab]}
+        if tab == "clips" and self.runner is not None:
+            table["sort"] = _guarded(self._fake_sort)
+            table["scan"] = _guarded(self._fake_scan)
+        return table
+
+    def _fake_sort(self) -> None:
+        self.runner.start("sort", "Sort clips", fake_job, unit="clips", phase="sorting")
+        _toast("Sorting clips.")
+
+    def _fake_scan(self) -> None:
+        self.runner.start("scan", "Scan clips", fake_job, unit="clips", phase="scanning")
+        _toast("Scanning for KOs.")
 
     def _stand_in(self, *_args, **_kwargs) -> None:
         _toast(FIXTURE_TEXT, "info")

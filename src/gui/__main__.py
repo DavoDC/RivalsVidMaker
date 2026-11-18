@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import sys
+import tempfile
 from pathlib import Path
 
 import config as engine_config
@@ -78,7 +79,7 @@ def _make_actions(runner, config, fixture):
     """A fixture run gets the stand-in that writes nothing; a real run gets the bridge-backed actions."""
     from gui import wiring
     if fixture:
-        return wiring.FixtureActions()
+        return wiring.FixtureActions(runner)
     return wiring.Actions(runner, config)
 
 
@@ -145,7 +146,9 @@ def serve(args: argparse.Namespace) -> int:
     config, source = load_source(args, root)
     state_dir = root / "data" / "gui"
     state_dir.mkdir(parents=True, exist_ok=True)
-    runner = jobs.JobRunner(state_dir / "jobs.json", log_path=launcher.log_path(root))
+    # A fixture run keeps its job history in a temp folder, so data/gui/jobs.json is never written by it.
+    history = state_dir / "jobs.json" if not args.fixture else Path(tempfile.mkdtemp(prefix="rvm-fixture-")) / "jobs.json"
+    runner = jobs.JobRunner(history, log_path=launcher.log_path(root))
     actions = _make_actions(runner, config, args.fixture)
     wired = WiredSource(source, runner, actions)
     port = args.port

@@ -41,7 +41,7 @@ Five tabs in lifecycle order. The tab key is the deep link (`/tab/<key>`).
 | `archive` | Archive | Which Quad and better clips are kept for a best-of |
 | `activity` | Activity | What ran, whether it worked, where its log is |
 
-Header on every tab, one row spanning the content column: "RivalsVidMaker" on the left; pushed to the right end, a state dot and word, then Quit. The state word comes from the snapshot's `job`: Idle when there is none, otherwise the job's phase word with its percent ("Encoding 33%"), Error after a failed job until the next start; the dot takes `working` while a job runs and `error` after a failure. It is announced to screen readers. Footer: fixed bottom left on every tab, showing the short sha and commit time (`<sha> <h:mmam>`, with `+dirty` last when tracked files changed); the full build line and start time are on hover. A FIXTURE banner shows in fixture mode.
+Header on every tab, one row spanning the content column: "RivalsVidMaker" on the left; pushed to the right end, a state dot and word, then Quit. The state word comes from the snapshot's `job`: Idle when there is none, otherwise the job's phase word with its percent ("Encoding 33%"), Error after a failed job until the next start; the dot takes `working` while a job runs and `error` after a failure. It is announced to screen readers. Footer: fixed bottom left on every tab, showing the short sha and commit time (`<sha> <h:mmam>`, with `+dirty` last when tracked files changed); the full build line and start time are on hover. A FIXTURE banner shows in fixture mode. In a fixture run, Sort clips and Scan for KOs play a three-second fake job, so the job states can be seen; nothing on disk changes.
 
 ## 5. Display-state vocabulary
 

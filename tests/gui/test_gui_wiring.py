@@ -5,6 +5,7 @@ call and returns plans built by hand under tmp_path; gui.wiring.ui is replaced b
 records toasts and navigations. The real bridge.Refused and jobs.Busy classes are used so the
 error texts are the ones the page shows.
 """
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -513,6 +514,57 @@ def test_fixture_stand_in_toasts_every_key_and_never_calls_the_bridge(monkeypatc
     assert {text for text, _kind in fake_ui.notes} == {"Fixture: nothing is written."}
     assert fake_ui.paths == []
     assert stand_in.held_plans() == {}
+
+
+def _finished_job(runner, timeout=2.0):
+    """The newest history record once it has left running, or {} if none finishes in time."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        records = runner.history()
+        if records and records[0]["state"] != jobs.RUNNING:
+            return records[0]
+        time.sleep(0.01)
+    return {}
+
+
+def test_fixture_sort_plays_a_fake_job_on_the_runner_and_never_calls_the_bridge(monkeypatch, fake_ui, tmp_path):
+    class ForbiddenBridge:
+        def __getattr__(self, name):
+            raise AssertionError(f"bridge.{name} was called from a fixture run")
+
+    monkeypatch.setattr(wiring, "bridge", ForbiddenBridge())
+    monkeypatch.setattr(wiring, "FAKE_STEP_SECONDS", 0)
+    runner = jobs.JobRunner(tmp_path / "jobs.json")
+    wiring.FixtureActions(runner).for_tab("clips")["sort"]()
+    record = _finished_job(runner)
+    assert record.get("kind") == "sort"
+    assert record.get("state") == jobs.DONE
+    assert record.get("summary") == "Fixture run: nothing was changed."
+    assert fake_ui.notes == [("Sorting clips.", "positive")]
+
+
+def test_fixture_scan_plays_a_fake_job_on_the_runner_and_toasts_the_scan_line(monkeypatch, fake_ui, tmp_path):
+    monkeypatch.setattr(wiring, "FAKE_STEP_SECONDS", 0)
+    runner = jobs.JobRunner(tmp_path / "jobs.json")
+    wiring.FixtureActions(runner).for_tab("clips")["scan"]()
+    record = _finished_job(runner)
+    assert record.get("kind") == "scan"
+    assert record.get("state") == jobs.DONE
+    assert fake_ui.notes == [("Scanning for KOs.", "positive")]
+
+
+def test_fixture_actions_without_a_runner_toast_only_and_start_nothing(fake_ui):
+    stand_in = wiring.FixtureActions().for_tab("clips")
+    stand_in["sort"]()
+    stand_in["scan"]()
+    assert fake_ui.notes == [(wiring.FIXTURE_TEXT, "info"), (wiring.FIXTURE_TEXT, "info")]
+
+
+def test_make_actions_hands_the_runner_to_the_fixture_stand_in(config, tmp_path):
+    runner = jobs.JobRunner(tmp_path / "jobs.json")
+    actions = gui_main._make_actions(runner, config, "fresh_intake")
+    assert isinstance(actions, wiring.FixtureActions)
+    assert actions.runner is runner
 
 
 def test_every_tab_has_exactly_the_keys_the_tabs_call(actions):
