@@ -461,3 +461,9 @@ def test_unsorted_rows_flag_names_clip_sorter_can_read(tmp_path):
     rows = {r["name"]: r for r in sources._unsorted(cfg)}
     assert rows["THOR_2026-11-01_10-00-00.mp4"]["recognised"] is True
     assert rows["random.mp4"]["recognised"] is False
+
+
+def test_every_fixture_scenario_has_a_one_line_description():
+    assert set(fixtures.DESCRIPTIONS) == set(fixtures.SCENARIOS)
+    for name, text in fixtures.DESCRIPTIONS.items():
+        assert text.strip() and "\n" not in text, name

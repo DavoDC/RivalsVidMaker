@@ -239,6 +239,25 @@ SCENARIOS = {
     ),
 }
 
+DESCRIPTIONS = {
+    "empty": "no clips, characters or output folders yet",
+    "fresh_intake": "unsorted clips waiting to be sorted",
+    "needs_decision": "a low-value clip needs a keep or recycle decision",
+    "ready": "characters ready to compile and one finished output folder",
+    "plan": "a compile plan is held for review",
+    "scanning": "a scan job is running over two characters",
+    "encoding": "an encode job is running with an ETA",
+    "upload_failed": "an upload failed on an expired sign-in",
+    "awaiting_live": "an upload is done and waits for the video to go live",
+    "cleanup_plan": "a cleanup plan is running after a live upload",
+    "huge_archive": "an archive with thousands of groups",
+    "long_names": "a very long character name stress-tests the layout",
+    "stale": "the snapshot is old and marked stale",
+    "config_broken": "start-up checks report missing tools",
+    "busy_refused": "a request was refused because a job is already running",
+    "interrupted": "past jobs ended as interrupted",
+}
+
 
 def scenario(name: str) -> dict:
     """A deep copy of one scenario. Raises KeyError for an unknown name."""

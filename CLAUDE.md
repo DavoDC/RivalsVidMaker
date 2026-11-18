@@ -60,6 +60,7 @@ PYTHONPATH=src python -m gui --check           # print the running build and boo
 PYTHONPATH=src python -m gui --status          # say whether something listens on the port
 PYTHONPATH=src python -m gui --preflight       # run the start-up checks and print them
 PYTHONPATH=src python -m gui --fixture NAME    # serve a canned fixture instead of the real library
+PYTHONPATH=src python -m gui --list-fixtures   # print each fixture name and what it shows
 PYTHONPATH=src python -m gui verify            # tests, painted-state check, captures of every tab
 PYTHONPATH=src python -m gui capture           # screenshots of every tab (data/captures, gitignored)
 ```

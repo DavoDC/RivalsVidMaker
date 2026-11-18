@@ -31,6 +31,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--check", action="store_true", help="print the running build and boot id")
     p.add_argument("--status", action="store_true", help="say whether something listens on the port")
     p.add_argument("--preflight", action="store_true", help="run the start-up checks and print them")
+    p.add_argument("--list-fixtures", action="store_true", help="print each fixture scenario and its description")
     p.add_argument("--no-watch", action="store_true", help="turn hot reload off")
     p.add_argument("--no-browser", action="store_true", help="do not open a browser on launch")
     p.add_argument("--no-dialog", action="store_true", help="no message box on a windowless failure")
@@ -97,6 +98,14 @@ def make_page_handler(source, runner, builder=None, actions=None):
         return build(source, runner, tab, actions)
 
     return handler
+
+
+def list_fixtures() -> int:
+    from gui import fixtures
+    width = max(len(name) for name in fixtures.SCENARIOS)
+    for name in fixtures.SCENARIOS:
+        _say(f"{name.ljust(width)}  {fixtures.DESCRIPTIONS[name]}")
+    return 0
 
 
 def _stub(name: str) -> int:
@@ -171,6 +180,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.command in STUB_COMMANDS:
         return _stub(args.command)
+    if args.list_fixtures:
+        return list_fixtures()
     if args.preflight:
         return launcher.run_preflight(args.port, config_path=args.config)
     if args.stop:

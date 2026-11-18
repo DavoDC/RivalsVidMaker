@@ -425,3 +425,12 @@ def test_restart_env_var_carries_this_apps_prefix():
 def test_no_gui_source_file_uses_the_old_env_prefix():
     offenders = [str(path) for path in (REPO / "src" / "gui").rglob("*.py") if "AM_GUI" in path.read_text(encoding="utf-8")]
     assert offenders == []
+
+
+def test_list_fixtures_prints_every_scenario_with_its_description(capsys):
+    from gui import fixtures
+    assert gui_main.main(["--list-fixtures"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == len(fixtures.SCENARIOS)
+    for name in fixtures.SCENARIOS:
+        assert any(line.split()[0] == name and fixtures.DESCRIPTIONS[name] in line for line in lines), name
