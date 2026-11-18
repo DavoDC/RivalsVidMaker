@@ -217,6 +217,11 @@ def test_shared_css_header_is_one_row_with_the_state_pushed_right():
     assert ".rvm-header{display:flex;align-items:center;justify-content:space-between;" in theme.HEAD_CSS
 
 
+def test_shared_css_keeps_button_text_in_sentence_case():
+    # Quasar upper-cases .q-btn text by default; DESIGN.md section 8 wants sentence case
+    assert "@layer theme{.q-btn{text-transform:none !important;}}" in theme.HEAD_CSS
+
+
 # ---- ui_check: painted testids against the state rows, both ways ----
 
 def _state(character_ids, folder_ids):
