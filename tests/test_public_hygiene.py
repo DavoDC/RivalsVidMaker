@@ -34,7 +34,7 @@ def _tracked_scan_files() -> list[str]:
     if shutil.which("git") is None:
         pytest.skip("git is not available")
     try:
-        out = subprocess.run(
+        out = subprocess.run(  # window-ok: test-time git call, never runs in the GUI
             ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
         ).stdout
     except (OSError, subprocess.CalledProcessError):
@@ -63,7 +63,7 @@ def test_no_tracked_runtime_data():
     if shutil.which("git") is None:
         pytest.skip("git is not available")
     try:
-        out = subprocess.run(
+        out = subprocess.run(  # window-ok: test-time git call, never runs in the GUI
             ["git", "ls-files", "data"], cwd=ROOT, capture_output=True, text=True, check=True
         ).stdout
     except (OSError, subprocess.CalledProcessError):
