@@ -15,7 +15,7 @@ import time
 import webbrowser
 from pathlib import Path
 
-from gui import hot_reload, icon, launcher
+from gui import hot_reload, icon, last_tab, launcher
 
 LOCK_NAME = "Local" + chr(92) + "RivalsVidMakerTray"
 LOCK_RETRY_SECONDS = 8.0
@@ -74,8 +74,10 @@ def _acquire_with_retry(name: str = LOCK_NAME, seconds: float = LOCK_RETRY_SECON
         time.sleep(LOCK_RETRY_STEP_SECONDS)
 
 
-def app_url(port: int) -> str:
-    return f"http://127.0.0.1:{port}/"
+def app_url(port: int, tab: str | None = None) -> str:
+    if tab is None:
+        return f"http://127.0.0.1:{port}/"
+    return f"http://127.0.0.1:{port}/?tab={tab}"
 
 
 def open_once(url: str, opener=None, clock=time.monotonic) -> bool:
@@ -136,7 +138,7 @@ def menu_action(cb):
 def menu_items(port: int, quit_cb) -> list:
     """The visible menu as (label, callback) pairs: Open, Reload, Quit."""
     return [
-        (OPEN_LABEL, lambda: open_once(app_url(port))),
+        (OPEN_LABEL, lambda: open_once(app_url(port, last_tab.get()))),
         (RELOAD_LABEL, lambda: request_reload()),
         (QUIT_LABEL, quit_cb),
     ]
@@ -145,7 +147,7 @@ def menu_items(port: int, quit_cb) -> list:
 def build_menu_items(pystray, port: int, quit_cb) -> list:
     """pystray MenuItems: the three visible items, then a hidden default so a double left click opens."""
     items = [pystray.MenuItem(label, menu_action(cb)) for label, cb in menu_items(port, quit_cb)]
-    double = make_double_click_handler(lambda: app_url(port))
+    double = make_double_click_handler(lambda: app_url(port, last_tab.get()))
     items.append(pystray.MenuItem("", menu_action(double), default=True, visible=False))
     return items
 

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from gui import tray
+from gui import last_tab, tray
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MAIN_SRC = REPO_ROOT / "src" / "gui" / "__main__.py"
@@ -40,6 +40,13 @@ def _reset_open_debounce(monkeypatch):
     monkeypatch.setattr(tray, "_last_open", None)
 
 
+@pytest.fixture(autouse=True)
+def _fresh_last_tab():
+    last_tab.reset()
+    yield
+    last_tab.reset()
+
+
 def test_enabled_is_false_for_a_fixture_and_for_env_zero(monkeypatch):
     monkeypatch.setenv("RVM_GUI_TRAY", "1")
     assert tray.enabled(None) is True
@@ -57,6 +64,33 @@ def test_menu_labels_are_open_reload_quit_and_never_stop():
 
 def test_app_url_is_loopback_with_the_port():
     assert tray.app_url(8765) == "http://127.0.0.1:8765/"
+
+
+def test_app_url_with_a_tab_adds_the_tab_query():
+    assert tray.app_url(8000, "videos") == "http://127.0.0.1:8000/?tab=videos"
+    assert tray.app_url(8000) == "http://127.0.0.1:8000/"
+
+
+def test_open_item_opens_the_remembered_tab_at_click_time(monkeypatch):
+    opened = []
+    monkeypatch.setattr(tray, "open_once", lambda url, **kw: opened.append(url))
+    open_cb = tray.menu_items(8000, lambda: None)[0][1]
+    last_tab.remember("videos")
+    open_cb()
+    last_tab.reset()
+    open_cb()
+    assert opened == ["http://127.0.0.1:8000/?tab=videos", "http://127.0.0.1:8000/"]
+
+
+def test_double_click_item_opens_the_remembered_tab_at_click_time(monkeypatch):
+    opened = []
+    monkeypatch.setattr(tray, "open_once", lambda url, **kw: opened.append(url))
+    items = tray.build_menu_items(FAKE_PYSTRAY, 8000, lambda: None)
+    default = [item for item in items if item.kwargs.get("default") is True][0]
+    last_tab.remember("archive")
+    default.action(None, None)  # first click only arms
+    default.action(None, None)  # second click, back to back, lands inside the 0.75 s window
+    assert opened == ["http://127.0.0.1:8000/?tab=archive"]
 
 
 def test_open_once_opens_once_for_two_calls_0_2_seconds_apart():

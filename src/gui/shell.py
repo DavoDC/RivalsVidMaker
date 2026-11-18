@@ -16,7 +16,7 @@ from collections.abc import Callable
 
 from nicegui import ui
 
-from gui import build_info, chrome, jobs, tabdefs, tokens, view_model
+from gui import build_info, chrome, jobs, last_tab, tabdefs, tokens, view_model
 
 _log = logging.getLogger("rvm.gui")
 ACTION_TABS = ("clips", "compile", "videos")  # the tabs whose build() takes an actions dict
@@ -146,6 +146,7 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
     archive and activity, and every tab when actions is None, are built with build(source).
     """
     active = initial_tab if initial_tab in tabdefs.KEYS else tabdefs.DEFAULT
+    last_tab.remember(active)
     overrides = builders or {}
     if state_word is None:
         state_word, state_kind = _header_from_source(source)
@@ -187,6 +188,7 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
         def show(key: str) -> None:
             nonlocal current
             current = key
+            last_tab.remember(key)
             for k, panel in panels.items():
                 panel.set_visibility(k == key)
             for k, button in buttons.items():
