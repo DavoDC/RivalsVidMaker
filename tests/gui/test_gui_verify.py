@@ -91,7 +91,7 @@ def test_scanner_ignores_words_that_only_contain_a_forbidden_string():
 # ---- DOM checks applied to each visit -------------------------------------------------------
 
 GOOD_DOM = ('<html><div id="error-banner" hidden></div>'
-            '<div data-testid="build-line">RivalsVidMaker abc1234 17/11/2026</div>'
+            '<div data-testid="build-line">abc1234 9:36am</div>'
             '<button data-testid="nav-clips" aria-selected="true">Clips</button>'
             '<section data-testid="tab-clips" data-content-len="42"></section>'
             '<div data-hscroll="no"></div></html>')
@@ -102,8 +102,13 @@ def test_clean_visit_has_no_problems():
 
 
 def test_visit_without_a_build_line_fails():
-    dom = GOOD_DOM.replace("RivalsVidMaker abc1234 17/11/2026", "")
+    dom = GOOD_DOM.replace("abc1234 9:36am", "")
     assert any("build line" in p for p in capture.verify_dom("clips", dom, "", 1440, None))
+
+
+def test_build_line_must_start_with_a_seven_character_sha():
+    old_style = GOOD_DOM.replace("abc1234 9:36am", "RivalsVidMaker abc1234 17/11/2026")
+    assert any("build line" in p for p in capture.verify_dom("clips", old_style, "", 1440, None))
 
 
 def test_visit_with_an_empty_tab_fails():

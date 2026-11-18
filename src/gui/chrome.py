@@ -132,14 +132,12 @@ def header_html(state_word: str = "Idle", state_kind: str = "idle") -> str:
     )
 
 
-def footer_html(line: str, started_at, updated_seconds) -> str:
-    """Build line, start time and time since the last state update, as separate fields."""
-    updated = "not updated yet" if updated_seconds is None else f"updated {timefmt.ago(updated_seconds)}"
+def footer_html(short: str, line: str, started_at) -> str:
+    """Short sha and build time on the page; the full build line and start time on hover (title)."""
+    hover = f"{line}; Started {timefmt.stamp(started_at)}"
     return (
-        '<footer class="rvm-footer" data-testid="build-footer">'
-        f'<span data-testid="build-line">{html.escape(line)}</span>'
-        f'<span data-testid="started-at">Started {html.escape(timefmt.stamp(started_at))}</span>'
-        f'<span data-testid="updated-ago">{html.escape(updated)}</span>'
+        f'<footer class="rvm-footer" data-testid="build-footer" title="{html.escape(hover, quote=True)}">'
+        f'<span data-testid="build-line">{html.escape(short)}</span>'
         '</footer>'
     )
 
@@ -153,12 +151,12 @@ def fixture_banner_html(scenario: str | None) -> str:
 
 
 def body_html(state_word: str = "Idle", state_kind: str = "idle", fixture: str | None = None,
-              started_at=None, updated_seconds=None) -> str:
+              started_at=None) -> str:
     """Error banner, header, FIXTURE strip and footer, in one string."""
     started = build_info.STARTED_AT if started_at is None else started_at
     return (
         '<div id="error-banner" role="alert" data-testid="error-banner" hidden></div>'
         + header_html(state_word, state_kind)
         + fixture_banner_html(fixture)
-        + footer_html(build_info.line(), started, updated_seconds)
+        + footer_html(build_info.short(), build_info.line(), started)
     )

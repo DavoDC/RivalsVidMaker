@@ -128,33 +128,50 @@ def test_debug_forcestatus_writes_the_header_state():
     assert "rvm-dot" in chrome.DEBUG_JS
 
 
-def test_footer_contains_build_info_line():
-    html = chrome.footer_html(build_info.line(), STARTED, 180)
-    assert build_info.line() in html
+SHORT = "5e92be3 9:36am"
+FULL = "RivalsVidMaker 5e92be3 17/11/2026"
 
 
-def test_footer_shows_start_time_with_display_stamp():
-    html = chrome.footer_html("RivalsVidMaker abc1234 17/11/2026", STARTED, 180)
-    assert timefmt.stamp(STARTED) in html
-    assert "17/11/2026 2:14pm" in html
+def _visible_text(html):
+    return re.sub(r'title="[^"]*"', "", html)
 
 
-def test_footer_shows_relative_update_age():
-    assert "updated 3m ago" in chrome.footer_html("line", STARTED, 180)
+def test_footer_shows_only_the_short_sha_and_time():
+    html = chrome.footer_html(SHORT, FULL, STARTED)
+    assert '<span data-testid="build-line">5e92be3 9:36am</span>' in html
 
 
-def test_footer_without_an_update_yet_says_so():
-    assert "not updated yet" in chrome.footer_html("line", STARTED, None)
+def test_footer_visible_text_has_no_start_time_or_update_age():
+    visible = _visible_text(chrome.footer_html(SHORT, FULL, STARTED))
+    assert "Started" not in visible
+    assert "updated-ago" not in visible
+    assert "started-at" not in visible
 
 
-def test_footer_joins_fields_without_middle_dot():
-    assert MIDDLE_DOT not in chrome.footer_html("line", STARTED, 180)
+def test_footer_title_carries_the_full_line_and_the_start_time():
+    title = re.search(r'title="([^"]*)"', chrome.footer_html(SHORT, FULL, STARTED)).group(1)
+    assert FULL in title
+    assert f"Started {timefmt.stamp(STARTED)}" in title
 
 
-def test_footer_escapes_the_line():
-    html = chrome.footer_html("<b>x</b>", STARTED, 0)
+def test_footer_keeps_its_test_ids_and_is_a_footer():
+    html = chrome.footer_html(SHORT, FULL, STARTED)
+    assert html.startswith('<footer class="rvm-footer" data-testid="build-footer"')
+    assert 'data-testid="build-line"' in html
+
+
+def test_footer_escapes_the_line_in_its_title():
+    html = chrome.footer_html("x", "<b>x</b>", STARTED)
     assert "<b>x</b>" not in html
     assert "&lt;b&gt;" in html
+
+
+def test_footer_css_is_fixed_bottom_left_above_every_tab():
+    assert ".rvm-footer{position:fixed;left:24px;bottom:8px;z-index:8000;" in theme.HEAD_HTML
+
+
+def test_body_reserves_room_under_the_fixed_footer():
+    assert re.search(r"body\{[^}]*padding-bottom:32px", theme.HEAD_HTML)
 
 
 def test_fixture_banner_absent_outside_fixture_mode():
@@ -186,10 +203,10 @@ def test_header_state_kind_is_carried_as_data_attribute():
 
 
 def test_body_html_has_error_banner_and_footer():
-    html = chrome.body_html("Idle", "idle", None, STARTED, 5)
+    html = chrome.body_html("Idle", "idle", None, STARTED)
     assert 'id="error-banner"' in html
     assert 'data-testid="build-footer"' in html
-    assert "updated 5s ago" in html
+    assert "updated" not in _visible_text(html)
 
 
 def test_chrome_and_theme_have_no_hex_colour_literal():

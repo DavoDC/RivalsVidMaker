@@ -48,7 +48,7 @@ PHONE_MAX = 500
 CHROME_CANDIDATES = (r"C:\Program Files\Google\Chrome\Application\chrome.exe",
                      r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe")
 
-BUILD_RE = re.compile(r'<[^>]*data-testid="build-line"[^>]*>\s*RivalsVidMaker\s+\S+')
+BUILD_RE = re.compile(r'<[^>]*data-testid="build-line"[^>]*>\s*[0-9a-f]{7}\b')
 _FORBIDDEN_TEXT = (re.compile(r"\bundefined\b"), re.compile(r"\bNaN\b"),
                    re.compile(r"Traceback"), re.compile(r"\[app-error\]"))
 

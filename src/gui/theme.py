@@ -9,7 +9,7 @@ from gui import tokens
 _CSS = """
   :root{color-scheme:dark;}
   html,body{background:@@GROUND@@;color:@@TEXT@@;margin:0;}
-  body{font-family:@@FONT_STACK@@;font-size:@@SIZE_BODY@@px;line-height:1.4;}
+  body{font-family:@@FONT_STACK@@;font-size:@@SIZE_BODY@@px;line-height:1.4;padding-bottom:@@SPACE_32@@px;}
   .num{font-variant-numeric: tabular-nums;}
   .rvm-dim{color:@@TEXT_DIM@@;}
   @layer theme{.q-btn.disabled,.q-btn[disabled]{opacity:0.6 !important;}}
@@ -39,8 +39,8 @@ _CSS = """
     padding:@@SPACE_8@@px @@SPACE_16@@px;font-size:@@SIZE_UI@@px;}
   #fixture-banner{background:@@PANEL@@;color:@@TEXT@@;font-size:@@SIZE_FINE@@px;padding:@@SPACE_4@@px @@SPACE_16@@px;
     border-bottom:1px solid @@LINE@@;}
-  .rvm-footer{display:flex;flex-wrap:wrap;gap:@@SPACE_16@@px;padding:@@SPACE_8@@px @@SPACE_24@@px;
-    border-top:1px solid @@LINE@@;font-size:@@SIZE_FINE@@px;color:@@TEXT_DIM@@;}
+  .rvm-footer{position:fixed;left:@@SPACE_24@@px;bottom:@@SPACE_8@@px;z-index:8000;white-space:nowrap;
+    font-size:@@SIZE_FINE@@px;color:@@TEXT_DIM@@;}
   .nicegui-content{padding:0 !important;gap:0 !important;}
   table{width:100%;}
   table th,table td{padding-left:@@SPACE_12@@px !important;padding-right:@@SPACE_12@@px !important;}

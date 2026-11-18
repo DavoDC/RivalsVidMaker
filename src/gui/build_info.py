@@ -30,24 +30,33 @@ def _git(root: Path, runner, *args: str) -> str | None:
     return out.stdout if out.returncode == 0 else None
 
 
+def _clock(dt: datetime) -> str:
+    """Commit time as h:mmam or h:mmpm, lower case, no leading zero (9:36am, 12:05pm)."""
+    return dt.strftime("%I:%M%p").lstrip("0").lower()
+
+
 def _describe(root: Path, runner) -> dict:
     sha = "unknown"
     date = "unknown"
+    time = "unknown"
     dirty = False
     head = _git(root, runner, "log", "-1", "--format=%H %cI")
     if head and len(head.split()) == 2:
         full, iso = head.split()
         try:
-            # Commit date in the machine's local zone, shown as DD/MM/YYYY.
-            date = datetime.fromisoformat(iso).astimezone().strftime("%d/%m/%Y")
+            # Commit date and time in the machine's local zone: DD/MM/YYYY and h:mmam.
+            local = datetime.fromisoformat(iso).astimezone()
+            date = local.strftime("%d/%m/%Y")
+            time = _clock(local)
             sha = full[:7]
         except (ValueError, OverflowError):
             date = "unknown"
+            time = "unknown"
             sha = full[:7]
         # Tracked files only; untracked logs and caches must not read as a dirty build.
         status = _git(root, runner, "status", "--porcelain", "--untracked-files=no")
         dirty = bool(status and status.strip())
-    return {"sha": sha, "date": date, "dirty": dirty}
+    return {"sha": sha, "date": date, "time": time, "dirty": dirty}
 
 
 def describe(repo_root: Path | None = None, runner=None, refresh: bool = False) -> dict:
@@ -65,6 +74,17 @@ def line(info: dict | None = None) -> str:
     text = f"{REPO_NAME} {info['sha']} {info['date']}"
     if info["sha"] == "unknown":
         text = f"{REPO_NAME} unknown"
+    if info["dirty"]:
+        text += " +dirty"
+    return text
+
+
+def short(info: dict | None = None) -> str:
+    """Footer text: <7 char sha> <h:mmam commit time>, with ' +dirty' last when tracked files changed."""
+    info = info or describe()
+    if info["sha"] == "unknown":
+        return "unknown"
+    text = f"{info['sha']} {info['time']}"
     if info["dirty"]:
         text += " +dirty"
     return text

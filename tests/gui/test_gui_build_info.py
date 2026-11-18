@@ -32,6 +32,28 @@ class FakeGit:
         return subprocess.CompletedProcess(cmd, 1, "", "")
 
 
+def _clock_of_commit():
+    dt = datetime.fromisoformat(COMMIT_ISO).astimezone()
+    return f"{dt.hour % 12 or 12}:{dt.minute:02d}{'am' if dt.hour < 12 else 'pm'}"
+
+
+def test_describe_has_the_commit_time_as_h_mm_am_pm():
+    info = build_info.describe(runner=FakeGit(), refresh=True)
+    assert info["time"] == _clock_of_commit()
+
+
+def test_short_is_the_sha_and_commit_time_with_dirty_marker_last():
+    info = build_info.describe(runner=FakeGit(), refresh=True)
+    assert build_info.short(info) == f"0123456 {_clock_of_commit()}"
+    dirty = build_info.describe(runner=FakeGit(status_out=" M src/gui/x.py\n"), refresh=True)
+    assert build_info.short(dirty) == f"0123456 {_clock_of_commit()} +dirty"
+
+
+def test_short_is_unknown_outside_a_checkout():
+    info = build_info.describe(runner=FakeGit(fail=True), refresh=True)
+    assert build_info.short(info) == "unknown"
+
+
 def test_line_is_repo_short_sha_and_commit_date():
     fake = FakeGit()
     info = build_info.describe(runner=fake, refresh=True)

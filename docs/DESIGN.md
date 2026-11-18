@@ -41,7 +41,7 @@ Five tabs in lifecycle order. The tab key is the deep link (`/tab/<key>`).
 | `archive` | Archive | Which Quad and better clips are kept for a best-of |
 | `activity` | Activity | What ran, whether it worked, where its log is |
 
-Header on every tab, one row spanning the content column: "RivalsVidMaker" on the left; pushed to the right end, a state dot and word, then Quit. The state word comes from the snapshot's `job`: Idle when there is none, otherwise the job's phase word with its percent ("Encoding 33%"), Error after a failed job until the next start; the dot takes `working` while a job runs and `error` after a failure. It is announced to screen readers. Footer: build line (`RivalsVidMaker <sha> <date> +dirty`), start time, "updated Ns ago", and a FIXTURE banner in fixture mode.
+Header on every tab, one row spanning the content column: "RivalsVidMaker" on the left; pushed to the right end, a state dot and word, then Quit. The state word comes from the snapshot's `job`: Idle when there is none, otherwise the job's phase word with its percent ("Encoding 33%"), Error after a failed job until the next start; the dot takes `working` while a job runs and `error` after a failure. It is announced to screen readers. Footer: fixed bottom left on every tab, showing the short sha and commit time (`<sha> <h:mmam>`, with `+dirty` last when tracked files changed); the full build line and start time are on hover. A FIXTURE banner shows in fixture mode.
 
 ## 5. Display-state vocabulary
 
@@ -104,11 +104,11 @@ Tabs use tablist and tabpanel roles. Icon buttons have labels. Focus ring is a v
 
 ## 11. Layout
 
-Desktop only, minimum width 1024 px, base text 16 px so it reads at browser 100%. One content column, width 100% up to 1280 px, centred, 24 px side gutters: the header, fixture banner, tab strip, panel and footer all share its edges, and their rules run its full width. The header title sits 12 px from the top, not 60. Tables fill the column with 12 px horizontal cell padding and numbers right aligned. At 1440 the Clips tab shows the character table and the decision panel side by side; at 1024 the panel moves under the table. There is no phone layout: the app runs beside the game on the same Windows machine.
+Desktop only, minimum width 1024 px, base text 16 px so it reads at browser 100%. One content column, width 100% up to 1280 px, centred, 24 px side gutters: the header, fixture banner, tab strip, panel and footer all share its edges, and their rules run its full width. The header title sits 12 px from the top, not 60. The footer is fixed to the bottom left of the window on every tab, and the page keeps 32 px of room under it so the last table row is never hidden. Tables fill the column with 12 px horizontal cell padding and numbers right aligned. At 1440 the Clips tab shows the character table and the decision panel side by side; at 1024 the panel moves under the table. There is no phone layout: the app runs beside the game on the same Windows machine.
 
 ## 12. Timestamps and numbers
 
-Dates `DD/MM/YYYY`, times `h:mmam/pm`, durations `m:ss` (or `h:mm:ss` past an hour), sizes in KB under 1 MB, MB with one decimal, GB with one decimal from 1 GB. Relative times ("3m ago") only in the footer and Activity, with the absolute time on hover.
+Dates `DD/MM/YYYY`, times `h:mmam/pm`, durations `m:ss` (or `h:mm:ss` past an hour), sizes in KB under 1 MB, MB with one decimal, GB with one decimal from 1 GB. Relative times ("3m ago") only in Activity, with the absolute time on hover.
 
 ## 13. Driving the UI as Claude
 

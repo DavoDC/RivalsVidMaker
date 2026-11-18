@@ -131,7 +131,7 @@ def _register_repaint(repaint: Callable[[], None]) -> None:
 
 
 def build_page(source, *, initial_tab: str | None = None, state_word: str | None = None,
-               state_kind: str | None = None, updated_seconds: float | None = None,
+               state_kind: str | None = None,
                builders: dict[str, Callable] | None = None,
                actions: Callable[[str], dict] | None = None) -> None:
     """Paint the whole page for one source.
@@ -140,7 +140,6 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
     initial_tab: the ?tab= value; anything not in tabdefs.KEYS opens the default tab.
     state_word, state_kind: the header state word and dot kind (chrome.header_html). Left None, both come
     from header_state() on the same snapshot the page paints: the running job, else a failed last job.
-    updated_seconds: seconds since the last state update for the footer; None shows "not updated yet".
     builders: optional {key: build(source)} overriding tabs/<key>.py; used by tests.
     actions: optional key -> action dict. clips, compile and videos are built with build(source, actions(key));
     archive and activity, and every tab when actions is None, are built with build(source).
@@ -229,7 +228,7 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
         _register_repaint(repaint)
         paint(active)
 
-        ui.html(chrome.footer_html(build_info.line(), build_info.STARTED_AT, updated_seconds))
+        ui.html(chrome.footer_html(build_info.short(), build_info.line(), build_info.STARTED_AT))
 
         if job_signature(source) is not None:  # only a page with a job runner can go stale
             poller = Poller(lambda: job_signature(source), repaint)
