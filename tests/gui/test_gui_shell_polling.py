@@ -252,3 +252,74 @@ def test_a_page_with_a_job_runner_starts_one_timer():
 
 def test_a_page_without_a_job_runner_starts_no_timer():
     assert _timers_on_page(None) == 0
+
+
+# ---- finish toasts ----
+
+RUNNING_B2 = ("b2", "running", 3, None, None)
+FINISHED_B2 = (None, None, None, "b2", "done")
+
+
+def test_a_done_sort_toasts_the_past_tense_verb():
+    record = {"id": "b2", "kind": "sort", "title": "Sort clips", "state": "done"}
+    assert shell.finish_toast(RUNNING_B2, FINISHED_B2, record) == ("Sorted clips.", "positive")
+
+
+def test_a_running_to_done_change_on_the_same_history_id_toasts():
+    record = {"id": "b2", "kind": "compile", "title": "Compile video", "state": "done"}
+    assert shell.finish_toast(RUNNING_B2, FINISHED_B2, record) == ("Compiled video.", "positive")
+
+
+def test_an_unchanged_newest_id_and_state_toasts_nothing():
+    record = {"id": "b2", "kind": "compile", "title": "Compile video", "state": "done"}
+    assert shell.finish_toast(FINISHED_B2, FINISHED_B2, record) is None
+
+
+def test_a_failed_job_toasts_its_title_and_error():
+    record = {"id": "b2", "kind": "compile", "title": "Compile video", "state": "failed",
+              "error": "disk full"}
+    sig = (None, None, None, "b2", "failed")
+    assert shell.finish_toast(RUNNING_B2, sig, record) == ("Compile video failed: disk full", "negative")
+
+
+def test_a_failed_job_with_no_error_toasts_the_title_alone():
+    record = {"id": "b2", "kind": "compile", "title": "Compile video", "state": "failed", "error": ""}
+    sig = (None, None, None, "b2", "failed")
+    assert shell.finish_toast(RUNNING_B2, sig, record) == ("Compile video failed.", "negative")
+
+
+def test_a_cancelled_job_toasts_info():
+    record = {"id": "b2", "kind": "scan", "title": "Scan clips", "state": "cancelled"}
+    sig = (None, None, None, "b2", "cancelled")
+    assert shell.finish_toast(RUNNING_B2, sig, record) == ("Scan clips was cancelled.", "info")
+
+
+def test_a_recycle_clip_toasts_the_clip_name_without_the_verb_prefix():
+    record = {"id": "b2", "kind": "recycle_clip", "title": "Recycle THOR_2026-11-18_00-42-48.mp4",
+              "state": "done"}
+    assert shell.finish_toast(RUNNING_B2, FINISHED_B2, record) == (
+        'Recycled "THOR_2026-11-18_00-42-48.mp4".', "positive")
+
+
+def test_a_record_whose_id_does_not_match_the_newest_id_toasts_nothing():
+    record = {"id": "zz9", "kind": "compile", "title": "Compile video", "state": "done"}
+    assert shell.finish_toast(RUNNING_B2, FINISHED_B2, record) is None
+
+
+def test_poller_calls_on_change_once_on_a_structural_change_only():
+    calls = []
+    state = {"sig": (None, None, None, None, None)}
+    clock = Clock()
+    poller = shell.Poller(lambda: state["sig"], lambda: None, clock,
+                          on_change=lambda old, new: calls.append((old, new)))
+    state["sig"] = ("b2", "running", 0, None, None)
+    assert poller.tick() is True
+    assert calls == [((None, None, None, None, None), ("b2", "running", 0, None, None))]
+    clock.now += 0.5
+    state["sig"] = ("b2", "running", 1, None, None)  # progress only: no structural change
+    assert poller.tick() is False
+    assert len(calls) == 1
+    clock.now += 1.0
+    state["sig"] = (None, None, None, "b2", "done")
+    assert poller.tick() is True
+    assert len(calls) == 2

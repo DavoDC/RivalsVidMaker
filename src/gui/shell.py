@@ -49,16 +49,55 @@ def _structure(sig: tuple) -> tuple:
     return (sig[0], sig[1], sig[3], sig[4])
 
 
+PAST = {  # the past-tense verb a finished job toasts (docs/DESIGN.md section 8)
+    "sort": "Sorted clips.", "scan": "Scanned for KOs.", "compile": "Compiled video.",
+    "upload": "Uploaded to YouTube.", "cleanup": "Cleaned up.", "uncompile": "Restored clips.",
+    "sign_in": "Signed in to YouTube.",
+}
+
+
+def finish_toast(prev: tuple | None, sig: tuple | None, record: dict | None) -> tuple[str, str] | None:
+    """The toast for a job that just finished, failed or was cancelled, else None.
+
+    prev, sig: job signatures before and after the change. record: the newest history record.
+    Only a new newest history id or state toasts, and only when the record is that same job.
+    """
+    if prev is None or sig is None or sig[3] is None:
+        return None
+    if (sig[3], sig[4]) == (prev[3], prev[4]):
+        return None
+    state = sig[4]
+    if state not in (jobs.DONE, jobs.FAILED, jobs.CANCELLED):
+        return None
+    if not record or record.get("id") != sig[3]:
+        return None
+    kind = record.get("kind")
+    title = record.get("title") or ""
+    if state == jobs.DONE:
+        if kind == "recycle_clip":
+            name = title[len("Recycle "):] if title.startswith("Recycle ") else title
+            return f'Recycled "{name}".', "positive"
+        if kind in PAST:
+            return PAST[kind], "positive"
+        return f"{title} finished.", "positive"
+    if state == jobs.FAILED:
+        error = record.get("error") or ""
+        return (f"{title} failed: {error}" if error else f"{title} failed."), "negative"
+    return f"{title} was cancelled.", "info"
+
+
 class Poller:
     """Repaints when the job signature changes. A start, finish or failure repaints on the next
     tick; a progress-only change repaints at most once per REPAINT_SECONDS. The signature is
     re-read on every tick, so a held-back change lands on a later tick without another change."""
 
     def __init__(self, signature_fn: Callable[[], tuple], repaint_fn: Callable[[], None],
-                 clock: Callable[[], float] | None = None):
+                 clock: Callable[[], float] | None = None,
+                 on_change: Callable[[tuple, tuple], None] | None = None):
         self._signature_fn = signature_fn
         self._repaint_fn = repaint_fn
         self._clock = clock
+        self._on_change = on_change
         self._last = signature_fn()  # the page was painted from this signature
         self._last_paint: float | None = None
 
@@ -75,6 +114,8 @@ class Poller:
         due = self._last_paint is None or now - self._last_paint >= REPAINT_SECONDS
         if not (structural or due):
             return False
+        if structural and self._on_change is not None:
+            self._on_change(self._last, sig)
         self._last = sig
         self._last_paint = now
         self._repaint_fn()
@@ -120,6 +161,21 @@ def _sync_url(key: str) -> None:
         ui.run_javascript(f"history.replaceState(null,'','/?tab={key}');")
     except RuntimeError:  # no client connected (for example during a simulated test run)
         pass
+
+
+def _finish_notifier(source) -> Callable[[tuple, tuple], None]:
+    """Poller on_change: toast a finished job. No client (a unit test) means no toast."""
+    def on_change(prev: tuple, sig: tuple) -> None:
+        history = source.runner.history()
+        toast = finish_toast(prev, sig, history[0] if history else None)
+        if toast is None:
+            return
+        text, kind = toast
+        try:
+            ui.notify(text, type=kind)
+        except RuntimeError:  # no client connected (for example during a simulated test run)
+            pass
+    return on_change
 
 
 def _register_repaint(repaint: Callable[[], None]) -> None:
@@ -231,5 +287,5 @@ def build_page(source, *, initial_tab: str | None = None, state_word: str | None
         ui.html(chrome.footer_html(build_info.short(), build_info.line(), build_info.STARTED_AT))
 
         if job_signature(source) is not None:  # only a page with a job runner can go stale
-            poller = Poller(lambda: job_signature(source), repaint)
+            poller = Poller(lambda: job_signature(source), repaint, on_change=_finish_notifier(source))
             ui.timer(POLL_SECONDS, poller.tick)
