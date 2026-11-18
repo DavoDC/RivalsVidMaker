@@ -187,14 +187,9 @@ def build(source, actions=None) -> None:
     state = view_model.snapshot(source)
     clips_state = state["clips"]
     job = state["job"]
-    heading("Clips")
     busy = job is not None
-    with ui.row().style("justify-content:space-between;align-items:flex-start;width:100%;gap:16px;flex-wrap:wrap;"):
-        with ui.column().style("gap:4px;"):
-            ui.label(summary_text(state["summary"])).style(_BODY)
-            if busy:
-                ui.label(f'Busy: "{job.get("title") or "a job"}"').style(
-                    f"font-size:{tokens.SIZE_UI}px;color:{tokens.TEXT_DIM};")
+    with ui.row().style("justify-content:space-between;align-items:center;width:100%;gap:16px;flex-wrap:wrap;"):
+        heading("Clips")
         with ui.row().style("align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;"):
             sort = ui.button("Sort clips", on_click=lambda: _call(actions, "sort")).props("no-caps outline")
             scan = ui.button("Scan for KOs", on_click=lambda: _call(actions, "scan")).props("no-caps outline")
@@ -202,6 +197,11 @@ def build(source, actions=None) -> None:
                 button.mark(marker).classes("rvm-button").style(_FADED if busy else "")
                 if busy:
                     button.props("disable")
+    with ui.column().style("gap:4px;"):
+        ui.label(summary_text(state["summary"])).style(_BODY)
+        if busy:
+            ui.label(f'Busy: "{job.get("title") or "a job"}"').style(
+                f"font-size:{tokens.SIZE_UI}px;color:{tokens.TEXT_DIM};")
     with ui.element("div").classes("rvm-clips").style(_LAYOUT_ROW):
         with ui.column().classes("rvm-clips-main").style(_LAYOUT_MAIN + "gap:8px;"):
             characters = clips_state["characters"]

@@ -201,13 +201,21 @@ def test_decision_button_row_does_not_wrap():
     assert line._style.get("flex-wrap") == "nowrap"
 
 
-def test_summary_and_buttons_share_one_space_between_row():
+def test_heading_and_buttons_share_one_space_between_row_above_the_summary():
     elements = _page_elements(clips.build, FixtureSource("needs_decision"))
     sort = next(e for e in elements if isinstance(e, ui.button) and e.text == "Sort clips")
     bar = sort.parent_slot.parent.parent_slot.parent
     assert "space-between" in str(bar._style)
     texts = {e.text for e in bar.descendants() if isinstance(e, ui.label)}
-    assert summary_text_for("needs_decision") in texts
+    assert "Clips" in texts
+    assert summary_text_for("needs_decision") not in texts
+
+
+def test_sort_clips_comes_before_the_summary_label_in_the_page_order():
+    elements = _page_elements(clips.build, FixtureSource("needs_decision"))
+    sort = next(e for e in elements if isinstance(e, ui.button) and e.text == "Sort clips")
+    summary = next(e for e in elements if isinstance(e, ui.label) and e.text == summary_text_for("needs_decision"))
+    assert elements.index(sort) < elements.index(summary)
 
 
 def summary_text_for(scenario):
