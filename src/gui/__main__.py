@@ -166,8 +166,8 @@ def serve(args: argparse.Namespace) -> int:
     handler = make_page_handler(wired, runner, actions=actions)
 
     @ui.page("/")
-    def index():
-        handler(tab=None)
+    def index(tab: str | None = None):  # ?tab= deep link (the tray opens /?tab=<last tab>)
+        handler(tab=tab)
 
     @ui.page("/tab/{tab}")
     def tab_page(tab: str):
