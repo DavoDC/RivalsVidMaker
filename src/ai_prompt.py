@@ -128,7 +128,7 @@ def write_ai_prompts(
         f"Format: starts with a hype phrase, ends with 'in Marvel Rivals' "
         f"or a reference to the game. Include emojis throughout.\n"
         f"Example: ⚡ The storm answers only to the worthy - Mjolnir unleashed, "
-        f"lightning combos, and relentless Thor multikills across Feb to Mar 2026"
+        f"lightning combos, and relentless Thor multikills across Feb to Mar 2026 "
         f"in Marvel Rivals 🔥⚡\n"
         f"\n"
         f"Return 3 options.\n"
