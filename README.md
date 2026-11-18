@@ -28,6 +28,16 @@ Double-click `scripts/gui.bat` and the RivalsVidMaker window opens in your brows
 
 Prefer a terminal? `scripts/run.bat` opens an arrow-key menu with the same workflow.
 
+## What makes this difficult
+
+**Reading kill banners with no labelled data.** There is no game API and no labelled training set, so tier detection reads the banner straight off the video: sample frames, crop the banner region, clean the image up, OCR the tier with Tesseract, and use a cooldown state machine so one banner never counts twice. Method and ground truth: [docs/MULTIKILL_DETECTION.md](docs/MULTIKILL_DETECTION.md).
+
+**Skipping the encode entirely.** Compilation tools usually re-encode for compatibility. Marvel Rivals clips turn out to be uniform (H.264, 1920x1080, 120 fps, AAC), so they can be joined by stream copy, which removes the encoding bottleneck: seconds instead of 5 to 10 minutes.
+
+**A parallel pipeline that stays consistent.** FFmpeg frame extraction, Tesseract OCR and duplicate detection run across many clips at once while the per-clip cache and upload state stay coherent, so a re-run is near instant and nothing is uploaded twice.
+
+**Uploads that cannot go to the wrong place.** A full OAuth 2.0 flow with state tracking and retry, checked against your configured channel so a video never lands on the wrong account.
+
 ## Get started
 
 One-time setup takes about ten minutes (Python, Tesseract and your folder paths): see [docs/SETUP.md](docs/SETUP.md).
