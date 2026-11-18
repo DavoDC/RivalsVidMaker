@@ -2,6 +2,7 @@
 Tests for ai_prompt.py - AI prompt Markdown generator.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -107,6 +108,15 @@ class TestWriteAiPrompts:
             out_stem="STORM_Mar_2026",
         )
         assert new_dir.is_dir()
+
+    def test_no_year_glued_to_a_word(self, tmp_path):
+        """A comment edit once joined two f-string parts into '2026in Marvel Rivals'."""
+        text = _call_write(tmp_path).read_text()
+        assert re.search(r"\d{4}[A-Za-z]", text) is None
+
+    def test_example_keeps_its_space_after_the_year(self, tmp_path):
+        text = _call_write(tmp_path).read_text()
+        assert "across Feb to Mar 2026 in Marvel Rivals" in text
 
     def test_idempotent_second_call_overwrites(self, tmp_path):
         """Calling write_ai_prompts twice with the same inputs produces the same output."""
