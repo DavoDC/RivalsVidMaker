@@ -119,16 +119,32 @@ def table_html(rows: list[dict]) -> str:
 
 
 def _root_html(rows: list[dict]) -> str:
-    """The root list: one dim kept line above the rows when any row is protected, then each name (no quotes)
-    with its own unreadable note."""
-    items = []
+    """The root list as a table: character (avatar and display name), capture date, capture time. The file name
+    is hover text on each row. A row with no character shows its file name with the unreadable note and empty
+    date and time cells. One dim kept line leads the table when any row is protected."""
+    body = []
     for row in rows:
-        unreadable = "" if row.get("recognised", True) else f'<div style="color:{tokens.TEXT_DIM};">{UNREADABLE_NOTE}</div>'
-        items.append(f'<div data-testid="{row["testid"]}" style="{_ROW}">'
-                     f'<div>{escape(str(row.get("name") or ""))}</div>{unreadable}</div>')
+        name = escape(str(row.get("name") or ""))
+        if row.get("character"):
+            first = avatars.name_cell_html(str(row["character"]))
+            date = escape(str(row.get("date") or ""))
+            time = escape(str(row.get("time") or ""))
+        else:
+            first = f'<div>{name}</div><div style="color:{tokens.TEXT_DIM};">{UNREADABLE_NOTE}</div>'
+            date = time = ""
+        body.append(f'<tr data-testid="{row["testid"]}" title="{name}">'
+                    f'<td style="{_TD}">{first}</td>'
+                    f'<td style="{_TD}">{date}</td>'
+                    f'<td style="{_TD}">{time}</td>'
+                    "</tr>")
     kept = (f'<div style="color:{tokens.TEXT_DIM};padding-bottom:{tokens.SPACE_8}px;">{ROOT_NOTE}</div>'
             if any(row.get("protected") for row in rows) else "")
-    return '<div style="width:100%;">' + kept + "".join(items) + "</div>"
+    table = (f'<table style="{_TABLE}"><thead><tr>'
+             f'<th style="{_TH}">Character</th>'
+             f'<th style="{_TH}">Date</th>'
+             f'<th style="{_TH}">Time</th>'
+             "</tr></thead><tbody>" + "".join(body) + "</tbody></table>")
+    return '<div style="width:100%;">' + kept + table + "</div>"
 
 
 def _call(actions: dict, key: str, *args) -> None:

@@ -320,8 +320,10 @@ def test_root_list_marks_protected_rows_with_one_kept_line_above_the_rows():
 
 def test_root_list_kept_line_appears_once_for_two_protected_rows():
     rows = [
-        {"testid": "clip-root-a", "name": "THOR_a.mp4", "protected": True, "recognised": True},
-        {"testid": "clip-root-b", "name": "THOR_b.mp4", "protected": True, "recognised": True},
+        {"testid": "clip-root-a", "name": "THOR_2026-11-18_00-42-48.mp4", "protected": True, "recognised": True,
+         "character": "THOR", "date": "18/11/2026", "time": "12:42am"},
+        {"testid": "clip-root-b", "name": "THOR_2026-11-18_00-50-01.mp4", "protected": True, "recognised": True,
+         "character": "THOR", "date": "18/11/2026", "time": "12:50am"},
     ]
     html = clips._root_html(rows)
     assert html.count(clips.ROOT_NOTE) == 1
@@ -329,10 +331,11 @@ def test_root_list_kept_line_appears_once_for_two_protected_rows():
 
 
 def test_root_list_names_have_no_quotes_around_them():
-    rows = [{"testid": "clip-root-a", "name": "THOR_a.mp4", "protected": False, "recognised": True}]
+    rows = [{"testid": "clip-root-a", "name": "THOR_2026-11-18_00-42-48.mp4", "protected": False, "recognised": True,
+             "character": "THOR", "date": "18/11/2026", "time": "12:42am"}]
     html = clips._root_html(rows)
-    assert "THOR_a.mp4</div>" in html
-    assert '"THOR_a.mp4"' not in html and "&quot;THOR_a.mp4" not in html
+    assert "&quot;" not in html and ">&quot;" not in html and '>"' not in html
+    assert 'title="THOR_2026-11-18_00-42-48.mp4"' in html
 
 
 def test_decision_panel_is_absent_when_low_value_is_empty():
@@ -439,9 +442,12 @@ def test_summary_with_only_unrecognised_clips_is_just_that_sentence():
 
 def test_root_list_marks_unrecognised_rows_with_the_unreadable_note():
     rows = [
-        {"testid": "clip-root-x", "name": "random.mp4", "protected": False, "recognised": False},
-        {"testid": "clip-root-y", "name": "junk.mp4", "protected": True, "recognised": False},
-        {"testid": "clip-root-z", "name": "THOR_a.mp4", "protected": False, "recognised": True},
+        {"testid": "clip-root-x", "name": "random.mp4", "protected": False, "recognised": False,
+         "character": None, "date": None, "time": None},
+        {"testid": "clip-root-y", "name": "junk.mp4", "protected": True, "recognised": False,
+         "character": None, "date": None, "time": None},
+        {"testid": "clip-root-z", "name": "THOR_2026-11-18_00-42-48.mp4", "protected": False, "recognised": True,
+         "character": "THOR", "date": "18/11/2026", "time": "12:42am"},
     ]
     html = clips._root_html(rows)
     assert html.count(clips.UNREADABLE_NOTE) == 2
@@ -452,3 +458,56 @@ def test_root_list_marks_unrecognised_rows_with_the_unreadable_note():
     assert clips.UNREADABLE_NOTE in junk
     recognised = html.split('data-testid="clip-root-z"')[1]
     assert clips.UNREADABLE_NOTE not in recognised
+
+
+def _root_row(testid, name, **over):
+    row = {"testid": testid, "name": name, "protected": False, "recognised": True,
+           "character": "THOR", "date": "18/11/2026", "time": "12:42am"}
+    row.update(over)
+    return row
+
+
+def test_root_list_is_a_table_with_character_date_and_time_headers():
+    html = clips._root_html([_root_row("clip-root-a", "THOR_2026-11-18_00-42-48.mp4")])
+    assert "<table" in html
+    for head in ("Character", "Date", "Time"):
+        assert f">{head}</th>" in html
+
+
+def test_root_row_shows_avatar_name_capture_date_and_time_with_the_file_name_on_hover(monkeypatch, tmp_path):
+    monkeypatch.setattr(avatars, "ASSET_DIR", tmp_path)  # no local portraits: the initials badge shows
+    name = "THOR_2026-11-18_00-42-48.mp4"
+    html = clips._root_html([_root_row("clip-root-a", name)])
+    row = html.split('data-testid="clip-root-a"')[1].split("</tr>")[0]
+    assert avatars.name_cell_html("THOR") in row
+    assert ">18/11/2026</td>" in row
+    assert ">12:42am</td>" in row
+    assert f'title="{name}"' in row
+    assert html.count(name) == 1  # the raw file name is hover text only
+
+
+def test_root_row_without_a_character_shows_the_name_and_note_and_empty_date_and_time(monkeypatch, tmp_path):
+    monkeypatch.setattr(avatars, "ASSET_DIR", tmp_path)
+    html = clips._root_html([_root_row("clip-root-x", "random.mp4", recognised=False,
+                                       character=None, date=None, time=None)])
+    row = html.split('data-testid="clip-root-x"')[1].split("</tr>")[0]
+    cells = row.split("<td")[1:]
+    assert len(cells) == 3
+    assert ">random.mp4<" in cells[0] and clips.UNREADABLE_NOTE in cells[0]
+    for cell in cells[1:]:
+        assert cell.split(">", 1)[1].split("</td>")[0] == ""
+    assert 'title="random.mp4"' in row
+
+
+def test_root_list_escapes_the_file_name_in_the_cell_and_the_title():
+    name = '<b>x".mp4'
+    html = clips._root_html([_root_row("clip-root-q", name, recognised=False, character=None, date=None, time=None)])
+    assert "<b>x" not in html
+    assert 'title="&lt;b&gt;x&quot;.mp4"' in html
+
+
+def test_root_list_kept_line_sits_above_the_table_only_when_a_row_is_protected():
+    html = clips._root_html([_root_row("clip-root-a", "THOR_2026-11-18_00-42-48.mp4", protected=True)])
+    assert html.find(clips.ROOT_NOTE) != -1 and html.find(clips.ROOT_NOTE) < html.find("<table")
+    plain = clips._root_html([_root_row("clip-root-a", "THOR_2026-11-18_00-42-48.mp4")])
+    assert clips.ROOT_NOTE not in plain
