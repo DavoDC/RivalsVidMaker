@@ -105,6 +105,19 @@ def test_click_step_skips_settle_only_under_no_settle(monkeypatch, no_settle, se
     assert session.pumps == ([] if settled else [1.0])
 
 
+def test_eval_expression_awaits_a_returned_promise():
+    seen = []
+
+    class EvalSession:
+        def call(self, method, params=None):
+            seen.append((method, dict(params or {})))
+            return {"result": {"value": 200}}
+
+    assert shot.eval_expression(EvalSession(), "1") == 200
+    assert seen[0][0] == "Runtime.evaluate"
+    assert seen[0][1].get("awaitPromise") is True
+
+
 def test_shot_is_wired_in_main_like_capture(monkeypatch):
     seen = []
     monkeypatch.setattr(shot, "main", lambda argv: seen.append(list(argv)) or 0)

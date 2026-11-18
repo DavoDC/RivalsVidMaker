@@ -187,7 +187,7 @@ def settle(session, seen: list) -> None:
 
 def eval_expression(session, expression: str):
     """Evaluate `expression` in the page and return its value. A thrown error raises RuntimeError."""
-    res = session.call("Runtime.evaluate", {"expression": expression, "returnByValue": True})
+    res = session.call("Runtime.evaluate", {"expression": expression, "returnByValue": True, "awaitPromise": True})
     if "exceptionDetails" in res:
         details = res["exceptionDetails"]
         raise RuntimeError("eval threw: %s" % (details.get("exception", {}).get("description") or details.get("text", "")))
