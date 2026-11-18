@@ -39,6 +39,7 @@ _CSS = """
     padding:@@SPACE_8@@px @@SPACE_16@@px;font-size:@@SIZE_UI@@px;}
   #fixture-banner{background:@@PANEL@@;color:@@TEXT@@;font-size:@@SIZE_FINE@@px;padding:@@SPACE_4@@px @@SPACE_16@@px;
     border-bottom:1px solid @@LINE@@;}
+  .rvm-brand{display:flex;align-items:center;gap:@@SPACE_12@@px;}
   .rvm-footer{position:fixed;left:@@SPACE_24@@px;bottom:@@SPACE_8@@px;z-index:8000;white-space:nowrap;
     font-size:@@SIZE_FINE@@px;color:@@TEXT_DIM@@;}
   .nicegui-content{padding:0 !important;gap:0 !important;}

@@ -192,9 +192,21 @@ def test_header_has_title_live_state_and_quit():
     assert ">Quit<" in html
 
 
+def test_header_puts_the_app_mark_beside_the_title():
+    html = chrome.header_html("Idle", "idle")
+    assert 'class="rvm-brand"' in html
+    assert "rvm-mark" in html
+    assert "data:image/png" in html
+    assert html.index("rvm-mark") < html.index("<h1")
+
+
+def test_brand_row_is_a_flex_row_with_12px_gap():
+    assert ".rvm-brand{display:flex;align-items:center;gap:12px;}" in theme.HEAD_HTML
+
+
 def test_header_state_word_is_escaped():
     html = chrome.header_html("<img src=x>", "error")
-    assert "<img" not in html
+    assert "<img src=x>" not in html
     assert "&lt;img" in html
 
 

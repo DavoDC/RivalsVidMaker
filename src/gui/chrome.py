@@ -10,7 +10,7 @@ from __future__ import annotations
 import html
 import json
 
-from gui import build_info, security, theme, timefmt
+from gui import build_info, icon, security, theme, timefmt
 
 ERROR_JS = r"""
 (function(){
@@ -123,7 +123,9 @@ def header_html(state_word: str = "Idle", state_kind: str = "idle") -> str:
     kind = html.escape(state_kind)
     return (
         '<header class="rvm-header" data-testid="header">'
-        '<h1 class="rvm-title">RivalsVidMaker</h1>'
+        '<div class="rvm-brand">'
+        f'<img class="rvm-mark" src="{icon.data_url(64)}" alt="" aria-hidden="true" width="28" height="28">'
+        '<h1 class="rvm-title">RivalsVidMaker</h1></div>'
         '<div class="rvm-state">'
         f'<span id="rvm-dot" class="rvm-dot" data-kind="{kind}" aria-hidden="true"></span>'
         f'<span id="rvm-state" data-testid="state-word" aria-live="polite" data-kind="{kind}">{word}</span>'
