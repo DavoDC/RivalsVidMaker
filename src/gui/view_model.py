@@ -238,6 +238,8 @@ def snapshot(source, job: dict | None = None, plans: dict | None = None, history
                 "character": c.get("character"),
                 "tier_or_none": c.get("tier_or_none"),
                 "size_mb": c.get("size_mb"),
+                "date": _capture_fields(c.get("name"))["date"],
+                "time": _capture_fields(c.get("name"))["time"],
             } for c in data.get("low_value") or []],
         },
         "compile": _compile(plan_of["compile_plan"] if "compile_plan" in plan_of

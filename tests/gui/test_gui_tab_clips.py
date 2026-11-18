@@ -169,7 +169,7 @@ def test_idle_buttons_are_not_faded():
         assert "0.45" not in str(button._style)
 
 
-def test_decision_character_tier_and_buttons_share_one_row():
+def test_decision_tier_and_buttons_share_one_row():
     row = view_model.snapshot(FixtureSource("needs_decision"))["clips"]["low_value"][0]
     elements = _page_elements(clips.build, FixtureSource("needs_decision"))
     keep = next(e for e in elements if isinstance(e, ui.button) and e.text == "Keep")
@@ -177,9 +177,28 @@ def test_decision_character_tier_and_buttons_share_one_row():
     texts = {e.text for e in line.descendants() if isinstance(e, ui.label)}
     buttons = {e.text for e in line.descendants() if isinstance(e, ui.button)}
     assert buttons == {"Keep", "Recycle"}
-    assert row["character"] in texts
     assert (row.get("tier_or_none") or "No kill") in texts
     assert f'"{row["name"]}"' not in texts
+
+
+def test_decision_rows_have_no_quoted_file_name_label():
+    _html, _props, labels, _buttons = _render(clips.build, FixtureSource("needs_decision"))
+    assert not any(text.startswith('"') for text in labels)
+
+
+def test_decision_first_line_shows_avatar_name_capture_time_and_file_name_on_hover():
+    html, _props, _labels, _buttons = _render(clips.build, FixtureSource("needs_decision"))
+    name = "SQUIRREL_GIRL_2026-07-02_11-00-00.mp4"
+    assert avatars.name_cell_html("SQUIRREL GIRL") in html
+    assert "02/07/2026 11:00am" in html
+    assert f'title="{name}"' in html
+
+
+def test_decision_button_row_does_not_wrap():
+    elements = _page_elements(clips.build, FixtureSource("needs_decision"))
+    keep = next(e for e in elements if isinstance(e, ui.button) and e.text == "Keep")
+    line = keep.parent_slot.parent
+    assert line._style.get("flex-wrap") == "nowrap"
 
 
 def test_summary_and_buttons_share_one_space_between_row():

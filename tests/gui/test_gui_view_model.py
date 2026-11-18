@@ -527,3 +527,12 @@ def test_unsorted_row_without_a_readable_name_has_no_character_date_or_time():
     assert row.get("character", "absent") is None
     assert row.get("date", "absent") is None
     assert row.get("time", "absent") is None
+
+
+def test_low_value_row_carries_date_and_time_from_its_name():
+    low = [{"name": "SQUIRREL_GIRL_2026-07-02_11-00-00.mp4", "character": "SQUIRREL GIRL",
+            "tier_or_none": None, "size_mb": 4.2}]
+    row = view_model.snapshot(_Stub(_data(low_value=low)))["clips"]["low_value"][0]
+    assert row.get("date") == "02/07/2026"
+    assert row.get("time") == "11:00am"
+    assert row.get("character") == "SQUIRREL GIRL"

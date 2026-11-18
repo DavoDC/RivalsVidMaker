@@ -154,13 +154,21 @@ def _call(actions: dict, key: str, *args) -> None:
 
 
 def _decision_row(row: dict, actions: dict, busy: bool) -> None:
-    """Two lines: the quoted name, then character, tier and the Keep and Recycle buttons in one row."""
+    """Two lines: the character's name cell with the capture time (the file name is hover text), then the tier and
+    the Keep and Recycle buttons in one row that does not wrap. A row with no character shows its file name."""
     tier = row.get("tier_or_none")
     faded = _FADED if busy else ""
+    name = escape(str(row.get("name") or ""))
+    if row.get("character"):
+        when = " ".join(part for part in (row.get("date"), row.get("time")) if part)
+        span = f'<span style="color:{tokens.TEXT_DIM};">{escape(when)}</span>' if row.get("date") else ""
+        first = avatars.name_cell_html(str(row["character"])) + span
+    else:
+        first = f"<div>{name}</div>"
     with ui.column().props(f'data-testid={row["testid"]}').style(_ROW + "gap:4px;width:100%;"):
-        ui.label(f'"{row.get("name") or ""}"').style(f"font-size:{tokens.SIZE_UI}px;font-weight:600;")
-        with ui.row().style("gap:16px;align-items:center;width:100%;flex-wrap:wrap;"):
-            ui.label(str(row.get("character") or "")).style(_BODY)
+        ui.html(f'<div title="{name}" style="display:flex;align-items:center;gap:{tokens.SPACE_8}px;'
+                f'flex-wrap:wrap;">{first}</div>').style(f"font-size:{tokens.SIZE_UI}px;font-weight:600;")
+        with ui.row().style("gap:16px;align-items:center;width:100%;flex-wrap:nowrap;"):
             ui.label(str(tier) if tier else "No kill").style(f"font-size:{tokens.SIZE_UI}px;color:{tokens.TEXT};")
             keep = ui.button("Keep", on_click=lambda n=row.get("name"): _call(actions, "keep", n)) \
                 .props("no-caps outline").classes("rvm-button").mark(f"keep-{row['testid']}")
