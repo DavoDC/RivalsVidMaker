@@ -79,8 +79,8 @@ def _print_oauth_instructions(expected_channel_id: str = None):
 def get_authenticated_service(expected_channel_id: str = None, token_path=None):
     """Get authenticated YouTube v3 service. Handles token refresh and OAuth flow.
 
-    If token.json exists but is corrupted/empty, it will be deleted and a new
-    OAuth flow will be triggered to create a fresh token.
+    If the token file exists but cannot be loaded, it is moved aside to
+    <name>.bad (overwriting an older .bad) and a new OAuth flow is triggered.
 
     Args:
         expected_channel_id: If provided, print instructions showing which account to select during OAuth.
@@ -90,6 +90,7 @@ def get_authenticated_service(expected_channel_id: str = None, token_path=None):
     os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     try:
         import google.auth
+        import google.auth.exceptions
         from google_auth_oauthlib.flow import InstalledAppFlow
         from google.auth.transport.requests import Request
         from googleapiclient.discovery import build
@@ -101,11 +102,12 @@ def get_authenticated_service(expected_channel_id: str = None, token_path=None):
     if path.exists():
         try:
             creds, _ = google.auth.load_credentials_from_file(str(path), SCOPES)
-        except (ValueError, KeyError) as e:
+        except (ValueError, KeyError, google.auth.exceptions.DefaultCredentialsError) as e:
             # Token file is corrupted/malformed (missing 'type' field, invalid JSON, etc)
+            bad = path.with_name(path.name + ".bad")
             logging.warning("Token file corrupted or invalid: %s", e)
-            logging.warning("Deleting corrupted token and triggering re-authentication...")
-            path.unlink()
+            logging.warning("Moving the unreadable token to %s and signing in again...", bad)
+            path.replace(bad)
             creds = None
 
     if not creds or not creds.valid:

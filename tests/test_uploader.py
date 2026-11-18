@@ -41,18 +41,42 @@ class TestTokenPathOverride:
         assert "Token not found" in str(exc.value)
         assert str(missing) in str(exc.value)
 
-    def test_corrupted_token_at_the_given_path_is_the_one_deleted(self, tmp_path, monkeypatch):
+    def test_unreadable_token_at_the_given_path_is_set_aside(self, tmp_path, monkeypatch):
         import uploader
         default = tmp_path / "default.json"
         default.write_text("{}", encoding="utf-8")
         given = tmp_path / "scratch.json"
-        given.write_text('{"token": "abc"}', encoding="utf-8")
+        original = '{"token": "abc"}'
+        given.write_text(original, encoding="utf-8")
         monkeypatch.setattr(uploader, "TOKEN_PATH", default)
         monkeypatch.setattr(uploader, "find_credentials", MagicMock(side_effect=FileNotFoundError("stubbed")))
         monkeypatch.setattr("google.auth.load_credentials_from_file", MagicMock(side_effect=ValueError("corrupt")))
         with pytest.raises(FileNotFoundError):
             uploader.get_authenticated_service(token_path=given)
+        bad = tmp_path / "scratch.json.bad"
         assert not given.exists()
+        assert bad.exists()
+        assert bad.read_text(encoding="utf-8") == original
+        assert default.exists()
+
+    def test_token_missing_type_field_is_set_aside_too(self, tmp_path, monkeypatch):
+        import uploader
+        from google.auth.exceptions import DefaultCredentialsError
+        default = tmp_path / "default.json"
+        default.write_text("{}", encoding="utf-8")
+        given = tmp_path / "scratch.json"
+        original = '{"token": "abc"}'
+        given.write_text(original, encoding="utf-8")
+        monkeypatch.setattr(uploader, "TOKEN_PATH", default)
+        monkeypatch.setattr(uploader, "find_credentials", MagicMock(side_effect=FileNotFoundError("stubbed")))
+        monkeypatch.setattr("google.auth.load_credentials_from_file",
+                            MagicMock(side_effect=DefaultCredentialsError("no type")))
+        with pytest.raises(FileNotFoundError):
+            uploader.get_authenticated_service(token_path=given)
+        bad = tmp_path / "scratch.json.bad"
+        assert not given.exists()
+        assert bad.exists()
+        assert bad.read_text(encoding="utf-8") == original
         assert default.exists()
 
 
