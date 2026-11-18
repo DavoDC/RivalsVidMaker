@@ -365,6 +365,13 @@ def test_progress_bar_fill_is_the_share_and_the_value_is_capped_at_the_ready_len
     assert 'aria-valuenow="600"' in full
 
 
+def test_progress_track_keeps_a_fixed_width_so_flex_rows_cannot_collapse_it():
+    track = compile_tab.progress_bar_html(540).split('style="', 1)[1].split('"', 1)[0]
+    assert "width:240px" in track
+    assert "max-width:100%" in track
+    assert "flex:none" in track
+
+
 def test_character_options_map_folders_to_display_names_in_order():
     assert compile_tab.character_options(["HELA", "SQUIRREL_GIRL"]) == {"HELA": "Hela", "SQUIRREL_GIRL": "Squirrel Girl"}
     assert list(compile_tab.character_options(["SQUIRREL_GIRL", "HELA"])) == ["SQUIRREL_GIRL", "HELA"]

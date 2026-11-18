@@ -66,7 +66,7 @@ def progress_bar_html(seconds: int) -> str:
     ready = READY_MINUTES * 60
     return (f'<div role="progressbar" aria-valuemin="0" aria-valuemax="{ready}" '
             f'aria-valuenow="{min(seconds, ready)}" '
-            f'style="height:4px;width:100%;max-width:240px;background:{tokens.LINE};border-radius:2px;">'
+            f'style="height:4px;width:240px;max-width:100%;flex:none;background:{tokens.LINE};border-radius:2px;">'
             f'<div style="height:100%;background:{tokens.TIER_QUAD};border-radius:2px;width:{pct}%;"></div>'
             f'</div>')
 
