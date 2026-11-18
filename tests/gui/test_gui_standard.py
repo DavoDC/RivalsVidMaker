@@ -159,3 +159,9 @@ def test_clip_action_buttons_have_tooltips():
     from gui.tabs import clips
     assert clips.SORT_TIP and clips.SCAN_TIP
     assert "Nothing is moved" in clips.SCAN_TIP
+
+
+def test_tooltips_are_wrapped_readable_boxes():
+    css = theme.HEAD_HTML
+    assert ".q-tooltip{font-size:16px" in css
+    assert "max-width:320px" in css and "white-space:normal" in css
