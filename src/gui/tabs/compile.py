@@ -55,12 +55,29 @@ def closest(state: dict, n: int = 3) -> list[tuple[str, int]]:
     return [(c["name"], int(c.get("seconds") or 0)) for c in rows[:n]]
 
 
+def ready_fraction(seconds: int) -> float:
+    """The share of the ready length a character has clip seconds for, from 0.0 to 1.0."""
+    return min(max(seconds, 0) / (READY_MINUTES * 60), 1.0)
+
+
+def progress_bar_html(seconds: int) -> str:
+    """A thin gold bar: the track is LINE, the fill TIER_QUAD, sized to ready_fraction of the track."""
+    pct = f"{round(ready_fraction(seconds) * 100, 1):.1f}"
+    ready = READY_MINUTES * 60
+    return (f'<div role="progressbar" aria-valuemin="0" aria-valuemax="{ready}" '
+            f'aria-valuenow="{min(seconds, ready)}" '
+            f'style="height:4px;width:100%;max-width:240px;background:{tokens.LINE};border-radius:2px;">'
+            f'<div style="height:100%;background:{tokens.TIER_QUAD};border-radius:2px;width:{pct}%;"></div>'
+            f'</div>')
+
+
 def _closest_row(folder: str, seconds: int) -> None:
     """One near-ready character: its avatar and name, then its progress as M:SS of the ready length."""
     tid = view_model.testid("compile-closest", folder)
     with ui.row().props(f"data-testid={tid}").style(_ROW + "gap:16px;align-items:center;width:100%;flex-wrap:wrap;"):
         ui.html(avatars.name_cell_html(folder))
         ui.label(f"{timefmt.duration(seconds)} of {READY_MINUTES}:00").style(_UI + _NUM + f"color:{tokens.TEXT_DIM};")
+        ui.html(progress_bar_html(seconds))
 
 
 def _default_character(ready: list[str], plan: dict | None) -> str:

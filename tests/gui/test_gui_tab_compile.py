@@ -349,6 +349,22 @@ def test_closest_on_the_ready_fixture_carries_seconds():
     assert rows and all(seconds > 0 for _name, seconds in rows)
 
 
+def test_ready_fraction_is_the_share_of_the_ready_length_capped_at_one():
+    assert compile_tab.ready_fraction(300) == 0.5
+    assert compile_tab.ready_fraction(1350) == 1.0
+    assert compile_tab.ready_fraction(0) == 0.0
+
+
+def test_progress_bar_fill_is_the_share_and_the_value_is_capped_at_the_ready_length():
+    bar = compile_tab.progress_bar_html(540)
+    assert "width:90.0%" in bar
+    assert 'aria-valuenow="540"' in bar
+    assert 'aria-valuemax="600"' in bar
+    full = compile_tab.progress_bar_html(1350)
+    assert "width:100.0%" in full
+    assert 'aria-valuenow="600"' in full
+
+
 def test_character_options_map_folders_to_display_names_in_order():
     assert compile_tab.character_options(["HELA", "SQUIRREL_GIRL"]) == {"HELA": "Hela", "SQUIRREL_GIRL": "Squirrel Girl"}
     assert list(compile_tab.character_options(["SQUIRREL_GIRL", "HELA"])) == ["SQUIRREL_GIRL", "HELA"]
@@ -364,6 +380,7 @@ def test_empty_state_lists_closest_characters_as_progress():
     assert progress == ["22:30 of 10:00", "9:00 of 10:00", "6:40 of 10:00"]
     assert "Squirrel Girl" in html and "Black Widow" in html and "Iron Man" in html
     assert "Hulk" not in html
+    assert html.count('role="progressbar"') == 3
     assert view_model.testid("compile-closest", "SQUIRREL GIRL") in props
 
 

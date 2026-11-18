@@ -82,6 +82,8 @@ Contrast pairs checked by the capture run: `text` on `ground`, `text` on `panel`
 
 The reel strip on the Compile tab: one bar per planned video, about fifteen minutes wide, cut into segments sized by clip length. QUAD, PENTA and HEXA segments are lit in the tier ramp and labelled with the timestamp they get in the description; all other segments are quiet slate. It is the description made visible and the only saturated thing on screen. A thin version appears on each Videos row.
 
+Near-ready characters on the Compile tab each show a thin gold bar under their M:SS of 10:00 text, filled to their share of the ready length and full at 10:00.
+
 The one motion: when a plan appears or a compile finishes, the lit segments light left to right once, about 600 ms in total. With reduced motion they appear lit at once. Only the progress bar fill otherwise animates.
 
 App mark: a gold tile with a slanted navy panel, and a gold play triangle cut by a navy KO slash. It is angular and original, in the two page colours from section 6, and uses no game logo or trademark. `src/gui/icon.py` draws it from the token colours.
