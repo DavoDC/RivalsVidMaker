@@ -90,7 +90,7 @@ App mark: a gold tile with a slanted navy panel, and a gold play triangle cut by
 
 ## 8. Copy voice
 
-Sentence case. Tier words stay upper case because the game prints them that way. Verbs: Sort clips, Scan for KOs, Plan video, Compile video, Upload to YouTube, Upload again, Mark as live, Clean up, Restore clips, Keep, Recycle. Toasts reuse the verb in past tense with the quoted name: Compiled "THOR_OCT-NOV_2026". A job toasts twice: the -ing form when it starts (Compiling video.) and the past tense when it finishes (Compiled video.); a failure toasts the job title and its error.
+Sentence case. Tier words stay upper case because the game prints them that way. Verbs: Sort clips, Scan for KOs, Plan video, Compile video, Upload to YouTube, Upload again, Mark as live, Clean up, Restore clips, Keep, Recycle. Toasts reuse the verb in past tense with the quoted name: Compiled "THOR_OCT-NOV_2026". A job toasts twice: the -ing form when it starts (Compiling video.) and the past tense when it finishes (Compiled video.); a failure toasts the job title and its error. The start toast is neutral (info); only the finish toast is green.
 
 Meta strings are never joined with a middle dot or a dash: put parts in separate elements with a 16 px gap ("3 of 9 steps" then "About 4 min left"). Upper case is for tier words and the FIXTURE banner word only; table headings and labels are sentence case.
 

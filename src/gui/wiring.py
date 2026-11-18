@@ -153,12 +153,12 @@ class Actions:
 
     def _sort(self) -> None:
         bridge.sort(self.runner, self.config)
-        _toast("Sorting clips.")
+        _toast("Sorting clips.", "info")
         _refresh("/tab/clips")
 
     def _scan(self) -> None:
         bridge.scan(self.runner, self.config)
-        _toast("Scanning for KOs.")
+        _toast("Scanning for KOs.", "info")
         _refresh("/tab/clips")
 
     def _clip_keep(self, name: str) -> None:
@@ -174,7 +174,7 @@ class Actions:
                    "negative")
             return
         bridge.recycle_clip(self.runner, self.config, matches[0])
-        _toast(f'Recycling "{name}".')
+        _toast(f'Recycling "{name}".', "info")
         _refresh("/tab/clips")
 
     # compile tab
@@ -195,7 +195,7 @@ class Actions:
         bridge.compile(self.runner, self.config, nonce, clips=merged, extra=0, force=held["reencode"],
                        upload=bool(upload))
         self._held.pop("compile_plan", None)
-        _toast("Compiling video." if upload else "Compiling video. It will not be uploaded.")
+        _toast("Compiling video." if upload else "Compiling video. It will not be uploaded.", "info")
         _refresh("/tab/compile")
 
     def _decide(self, changes: dict) -> None:
@@ -251,7 +251,7 @@ class Actions:
 
     def _upload(self, slug: str) -> None:
         bridge.upload(self.runner, self.config, self._folder(slug))
-        _toast("Uploading to YouTube.")
+        _toast("Uploading to YouTube.", "info")
         _refresh("/tab/videos")
 
     def _mark_live(self, slug: str) -> None:
@@ -261,7 +261,7 @@ class Actions:
 
     def _sign_in(self) -> None:
         bridge.sign_in(self.runner, self.config)
-        _toast("Signing in to YouTube.")
+        _toast("Signing in to YouTube.", "info")
 
     def _replan(self, slug: str, include_video: bool) -> None:
         token, plan = bridge.plan_cleanup(self.config, self._folder(slug), include_video=include_video)
@@ -283,13 +283,13 @@ class Actions:
             return
         bridge.cleanup(self.runner, self.config, token)
         self._held.pop("cleanup_plan", None)
-        _toast(f"Cleaning up {held['slug']}.")
+        _toast(f"Cleaning up {held['slug']}.", "info")
         _refresh("/tab/videos")
 
     def _restore(self, slug: str) -> None:
         token, _plan = bridge.plan_uncompile(self.config, self._folder(slug))
         bridge.uncompile(self.runner, self.config, token)
-        _toast(f"Restoring clips for {slug}.")
+        _toast(f"Restoring clips for {slug}.", "info")
         _refresh("/tab/videos")
 
 
@@ -323,11 +323,11 @@ class FixtureActions:
 
     def _fake_sort(self) -> None:
         self.runner.start("sort", "Sort clips", fake_job, unit="clips", phase="sorting")
-        _toast("Sorting clips.")
+        _toast("Sorting clips.", "info")
 
     def _fake_scan(self) -> None:
         self.runner.start("scan", "Scan clips", fake_job, unit="clips", phase="scanning")
-        _toast("Scanning for KOs.")
+        _toast("Scanning for KOs.", "info")
 
     def _stand_in(self, *_args, **_kwargs) -> None:
         _toast(FIXTURE_TEXT, "info")

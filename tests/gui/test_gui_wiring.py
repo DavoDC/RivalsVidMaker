@@ -184,7 +184,7 @@ def test_clips_sort_and_scan_start_their_jobs(actions, fake_bridge, fake_ui, con
     clips["scan"]()
     assert fake_bridge.calls[0] == ("sort", (actions.runner, config), {})
     assert fake_bridge.calls[1] == ("scan", (actions.runner, config), {})
-    assert fake_ui.notes == [("Sorting clips.", "positive"), ("Scanning for KOs.", "positive")]
+    assert fake_ui.notes == [("Sorting clips.", "info"), ("Scanning for KOs.", "info")]
     assert fake_ui.paths == ["/tab/clips", "/tab/clips"]
 
 
@@ -192,7 +192,7 @@ def test_clips_recycle_finds_the_one_file_and_recycles_it(actions, fake_bridge, 
     path = clip_file(config)
     actions.for_tab("clips")["recycle"]("THOR_clip1_KO.mp4")
     assert fake_bridge.calls == [("recycle_clip", (actions.runner, config, path), {})]
-    assert fake_ui.notes == [('Recycling "THOR_clip1_KO.mp4".', "positive")]
+    assert fake_ui.notes == [('Recycling "THOR_clip1_KO.mp4".', "info")]
 
 
 def test_clips_recycle_refuses_zero_or_two_matches(actions, fake_bridge, fake_ui, config):
@@ -247,7 +247,7 @@ def test_compile_with_upload_off_passes_false_and_toasts_the_no_upload_line(acti
     name, args, kwargs = fake_bridge.calls[-1]
     assert name == "compile"
     assert kwargs["upload"] is False
-    assert fake_ui.notes[-1] == ("Compiling video. It will not be uploaded.", "positive")
+    assert fake_ui.notes[-1] == ("Compiling video. It will not be uploaded.", "info")
 
 
 def test_compile_clears_the_held_plan_after_a_start(actions, fake_bridge, fake_ui):
@@ -255,7 +255,7 @@ def test_compile_clears_the_held_plan_after_a_start(actions, fake_bridge, fake_u
     compile_tab["plan"]("THOR", 900, False)
     token = actions.held_plans()["compile_plan"]["nonce"]
     compile_tab["compile"](token, {})
-    assert fake_ui.notes[-1] == ("Compiling video.", "positive")
+    assert fake_ui.notes[-1] == ("Compiling video.", "info")
     assert "compile_plan" not in actions.held_plans()
 
 
@@ -352,7 +352,7 @@ def test_videos_apply_cleanup_runs_the_held_plan_once(actions, fake_bridge, fake
     token = actions.held_plans()["cleanup_plan"]["nonce"]
     videos["apply_cleanup"](token, False)
     assert fake_bridge.calls[-1] == ("cleanup", (actions.runner, actions.config, token), {})
-    assert fake_ui.notes[-1] == ("Cleaning up THOR_FEB_2026.", "positive")
+    assert fake_ui.notes[-1] == ("Cleaning up THOR_FEB_2026.", "info")
     assert "cleanup_plan" not in actions.held_plans()
     videos["apply_cleanup"](token, False)
     assert fake_ui.notes[-1][1] == "negative"
@@ -380,7 +380,7 @@ def test_videos_restore_plans_the_uncompile_then_runs_it(actions, fake_bridge, f
     assert fake_bridge.names() == ["plan_uncompile", "uncompile"]
     assert fake_bridge.calls[0][1] == (config, config.output_path / "THOR_FEB_2026")
     assert fake_bridge.calls[1][1][2] == "tok-1"
-    assert fake_ui.notes == [("Restoring clips for THOR_FEB_2026.", "positive")]
+    assert fake_ui.notes == [("Restoring clips for THOR_FEB_2026.", "info")]
 
 
 # ----- a job-starting action toasts that the job started, never that it finished ------
@@ -395,6 +395,64 @@ def test_job_starting_toasts_never_claim_the_job_finished():
     source = Path(wiring.__file__).read_text(encoding="utf-8")
     for old in FINISHED_CLAIMS:
         assert old not in source, f"{old!r} is still a toast in wiring.py"
+
+
+# ----- a job's start toast is neutral (info); only its finish toast is green ----------
+
+JOB_START_TEXTS = ["Sorting clips.", "Scanning for KOs.", 'Recycling "THOR_clip1_KO.mp4".',
+                   "Compiling video.", "Compiling video. It will not be uploaded.",
+                   "Uploading to YouTube.", "Signing in to YouTube.", "Cleaning up THOR_FEB_2026.",
+                   "Restoring clips for THOR_FEB_2026."]
+
+
+class StubRunner:
+    """Accepts the fixture stand-in's start call and runs nothing."""
+
+    def start(self, *args, **kwargs):
+        pass
+
+
+def test_real_and_fixture_sort_start_toasts_are_info(actions, fake_bridge, fake_ui):
+    actions.for_tab("clips")["sort"]()
+    wiring.FixtureActions(StubRunner()).for_tab("clips")["sort"]()
+    assert fake_ui.notes == [("Sorting clips.", "info"), ("Sorting clips.", "info")]
+
+
+def test_fixture_fake_job_start_toasts_are_info(fake_ui):
+    stand_in = wiring.FixtureActions(StubRunner()).for_tab("clips")
+    stand_in["sort"]()
+    stand_in["scan"]()
+    assert fake_ui.notes == [("Sorting clips.", "info"), ("Scanning for KOs.", "info")]
+
+
+def test_every_real_job_start_toast_is_info(actions, fake_bridge, fake_ui, config):
+    clip_file(config)
+    clips = actions.for_tab("clips")
+    clips["sort"]()
+    clips["scan"]()
+    clips["recycle"]("THOR_clip1_KO.mp4")
+    compile_tab = actions.for_tab("compile")
+    compile_tab["plan"]("THOR", 900, True)
+    compile_tab["compile"](actions.held_plans()["compile_plan"]["nonce"], {})
+    compile_tab["plan"]("THOR", 900, False)
+    compile_tab["compile"](actions.held_plans()["compile_plan"]["nonce"], {}, False)
+    videos = actions.for_tab("videos")
+    videos["upload"]("THOR_FEB_2026")
+    videos["sign_in"]()
+    videos["plan_cleanup"]("THOR_FEB_2026")
+    videos["apply_cleanup"](actions.held_plans()["cleanup_plan"]["nonce"], False)
+    videos["restore"]("THOR_FEB_2026")
+    starts = [(text, kind) for text, kind in fake_ui.notes if text in JOB_START_TEXTS]
+    assert sorted(text for text, _k in starts) == sorted(JOB_START_TEXTS)
+    assert {kind for _text, kind in starts} == {"info"}
+
+
+def test_instant_actions_keep_the_positive_kind(actions, fake_bridge, fake_ui):
+    actions.for_tab("clips")["keep"]("THOR_clip1_KO.mp4")
+    actions.for_tab("compile")["plan"]("THOR", 900, True)
+    actions.for_tab("compile")["keep"]("THOR_a_KO.mp4")
+    actions.for_tab("videos")["mark_live"]("THOR_FEB_2026")
+    assert [kind for _text, kind in fake_ui.notes] == ["positive"] * 4
 
 
 # ----- refusals and errors become negative toasts with their text ---------------------
@@ -540,7 +598,7 @@ def test_fixture_sort_plays_a_fake_job_on_the_runner_and_never_calls_the_bridge(
     assert record.get("kind") == "sort"
     assert record.get("state") == jobs.DONE
     assert record.get("summary") == "Fixture run: nothing was changed."
-    assert fake_ui.notes == [("Sorting clips.", "positive")]
+    assert fake_ui.notes == [("Sorting clips.", "info")]
 
 
 def test_fixture_scan_plays_a_fake_job_on_the_runner_and_toasts_the_scan_line(monkeypatch, fake_ui, tmp_path):
@@ -550,7 +608,7 @@ def test_fixture_scan_plays_a_fake_job_on_the_runner_and_toasts_the_scan_line(mo
     record = _finished_job(runner)
     assert record.get("kind") == "scan"
     assert record.get("state") == jobs.DONE
-    assert fake_ui.notes == [("Scanning for KOs.", "positive")]
+    assert fake_ui.notes == [("Scanning for KOs.", "info")]
 
 
 def test_fixture_actions_without_a_runner_toast_only_and_start_nothing(fake_ui):
@@ -629,7 +687,7 @@ def test_sort_repaints_the_page_in_place_and_does_not_navigate(actions, fake_bri
     actions.for_tab("clips")["sort"]()
     assert client.repaints == 1
     assert fake_ui.paths == []
-    assert fake_ui.notes == [("Sorting clips.", "positive")]
+    assert fake_ui.notes == [("Sorting clips.", "info")]
 
 
 def test_mark_live_repaints_the_page_in_place_and_keeps_its_toast(actions, fake_bridge, fake_ui, monkeypatch):
