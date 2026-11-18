@@ -39,7 +39,7 @@ TRIGGER_PATH = os.path.normpath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", ".cache", "reload.trigger"))
 
 # Set on os.environ right before a self-restart; inherited by the re-exec'd process.
-RESTART_ENV_VAR = "AM_GUI_HOT_RELOAD_RESTART"
+RESTART_ENV_VAR = "RVM_GUI_HOT_RELOAD_RESTART"
 
 
 def snapshot(watch_dir: str, extra_files: list = None) -> dict:

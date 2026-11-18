@@ -416,3 +416,12 @@ def test_check_syntax_names_the_bad_file(tmp_path):
 
 def test_restart_runs_the_module_form_with_the_same_arguments():
     assert hot_reload.restart_argv(["--port", "0"]) == [sys.executable, "-m", "gui", "--port", "0"]
+
+
+def test_restart_env_var_carries_this_apps_prefix():
+    assert hot_reload.RESTART_ENV_VAR.startswith("RVM_")
+
+
+def test_no_gui_source_file_uses_the_old_env_prefix():
+    offenders = [str(path) for path in (REPO / "src" / "gui").rglob("*.py") if "AM_GUI" in path.read_text(encoding="utf-8")]
+    assert offenders == []
