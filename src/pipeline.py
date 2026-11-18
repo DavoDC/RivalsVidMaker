@@ -909,7 +909,7 @@ def _prompt_upload_retry(config: Config, result: CompileResult) -> None:
             logging.warning("Upload cancelled by user. Falling back to manual upload.")
             return
         # User agreed: delete token to force re-auth on next attempt
-        token_path = Path(__file__).parent.parent / "config" / "token.json"
+        token_path = uploader.resolve_token_path(config.token_path)
         if token_path.exists():
             token_path.unlink()
             logging.info("Token deleted. Re-authenticating...")

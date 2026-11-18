@@ -51,30 +51,53 @@ class TestPipelineUploadRetry:
                                 # by lines 843-846 in pipeline.py checking "if not yt_uploaded")
                                 pass
 
-    def test_upload_failure_user_accepts_retry_deletes_token(self):
-        """User accepts retry → token.json is deleted."""
-        from unittest.mock import patch, MagicMock, call
-        import tempfile
-        from pathlib import Path
+    @pytest.fixture
+    def only_tmp_unlink(self, tmp_path, monkeypatch):
+        """Fail loudly if the retry unlinks anything outside tmp_path (never the real config/)."""
+        real_unlink = Path.unlink
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            token_path = Path(tmpdir) / "token.json"
-            token_path.write_text('{"type": "authorized_user"}')
+        def guarded(self, *args, **kwargs):
+            assert self.is_relative_to(tmp_path), f"retry tried to unlink {self}, outside tmp_path"
+            return real_unlink(self, *args, **kwargs)
 
-            with patch('pipeline.Path') as mock_path_class:
-                # Ensure the path we create points to our temp token
-                mock_path_class.return_value = token_path
+        monkeypatch.setattr(Path, "unlink", guarded)
 
-                with patch('pipeline.uploader.get_authenticated_service') as mock_auth:
-                    with patch('pipeline.uploader.validate_channel_id'):
-                        with patch('pipeline.uploader.parse_description_file', return_value=("Title", "Desc")):
-                            # First upload fails, retry succeeds
-                            with patch('pipeline.uploader.upload_and_save_state') as mock_upload:
-                                mock_upload.side_effect = [Exception("Upload failed"), None]  # Fail then succeed
-                                with patch('builtins.input', return_value='y'):  # User accepts
-                                    # Token should be deleted when user accepts
-                                    # This is verified by checking token_path.unlink() was called
-                                    pass
+    def _retry_config_and_result(self, tmp_path):
+        from types import SimpleNamespace
+        from pipeline import CompileResult
+        config = SimpleNamespace(token_path=tmp_path / "scratch_token.json",
+                                 youtube_channel_id="UCtest",
+                                 state_path=tmp_path / "state.json")
+        result = CompileResult(compiled=True, video_path=tmp_path / "v.mp4",
+                               title="Title", description="Desc", slug="slug")
+        return config, result
+
+    def test_retry_yes_deletes_the_configured_token(self, tmp_path, only_tmp_unlink):
+        """User agrees to the retry -> the token at config.token_path is removed (not config/token.json)."""
+        import pipeline
+        from unittest.mock import patch
+        config, result = self._retry_config_and_result(tmp_path)
+        config.token_path.write_text('{"type": "authorized_user"}', encoding="utf-8")
+
+        with patch('builtins.input', side_effect=['y', 'n']), \
+             patch('pipeline.uploader.get_authenticated_service', side_effect=Exception("stop")):
+            pipeline._prompt_upload_retry(config, result)
+
+        assert not config.token_path.exists()
+
+    def test_retry_no_keeps_the_configured_token(self, tmp_path, only_tmp_unlink):
+        """User refuses the retry -> the configured token is left alone."""
+        import pipeline
+        from unittest.mock import patch
+        config, result = self._retry_config_and_result(tmp_path)
+        config.token_path.write_text('{"type": "authorized_user"}', encoding="utf-8")
+
+        with patch('builtins.input', return_value='n'), \
+             patch('pipeline.uploader.get_authenticated_service') as mock_auth:
+            pipeline._prompt_upload_retry(config, result)
+
+        assert config.token_path.exists()
+        mock_auth.assert_not_called()
 
     def test_upload_failure_user_accepts_retry_succeeds(self):
         """User accepts retry, token deleted, retry succeeds."""
