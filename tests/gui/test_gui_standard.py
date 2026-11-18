@@ -165,3 +165,9 @@ def test_tooltips_are_wrapped_readable_boxes():
     css = theme.HEAD_HTML
     assert ".q-tooltip{font-size:16px" in css
     assert "max-width:320px" in css and "white-space:normal" in css
+
+
+def test_connection_lost_popup_is_dark_themed():
+    # NiceGUI paints it white (body--light) while our body text is light: unreadable without this
+    css = theme.HEAD_HTML
+    assert ".nicegui-error-popup{background-color:#1B2130 !important;color:#E3E7F0 !important" in css

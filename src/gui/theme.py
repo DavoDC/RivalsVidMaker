@@ -28,6 +28,8 @@ _CSS = """
   .q-tooltip{font-size:@@SIZE_UI@@px !important;line-height:1.45 !important;max-width:320px !important;white-space:normal !important;
     background:@@PANEL@@ !important;color:@@TEXT@@ !important;border:1px solid @@LINE@@;
     border-radius:@@RADIUS_PANEL@@px !important;padding:@@SPACE_12@@px @@SPACE_16@@px !important;}
+  .nicegui-error-popup{background-color:@@PANEL@@ !important;color:@@TEXT@@ !important;font-size:@@SIZE_UI@@px;
+    border:1px solid @@LINE@@ !important;border-left:@@SPACE_4@@px solid @@ERROR@@ !important;border-radius:@@RADIUS_PANEL@@px;}
   .rvm-tabs{display:flex;gap:@@SPACE_24@@px;padding:0 @@SPACE_24@@px;border-bottom:1px solid @@LINE@@;}
   .rvm-tab{font:inherit;font-size:@@SIZE_NAV@@px;font-weight:600;font-stretch:87.5%;color:@@TEXT_DIM@@;
     background:none;border:none;border-bottom:@@SPACE_4@@px solid transparent;padding:@@SPACE_8@@px 0;cursor:pointer;}
