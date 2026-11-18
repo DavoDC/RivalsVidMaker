@@ -237,7 +237,10 @@ SCENARIOS = {
         activity=[activity("compile", "Encode THOR batch 1", "interrupted"),
                   activity("uncompile", "Uncompile thor_vid2", "interrupted")],
     ),
-    "near_ready": _scenario("near_ready", characters=[_SQUIRREL, _WIDOW]),
+    "near_ready": _scenario("near_ready", characters=[
+        character("SQUIRREL GIRL", 4, 9.0, tier_counts={"KO": 3}),
+        character("BLACK WIDOW", 3, 6.5, tier_counts={"KO": 2}),
+        character("HULK", 1, 2.0, tier_counts={"KO": 1})]),
 }
 
 DESCRIPTIONS = {
