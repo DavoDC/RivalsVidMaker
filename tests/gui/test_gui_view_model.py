@@ -8,6 +8,7 @@ import copy
 import dataclasses
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 import clip_cache
@@ -481,3 +482,36 @@ def test_unsorted_row_copy_carries_recognised_through():
     unsorted = [{"name": "random.mp4", "protected": False, "recognised": False}]
     snap = view_model.snapshot(_Stub(_data(unsorted=unsorted)))
     assert snap["clips"]["unsorted"][0]["recognised"] is False
+
+
+# ---- character and capture time read from the clip name ----------------------------------------
+
+def test_parse_clip_name_reads_character_and_capture_time():
+    parsed = view_model.parse_clip_name("THOR_2026-11-18_00-42-48.mp4")
+    assert parsed == {"character": "THOR", "captured": datetime(2026, 11, 18, 0, 42, 48)}
+
+
+def test_parse_clip_name_keeps_multi_word_character_and_ignores_suffix():
+    parsed = view_model.parse_clip_name("SQUIRREL_GIRL_2026-07-02_19-40-21_TRIPLE.mp4")
+    assert parsed is not None and parsed["character"] == "SQUIRREL_GIRL"
+
+
+def test_parse_clip_name_is_none_for_unreadable_or_invalid_names():
+    assert view_model.parse_clip_name("random.mp4") is None
+    assert view_model.parse_clip_name("THOR_2026-13-40_00-00-00.mp4") is None
+
+
+def test_unsorted_row_carries_character_date_and_time_from_its_name():
+    unsorted = [{"name": "THOR_2026-11-18_00-42-48.mp4", "protected": False, "recognised": True}]
+    row = view_model.snapshot(_Stub(_data(unsorted=unsorted)))["clips"]["unsorted"][0]
+    assert row.get("character") == "THOR"
+    assert row.get("date") == "18/11/2026"
+    assert row.get("time") == "12:42am"
+
+
+def test_unsorted_row_without_a_readable_name_has_no_character_date_or_time():
+    unsorted = [{"name": "random.mp4", "protected": False, "recognised": False}]
+    row = view_model.snapshot(_Stub(_data(unsorted=unsorted)))["clips"]["unsorted"][0]
+    assert row.get("character", "absent") is None
+    assert row.get("date", "absent") is None
+    assert row.get("time", "absent") is None

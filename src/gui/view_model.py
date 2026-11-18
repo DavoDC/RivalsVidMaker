@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import re
 import zlib
+from datetime import datetime
 
-from gui import build_info
+from gui import build_info, timefmt
 
 SCHEMA = 1
 POLL_INTERVAL = 2  # seconds between /state.json polls
@@ -57,6 +58,35 @@ def _job(job: dict | None) -> dict | None:
 def _recognised(clip: dict) -> bool:
     """A loose clip Sort can file. A row without the key (older fixtures) counts as recognised."""
     return bool(clip.get("recognised", True))
+
+
+_CLIP_NAME = re.compile(r"^(?P<char>[A-Z0-9_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_(?P<time>\d{2}-\d{2}-\d{2})")
+
+
+def parse_clip_name(name) -> dict | None:
+    """Character and capture time from a clip file name such as THOR_2026-11-18_00-42-48.mp4.
+
+    Anything may follow the time (e.g. _TRIPLE). None when the name has no such shape or the date is invalid.
+    """
+    match = _CLIP_NAME.match(str(name or ""))
+    if match is None:
+        return None
+    try:
+        captured = datetime.strptime(f"{match['date']}_{match['time']}", "%Y-%m-%d_%H-%M-%S")
+    except ValueError:
+        return None
+    return {"character": match["char"], "captured": captured}
+
+
+def _capture_fields(name) -> dict:
+    """The character, date (DD/MM/YYYY) and time (h:mmam) an unsorted row shows; all None when unreadable."""
+    parsed = parse_clip_name(name)
+    if parsed is None:
+        return {"character": None, "date": None, "time": None}
+    captured = parsed["captured"]
+    return {"character": parsed["character"],
+            "date": f"{captured.day:02d}/{captured.month:02d}/{captured.year}",
+            "time": timefmt._clock(captured)}
 
 
 def _summary(data: dict, rows: list[dict]) -> dict:
@@ -193,6 +223,7 @@ def snapshot(source, job: dict | None = None, plans: dict | None = None, history
                 "name": c.get("name"),
                 "protected": bool(c.get("protected")),
                 "recognised": _recognised(c),
+                **_capture_fields(c.get("name")),
             } for c in data.get("unsorted") or []],
             "low_value": [{
                 "testid": testid("lowvalue", c.get("name")),
