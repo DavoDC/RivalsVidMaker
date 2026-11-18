@@ -56,3 +56,19 @@ def test_tracked_text_has_no_hygiene_hits():
             if hygiene_hits(line):
                 failures.append(f"{rel}:{number}: {line.strip()}")
     assert not failures, "hygiene hits:\n" + "\n".join(failures)
+
+
+def test_no_tracked_runtime_data():
+    # data/ holds cache, logs, output and analysis that are rebuilt locally; git must not track it.
+    if shutil.which("git") is None:
+        pytest.skip("git is not available")
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "data"], cwd=ROOT, capture_output=True, text=True, check=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        pytest.skip("git ls-files failed")
+    tracked = out.splitlines()
+    assert not tracked, (
+        "runtime data is tracked (untrack with git rm -r --cached data):\n" + "\n".join(tracked)
+    )

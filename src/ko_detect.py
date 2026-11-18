@@ -74,7 +74,7 @@ def configure(
 # ── Detection parameters ───────────────────────────────────────────────────────
 
 # Constants derived from statistical analysis of 64 clips (2026-03-31).
-# Source: data/analysis/ko_analysis_report_20260331.md
+# Source: data/analysis/ko_analysis_report_20260331.md (local analysis report, not in the repo)
 SCAN_FPS_FAST        = 2     # pass 1: quick sweep (most multi-kills caught here)
 SCAN_FPS_FULL        = 8     # pass 2: thorough retry; 0.125s resolution makes brief banners infallible
 SKIP_SECS            = 6     # skip first N seconds; data: earliest KO = 7.0s, -1s safety margin

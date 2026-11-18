@@ -32,7 +32,7 @@ tests/
   test_ai_prompt.py
   test_cleanup.py
 data/
-  cache/                : *.ko.json per-clip KO scan cache (tracked)
+  cache/                : *.clip.json per-clip scan cache (local, gitignored)
   logs/                 : runtime logs (gitignored)
   output/               : description.txt files per batch
   examples/             : ground_truth/ labelled frames, ko_frames/ reference screenshots
