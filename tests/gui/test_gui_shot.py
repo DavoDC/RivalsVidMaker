@@ -18,12 +18,13 @@ REPO = Path(__file__).resolve().parents[2]
     ("select:#lang=English", ("select", "#lang", "English")),
     ("fill:input[name=x]=12", ("fill", "input[name=x]", "12")),
     ("wait:1.5", ("wait", 1.5)),
+    ("eval:1+1", ("eval", "1+1")),
 ])
 def test_each_step_form_parses_to_its_action(raw, action):
     assert shot.parse_step(raw) == action
 
 
-@pytest.mark.parametrize("raw", ["hover:x", "click:", "select:sel", "wait:abc", "noColon"])
+@pytest.mark.parametrize("raw", ["hover:x", "click:", "select:sel", "wait:abc", "eval:", "noColon"])
 def test_unknown_or_malformed_steps_are_rejected(raw):
     with pytest.raises(ValueError):
         shot.parse_step(raw)

@@ -9,7 +9,8 @@ data/captures/shot/<tab>-<width>.png (gitignored) and prints its absolute path, 
 the first 1500 characters of the page text.
 
 STEP grammar: click:<button text>  tap:<label>  select:<css>=<option>  fill:<css>=<value>  wait:<seconds>
-Exit 0 ok, 1 server or browser failure, 2 bad arguments, 3 a step target missing (MISSING: <step>).
+  eval:<javascript expression>  (prints EVAL <expression> => <result as JSON>; a thrown error exits 1)
+Exit 0 ok, 1 server or browser failure or a thrown eval, 2 bad arguments, 3 a step target missing (MISSING: <step>).
 """
 from __future__ import annotations
 
@@ -46,12 +47,13 @@ def shot_path(tab: str, width: int) -> Path:
 
 
 def parse_step(raw: str):
-    """Return ('click', text) | ('tap', label) | ('select', css, option) | ('fill', css, value) | ('wait', seconds).
+    """Return ('click', text) | ('tap', label) | ('select', css, option) | ('fill', css, value) | ('wait', seconds)
+    | ('eval', expression).
     Raises ValueError for an unknown prefix or a malformed step."""
     kind, sep, rest = raw.partition(":")
     if not sep or not rest:
         raise ValueError("bad step: %r" % raw)
-    if kind in ("click", "tap"):
+    if kind in ("click", "tap", "eval"):
         return (kind, rest)
     if kind in ("select", "fill"):
         target, eq, value = rest.rpartition("=")
@@ -169,6 +171,15 @@ def settle(session, seen: list) -> None:
         session.pump(1.0)
 
 
+def eval_expression(session, expression: str):
+    """Evaluate `expression` in the page and return its value. A thrown error raises RuntimeError."""
+    res = session.call("Runtime.evaluate", {"expression": expression, "returnByValue": True})
+    if "exceptionDetails" in res:
+        details = res["exceptionDetails"]
+        raise RuntimeError("eval threw: %s" % (details.get("exception", {}).get("description") or details.get("text", "")))
+    return res.get("result", {}).get("value")
+
+
 def run_steps(session, steps: list[str], seen: list) -> None:
     for raw in steps:
         step = parse_step(raw)
@@ -200,6 +211,8 @@ def run_steps(session, steps: list[str], seen: list) -> None:
             session.pump(1.0)
         elif step[0] == "wait":
             session.pump(step[1])
+        elif step[0] == "eval":
+            _say("EVAL %s => %s" % (step[1], json.dumps(eval_expression(session, step[1]))))
         note_toasts(session, seen)
 
 

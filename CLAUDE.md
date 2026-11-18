@@ -64,6 +64,7 @@ PYTHONPATH=src python -m gui --list-fixtures   # print each fixture name and wha
 PYTHONPATH=src python -m gui verify            # tests, painted-state check, captures of every tab
 PYTHONPATH=src python -m gui capture           # screenshots of every tab (data/captures, gitignored)
 PYTHONPATH=src python -m gui shot compile --fixture plan click:Compile   # one tab, one state: PNG path and page text
+PYTHONPATH=src python -m gui shot clips "eval:getComputedStyle(document.querySelector('td')).fontWeight"   # read any computed value
 ```
 
 `scripts/run.bat` still works and stays until the GUI passes a parity run.
