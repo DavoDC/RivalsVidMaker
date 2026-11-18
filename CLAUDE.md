@@ -211,7 +211,7 @@ Detects multi-kill banners (KO → DOUBLE → TRIPLE → QUAD → PENTA → HEXA
 - **Pass 2 (disabled by default):** 8fps full-clip, no early exit. Only enabled via `use_pass2_scanner: true` in config - used by `rescan_and_report.py` for data collection runs.
 - **Low-value clip prompt:** after scanning, if pass 1 finds KO-tier or nothing, preprocess prints the clip name and asks "Delete clip and cache? [y/N]". Default No. Only fires during normal preprocess - suppressed during force_rescan runs.
 - **Threshold:** Quad+ only in YouTube description output; Triple and below detected internally
-- **Cache:** `data/cache/<char>/<YYYY-MM>/<clip_stem>.ko.json` - re-runs are instant; null = no kill (valid); also stores `clip_duration`, `scan_time`, `scan_pass` for analysis
+- **Cache:** `data/cache/<char>/<YYYY-MM>/<clip_stem>.clip.json` (local, gitignored) - re-runs are instant; null = no kill (valid); also stores `clip_duration`, `scan_time`, `scan_pass` for analysis
 - **Cache keying:** each entry stores `file_mtime`; if the clip file changes, the cache is automatically invalidated and the clip is re-scanned
 - **`ko_detect.configure(ffmpeg, tesseract, cache_dir)`** - injects runtime paths from config.json so the pipeline isn't hardcoded to THOR. Standalone usage is unaffected.
 
