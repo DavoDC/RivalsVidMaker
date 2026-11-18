@@ -84,6 +84,8 @@ The reel strip on the Compile tab: one bar per planned video, about fifteen minu
 
 The one motion: when a plan appears or a compile finishes, the lit segments light left to right once, about 600 ms in total. With reduced motion they appear lit at once. Only the progress bar fill otherwise animates.
 
+App mark: a gold tile with a slanted navy panel, and a gold play triangle cut by a navy KO slash. It is angular and original, in the two page colours from section 6, and uses no game logo or trademark. `src/gui/icon.py` draws it from the token colours.
+
 ## 8. Copy voice
 
 Sentence case. Tier words stay upper case because the game prints them that way. Verbs: Sort clips, Scan for KOs, Plan video, Compile video, Upload to YouTube, Upload again, Mark as live, Clean up, Restore clips, Keep, Recycle. Toasts reuse the verb in past tense with the quoted name: Compiled "THOR_OCT-NOV_2026".

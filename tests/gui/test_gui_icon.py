@@ -34,20 +34,31 @@ def test_render_is_a_64_pixel_rgba_image():
     assert img.mode == "RGBA"
 
 
-def test_centre_pixel_is_the_gold_play_triangle():
+def test_tile_pixel_at_the_left_edge_is_gold():
     img = icon.render(64)
-    assert _near(img.getpixel((32, 32)), _rgb(tokens.TIER_QUAD))
+    assert _near(img.getpixel((2, 32)), _rgb(tokens.TIER_QUAD), tolerance=8)
+
+
+def test_panel_pixel_above_the_centre_is_navy_ground():
+    img = icon.render(64)
+    assert _near(img.getpixel((32, 16)), _rgb(tokens.GROUND), tolerance=8)
+
+
+def test_triangle_pixel_below_the_slash_is_gold():
+    img = icon.render(64)
+    assert _near(img.getpixel((24, 43)), _rgb(tokens.TIER_QUAD), tolerance=8)
+
+
+def test_no_pixel_is_the_old_hexa_pink():
+    img = icon.render(64)
+    pink = _rgb(tokens.TIER_HEXA)
+    pixels = (img.getpixel((x, y)) for y in range(img.height) for x in range(img.width))
+    assert not any(_near(px, pink, tolerance=40) for px in pixels if px[3] > 0)
 
 
 def test_corner_pixel_is_transparent_outside_the_rounded_tile():
     img = icon.render(64)
     assert img.getpixel((0, 0))[3] == 0
-
-
-def test_frame_edge_pixel_is_text_coloured():
-    img = icon.render(64)
-    x = int(0.14 * 64) + 2
-    assert _near(img.getpixel((x, 32)), _rgb(tokens.TEXT))
 
 
 def test_png_bytes_start_with_the_png_signature():
