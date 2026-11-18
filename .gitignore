@@ -18,6 +18,9 @@ dependencies/*.exe
 # Runtime data (cache, logs, output, examples, analysis) - local only, never committed
 data/
 
+# Windows shortcuts hold machine-specific paths
+*.lnk
+
 # GUI runtime folders (captures, GUI state, cache) - generated, not tracked
 data/captures/
 data/gui/
