@@ -156,6 +156,117 @@ def test_sort_summary_is_singular_for_one_clip_with_no_skip_part(config, runner,
     assert finish(runner)["summary"] == "Sorted 1 clip."
 
 
+# ----- every job ends with a summary line ---------------------------------------------
+
+def test_count_adds_an_s_unless_there_is_exactly_one():
+    assert bridge._count(1, "clip") == "1 clip"
+    assert bridge._count(0, "clip") == "0 clips"
+    assert bridge._count(3, "clip") == "3 clips"
+
+
+@pytest.mark.parametrize("found, expected", [
+    (0, "Scanned clips. Found 0 low-value clips."),
+    (1, "Scanned clips. Found 1 low-value clip."),
+    (2, "Scanned clips. Found 2 low-value clips."),
+])
+def test_scan_summary_counts_the_low_value_clips(config, runner, monkeypatch, found, expected):
+    def fake_scan(cfg, dry_run=False, on_low_value=None, on_progress=None):
+        for i in range(found):
+            on_low_value(Path(f"THOR_{i}_KO.mp4"))
+        return {}
+
+    monkeypatch.setattr(preprocess, "preprocess_all", fake_scan)
+    bridge.scan(runner, config)
+    assert finish(runner)["summary"] == expected
+
+
+@pytest.mark.parametrize("compiled, uploaded, needs_sign_in, upload_failed, expected", [
+    (True, True, False, False, "Compiled and uploaded."),
+    (True, False, True, False, "Compiled. The upload did not finish."),
+    (True, False, False, True, "Compiled. The upload did not finish."),
+    (True, False, False, False, "Compiled. Not uploaded."),
+    (False, False, False, False, "Nothing was compiled."),
+])
+def test_compile_summary_says_what_reached_youtube(config, runner, monkeypatch, tmp_path,
+                                                   compiled, uploaded, needs_sign_in, upload_failed, expected):
+    signed_in(tmp_path)
+    monkeypatch.setattr(pipeline, "plan_compile", lambda cfg, character, target_s: SimpleNamespace(character="THOR"))
+
+    def fake_apply(cfg, p, decisions, force=False, on_progress=None, upload=True):
+        return SimpleNamespace(compiled=compiled, uploaded=uploaded, needs_sign_in=needs_sign_in,
+                               upload_failed=upload_failed, error="")
+
+    monkeypatch.setattr(pipeline, "apply_compile", fake_apply)
+    token, _ = bridge.plan_compile(config, "THOR", 900)
+    bridge.compile(runner, config, token)
+    assert finish(runner)["summary"] == expected
+
+
+def test_upload_summary_names_youtube(config, runner, monkeypatch, tmp_path):
+    signed_in(tmp_path)
+    folder = make_output(config)
+    monkeypatch.setattr(cleanup, "retry_upload",
+                        lambda out, cfg, confirm=True: SimpleNamespace(
+                            uploaded=True, needs_sign_in=False, cancelled=False, error=None))
+    bridge.upload(runner, config, folder)
+    assert finish(runner)["summary"] == "Uploaded to YouTube."
+
+
+@pytest.mark.parametrize("done, expected", [
+    (1, "Cleaned up 1 item."),
+    (2, "Cleaned up 2 items."),
+])
+def test_cleanup_summary_counts_the_items_done(config, runner, monkeypatch, done, expected):
+    folder = make_output(config)
+    mark_live(config, folder.name)
+    result = cleanup.ApplyResult(done=["item"] * done)
+    monkeypatch.setattr(cleanup, "apply_cleanup", lambda plan, state_path=None: result)
+    token, _ = bridge.plan_cleanup(config, folder)
+    bridge.cleanup(runner, config, token)
+    assert finish(runner)["summary"] == expected
+
+
+def test_cleanup_with_a_failed_item_fails_and_sets_no_summary(config, runner, monkeypatch):
+    folder = make_output(config)
+    mark_live(config, folder.name)
+    action = cleanup.PlannedAction(cleanup.FATE_RECYCLE, folder / "clips" / "THOR_clip1_QUAD.mp4",
+                                   cleanup.GROUP_CLIPS)
+    monkeypatch.setattr(cleanup, "apply_cleanup",
+                        lambda plan, state_path=None: cleanup.ApplyResult(errors=[(action, "locked")]))
+    token, _ = bridge.plan_cleanup(config, folder)
+    bridge.cleanup(runner, config, token)
+    record = finish(runner)
+    assert record["state"] == "failed"
+    assert "Cleaned up" not in (record.get("summary") or "")
+
+
+@pytest.mark.parametrize("done, expected", [
+    (1, "Restored 1 item."),
+    (2, "Restored 2 items."),
+])
+def test_uncompile_summary_counts_the_items_restored(config, runner, monkeypatch, done, expected):
+    folder = make_output(config)
+    result = cleanup.ApplyResult(done=["item"] * done)
+    monkeypatch.setattr(cleanup, "apply_uncompile", lambda plan, state_path=None: result)
+    token, _ = bridge.plan_uncompile(config, folder)
+    bridge.uncompile(runner, config, token)
+    assert finish(runner)["summary"] == expected
+
+
+def test_recycle_clip_summary_names_the_clip(config, runner, sandbox):
+    clip = config.clips_path / "THOR" / "THOR_clip1_KO.mp4"
+    clip.parent.mkdir()
+    clip.write_bytes(b"x")
+    bridge.recycle_clip(runner, config, clip)
+    assert finish(runner)["summary"] == 'Recycled "THOR_clip1_KO.mp4".'
+
+
+def test_sign_in_summary_names_youtube(config, runner, sandbox):
+    sandbox.allow_oauth = True
+    bridge.sign_in(runner, config)
+    assert finish(runner)["summary"] == "Signed in to YouTube."
+
+
 def test_scan_starts_a_scan_job_and_passes_the_low_value_collector(config, runner, monkeypatch):
     seen = {}
 

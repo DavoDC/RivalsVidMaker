@@ -85,6 +85,10 @@ def _report_errors(ctx: jobs.JobContext, result) -> None:
     ctx.log.info("%d item(s) done", len(result.done))
 
 
+def _count(n: int, noun: str) -> str:
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
 def _sorted_summary(moved: int, skipped: int) -> str:
     text = f"Sorted {moved} clip{'' if moved == 1 else 's'}."
     if skipped:
@@ -119,6 +123,7 @@ def scan(runner: jobs.JobRunner, config) -> dict:
                 done, total, "clips", f"Scanning {char}" if char else "Finishing"),
         )
         ctx.log.info("Scan found %d low-value clip(s)", len(low_value))
+        ctx.summary(f"Scanned clips. Found {_count(len(low_value), 'low-value clip')}.")
 
     _require_idle(runner)
     return runner.start("scan", "Scan clips", job)
@@ -149,6 +154,14 @@ def compile(runner: jobs.JobRunner, config, token: str, clips: dict | None = Non
         if result.needs_sign_in or result.upload_failed:
             ctx.log.warning("Compiled, but the upload did not finish: %s", result.error)
         ctx.log.info("Compile finished: compiled=%s uploaded=%s", result.compiled, result.uploaded)
+        if result.uploaded:
+            ctx.summary("Compiled and uploaded.")
+        elif not result.compiled:
+            ctx.summary("Nothing was compiled.")
+        elif result.needs_sign_in or result.upload_failed:
+            ctx.summary("Compiled. The upload did not finish.")
+        else:
+            ctx.summary("Compiled. Not uploaded.")
 
     return runner.start("compile", "Compile video", job)
 
@@ -162,6 +175,7 @@ def upload(runner: jobs.JobRunner, config, output_folder: Path | str) -> dict:
             raise RuntimeError("Sign in again; the saved sign-in was kept.")
         if not result.uploaded:
             raise RuntimeError(result.error or "The upload did not finish.")
+        ctx.summary("Uploaded to YouTube.")
 
     _require_idle(runner)
     _require_sign_in(config)
@@ -191,7 +205,9 @@ def cleanup(runner: jobs.JobRunner, config, token: str) -> dict:
             f"'{plan.folder_name}' is not marked live on YouTube; nothing was touched.")
 
     def job(ctx: jobs.JobContext) -> None:
-        _report_errors(ctx, engine_cleanup.apply_cleanup(plan, state_path=config.state_path))
+        result = engine_cleanup.apply_cleanup(plan, state_path=config.state_path)
+        _report_errors(ctx, result)
+        ctx.summary(f"Cleaned up {_count(len(result.done), 'item')}.")
 
     return runner.start("cleanup", "Clean up output folder", job)
 
@@ -206,7 +222,9 @@ def uncompile(runner: jobs.JobRunner, config, token: str) -> dict:
     plan = PLANS.take("uncompile", token)
 
     def job(ctx: jobs.JobContext) -> None:
-        _report_errors(ctx, engine_cleanup.apply_uncompile(plan, state_path=config.state_path))
+        result = engine_cleanup.apply_uncompile(plan, state_path=config.state_path)
+        _report_errors(ctx, result)
+        ctx.summary(f"Restored {_count(len(result.done), 'item')}.")
 
     return runner.start("uncompile", "Restore clips", job)
 
@@ -225,6 +243,7 @@ def recycle_clip(runner: jobs.JobRunner, config, clip_path: Path | str) -> dict:
     def job(ctx: jobs.JobContext) -> None:
         send2trash(str(path))
         ctx.log.info("Sent to Recycle Bin: %s", path.name)
+        ctx.summary(f'Recycled "{path.name}".')
 
     return runner.start("recycle_clip", f"Recycle {path.name}", job)
 
@@ -235,5 +254,6 @@ def sign_in(runner: jobs.JobRunner, config) -> dict:
         youtube = uploader.get_authenticated_service(expected_channel_id=config.youtube_channel_id)
         uploader.validate_channel_id(youtube, config.youtube_channel_id)
         ctx.log.info("Signed in to YouTube")
+        ctx.summary("Signed in to YouTube.")
 
     return runner.start("sign_in", "Sign in to YouTube", job)
