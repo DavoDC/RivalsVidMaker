@@ -65,6 +65,7 @@ PYTHONPATH=src python -m gui verify            # tests, painted-state check, cap
 PYTHONPATH=src python -m gui capture           # screenshots of every tab (data/captures, gitignored)
 PYTHONPATH=src python -m gui shot compile --fixture plan click:Compile   # one tab, one state: PNG path and page text
 PYTHONPATH=src python -m gui shot clips "eval:getComputedStyle(document.querySelector('td')).fontWeight"   # read any computed value
+PYTHONPATH=src python -m gui shot clips --fixture fresh_intake --no-settle "click:Sort clips"   # capture a running job (header shows Sorting)
 ```
 
 `scripts/run.bat` still works and stays until the GUI passes a parity run.

@@ -74,6 +74,37 @@ def test_toast_js_reads_the_quasar_message_node():
     assert "#rvm-toast" in shot.TOAST_JS
 
 
+def test_no_settle_defaults_to_off_and_parses_on():
+    assert shot.parse_args(["clips"]).no_settle is False
+    assert shot.parse_args(["clips", "--no-settle", "click:Sort clips"]).no_settle is True
+
+
+class FakeSession:
+    """Answers the calls run_steps makes: a button sits at (10, 20), toasts are empty, pump is recorded."""
+
+    def __init__(self):
+        self.pumps = []
+
+    def evaluate(self, js):
+        return "[]" if js == shot.TOAST_JS else '{"x": 10, "y": 20}'
+
+    def call(self, method, params=None):
+        return {}
+
+    def pump(self, seconds):
+        self.pumps.append(seconds)
+
+
+@pytest.mark.parametrize("no_settle, settled", [(True, False), (False, True)])
+def test_click_step_skips_settle_only_under_no_settle(monkeypatch, no_settle, settled):
+    calls = []
+    monkeypatch.setattr(shot, "settle", lambda session, seen: calls.append(1))
+    session = FakeSession()
+    shot.run_steps(session, ["click:Sort clips"], [], no_settle=no_settle)
+    assert bool(calls) is settled
+    assert session.pumps == ([] if settled else [1.0])
+
+
 def test_shot_is_wired_in_main_like_capture(monkeypatch):
     seen = []
     monkeypatch.setattr(shot, "main", lambda argv: seen.append(list(argv)) or 0)

@@ -79,6 +79,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     source.add_argument("--url", default=None, help="a server already running at this address")
     ap.add_argument("--width", type=int, default=1440)
     ap.add_argument("--height", type=int, default=900)
+    ap.add_argument("--no-settle", action="store_true", dest="no_settle",
+                    help="after a click or select, pump 1 s instead of waiting for Idle (capture a running job)")
     ap.add_argument("steps", nargs="*", metavar="STEP", help="click:, tap:, select:, fill:, wait: steps")
     args = ap.parse_intermixed_args(argv)
     if args.fixture is None and args.url is None:
@@ -192,12 +194,20 @@ def eval_expression(session, expression: str):
     return res.get("result", {}).get("value")
 
 
-def run_steps(session, steps: list[str], seen: list) -> None:
+def after_action(session, seen: list, no_settle: bool) -> None:
+    """After a click or select: wait for the header to settle, or with --no-settle only pump 1 s (a running job)."""
+    if no_settle:
+        session.pump(1.0)
+    else:
+        settle(session, seen)
+
+
+def run_steps(session, steps: list[str], seen: list, no_settle: bool = False) -> None:
     for raw in steps:
         step = parse_step(raw)
         if step[0] == "click":
             click_target(session, find_button_js(step[1]), raw, "buttons", "button")
-            settle(session, seen)
+            after_action(session, seen, no_settle)
         elif step[0] == "select":
             _, css, text = step
             if session.evaluate(native_select_js(css, text)) != "ok":
@@ -208,7 +218,7 @@ def run_steps(session, steps: list[str], seen: list) -> None:
                 click_xy(session, pos["x"], pos["y"])
                 session.pump(1.0)
                 click_target(session, find_option_js(text), raw, "options", "[role=option], .q-item")
-            settle(session, seen)
+            after_action(session, seen, no_settle)
         elif step[0] == "fill":
             _, css, value = step
             if not session.evaluate("!!document.querySelector(%s)" % json.dumps(css)):
@@ -266,7 +276,7 @@ def run(args: argparse.Namespace, png: Path) -> int:
         browser.visit(capture.tab_url(base, args.tab), png, args.width, args.tab, height=args.height)
         session = browser.session
         if args.steps:
-            run_steps(session, args.steps, seen)
+            run_steps(session, args.steps, seen, no_settle=args.no_settle)
             screenshot_now(session, png, args.width)
         note_toasts(session, seen)
         text = (session.evaluate(BODY_JS) or "")[:TEXT_CHARS]
