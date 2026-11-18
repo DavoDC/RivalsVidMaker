@@ -19,6 +19,8 @@ PAINTS_ROWS = True
 
 NO_NEW_COPY = "No new clips. Save highlights in game, then press Sort clips."
 NO_CHARACTERS_COPY = "No characters yet. Scan for KOs to count the clips in each character folder."
+SORT_TIP = "Moves new clips from your Highlights folder into a folder per character. Recent clips stay put so the game still lists them."
+SCAN_TIP = "Reads each character folder to count its clips and flag low-value ones. Nothing is moved or deleted."
 ROOT_NOTE = "Kept in place: the game lists these as recent clips."
 UNREADABLE_NOTE = "Sort cannot read this name."
 DECISION_HEADING = "Needs a decision"
@@ -193,7 +195,8 @@ def build(source, actions=None) -> None:
         with ui.row().style("align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;"):
             sort = ui.button("Sort clips", on_click=lambda: _call(actions, "sort")).props("no-caps outline")
             scan = ui.button("Scan for KOs", on_click=lambda: _call(actions, "scan")).props("no-caps outline")
-            for button, marker in ((sort, "sort-clips"), (scan, "scan-kos")):
+            for button, marker, tip in ((sort, "sort-clips", SORT_TIP), (scan, "scan-kos", SCAN_TIP)):
+                button.tooltip(tip)
                 button.mark(marker).classes("rvm-button").style(_FADED if busy else "")
                 if busy:
                     button.props("disable")

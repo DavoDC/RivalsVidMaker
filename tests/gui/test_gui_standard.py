@@ -153,3 +153,9 @@ def test_security_headers_block_framing_and_sniffing():
 
 def test_json_state_is_not_cached():
     assert _client().get("/state.json").headers["cache-control"] == "no-store"
+
+
+def test_clip_action_buttons_have_tooltips():
+    from gui.tabs import clips
+    assert clips.SORT_TIP and clips.SCAN_TIP
+    assert "Nothing is moved" in clips.SCAN_TIP
