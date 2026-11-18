@@ -72,7 +72,7 @@ There is no warning amber: gold always means QUAD. Warnings use `text` weight pl
 
 Type: Bahnschrift, a system font on Windows, so nothing is downloaded. Display text (tab labels, headings, tier chips, reel timestamps, large durations) is SemiBold SemiCondensed (`font-weight: 600; font-stretch: 87.5%`). Body and tables are Regular. Numbers use tabular figures. Fallback: `Bahnschrift, "Segoe UI Variable", "Segoe UI", sans-serif`.
 
-Size scale (px): 12 fine print, 14 tables and buttons, 16 body, 20 section heading, 22 tab labels, 26 tab heading, 32 app title, 40 the reel's total duration.
+Size scale (px): 13 fine print, 16 tables and buttons, 17 body, 22 section heading, 22 tab labels, 26 tab heading, 32 app title, 40 the reel's total duration. Character avatars are 36 px.
 
 Spacing step 4: 4, 8, 12, 16, 24, 32. Radius: 2 px on chips and reel segments, 6 px on panels and buttons. No shadows. Lists are tables with row dividers, not card grids.
 

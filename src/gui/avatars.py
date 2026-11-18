@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ASSET_DIR = REPO_ROOT / "assets" / "characters"
 URL_PREFIX = "/characters"
 
-_SIZE = 28
+_SIZE = 36
 _SMALL_WORDS = frozenset({"the", "of", "and"})
 _SPLIT = re.compile(r"[_\s]+")
 

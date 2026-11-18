@@ -26,7 +26,7 @@ def chip_html(tier: str, count: int | None = None) -> str:
         raise ValueError(f"no chip for tier {tier!r}; chips are for {', '.join(CHIP_TIERS)}")
     text = tier if count is None else f"{tier} {int(count)}"
     style = (f"display:inline-block;background:{FILL[tier]};color:{tokens.ON_TIER};"
-             f"border-radius:{tokens.RADIUS_CHIP}px;padding:0 {tokens.SPACE_8}px;"
+             f"border-radius:{tokens.RADIUS_CHIP}px;padding:{tokens.SPACE_4}px {tokens.SPACE_8}px;"
              f"margin-right:{tokens.SPACE_4}px;font-size:{tokens.SIZE_UI}px;font-weight:600;"
              f"font-stretch:87.5%;font-variant-numeric:tabular-nums;")
     return f'<span class="rvm-chip" data-tier="{tier}" style="{style}">{escape(text)}</span>'

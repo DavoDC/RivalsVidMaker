@@ -26,10 +26,10 @@ ON_TIER = "#131722"      # text on a tier fill
 FONT_STACK = 'Bahnschrift, "Segoe UI Variable", "Segoe UI", sans-serif'
 
 # Size scale in px (DESIGN.md section 6)
-SIZE_FINE = 12      # fine print
-SIZE_UI = 14        # tables and buttons
-SIZE_BODY = 16      # body
-SIZE_SECTION = 20   # section heading
+SIZE_FINE = 13      # fine print
+SIZE_UI = 16        # tables and buttons
+SIZE_BODY = 17      # body
+SIZE_SECTION = 22   # section heading
 SIZE_NAV = 22       # tab labels
 SIZE_TAB = 26       # tab heading
 SIZE_TITLE = 32     # app title

@@ -41,11 +41,11 @@ def test_every_colour_row_in_design_md_exists_in_tokens(name, value):
 
 
 @pytest.mark.parametrize("const,value", [
-    ("SIZE_FINE", 12), ("SIZE_UI", 14), ("SIZE_BODY", 16),
-    ("SIZE_NAV", 22), ("SIZE_SECTION", 20), ("SIZE_TAB", 26), ("SIZE_TITLE", 32), ("SIZE_REEL", 40),
+    ("SIZE_FINE", 13), ("SIZE_UI", 16), ("SIZE_BODY", 17),
+    ("SIZE_NAV", 22), ("SIZE_SECTION", 22), ("SIZE_TAB", 26), ("SIZE_TITLE", 32), ("SIZE_REEL", 40),
 ])
 def test_type_size_scale_matches_design_md(const, value):
-    # DESIGN.md section 6, "Size scale (px)": 12, 14, 16, 20, 22, 26, 32, 40
+    # DESIGN.md section 6, "Size scale (px)": 13, 16, 17, 22, 22, 26, 32, 40
     assert getattr(tokens, const) == value
 
 
@@ -78,7 +78,7 @@ def test_font_stack_matches_design_md():
 
 def test_fill_replaces_colour_and_number_placeholders():
     assert tokens.fill("color:@@GROUND@@;") == "color:#131722;"
-    assert tokens.fill("font-size:@@SIZE_BODY@@px") == "font-size:16px"
+    assert tokens.fill("font-size:@@SIZE_BODY@@px") == "font-size:17px"
     assert tokens.fill("gap:@@SPACE_8@@px;border-radius:@@RADIUS_PANEL@@px") == "gap:8px;border-radius:6px"
 
 

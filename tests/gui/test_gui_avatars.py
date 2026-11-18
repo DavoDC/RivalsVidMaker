@@ -55,16 +55,16 @@ def test_avatar_with_a_portrait_file_is_an_image_from_the_characters_url(tmp_pat
     (tmp_path / "THOR.png").write_bytes(b"")
     html = avatars.avatar_html("THOR", asset_dir=tmp_path)
     assert '<img src="/characters/THOR.png"' in html
-    assert 'width="28" height="28"' in html
+    assert 'width="36" height="36"' in html
     assert "<span" not in html
 
 
-def test_avatar_is_a_28px_square_hidden_from_assistive_tech(tmp_path):
+def test_avatar_is_a_36px_square_hidden_from_assistive_tech(tmp_path):
     html = avatars.avatar_html("THOR", asset_dir=tmp_path)
     assert 'aria-hidden="true"' in html
     assert "flex:none" in html
     assert f"border-radius:{tokens.RADIUS_PANEL}px" in html
-    assert "width:28px;height:28px" in html
+    assert "width:36px;height:36px" in html
 
 
 def test_avatar_escapes_a_folder_name_that_holds_markup(tmp_path):
