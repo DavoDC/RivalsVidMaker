@@ -136,7 +136,29 @@ def _fake_decode_factory(raw, hit_start, hit_end, tier, fps=ko_ncc.FPS):
     return decode
 
 
-def test_scan_video_ncc_returns_scan_shape_and_event(tmp_path, monkeypatch):
+@pytest.fixture
+def scored_once(monkeypatch):
+    """Score each distinct frame once. The fake decode repeats one blank and one banner frame across a
+    whole chunk, and frame_scores is a pure per-frame function, so each repeat gets the same score row.
+    The real scoring still runs on every distinct frame; only the repeated matchTemplate work is skipped."""
+    real = ko_ncc.frame_scores
+
+    def dedup(frames, bank):
+        if len(frames) == 0:
+            return real(frames, bank)
+        index, uniq, rows = {}, [], []
+        for fr in frames:
+            key = (fr.shape, fr.tobytes())
+            if key not in index:
+                index[key] = len(uniq)
+                uniq.append(fr)
+            rows.append(index[key])
+        return real(np.stack(uniq), bank)[rows]
+
+    monkeypatch.setattr(ko_ncc, "frame_scores", dedup)
+
+
+def test_scan_video_ncc_returns_scan_shape_and_event(tmp_path, monkeypatch, scored_once):
     raw = ko_ncc.load_raw_bank()
     monkeypatch.setattr(ko_ncc, "decode", _fake_decode_factory(raw, 70.0, 72.0, "QUAD"))
     res = ko_detect.scan_video("fake.mp4", checkpoint_dir=str(tmp_path / "s"), duration=130.0,
@@ -152,7 +174,7 @@ def test_scan_video_ncc_returns_scan_shape_and_event(tmp_path, monkeypatch):
         assert k in res
 
 
-def test_scan_video_ncc_resumes_from_checkpoints(tmp_path, monkeypatch):
+def test_scan_video_ncc_resumes_from_checkpoints(tmp_path, monkeypatch, scored_once):
     raw = ko_ncc.load_raw_bank()
     monkeypatch.setattr(ko_ncc, "decode", _fake_decode_factory(raw, 5.0, 7.0, "TRIPLE"))
     kw = dict(checkpoint_dir=str(tmp_path / "s"), duration=130.0, size=(1920, 1080), detector="ncc")
@@ -162,7 +184,7 @@ def test_scan_video_ncc_resumes_from_checkpoints(tmp_path, monkeypatch):
     assert res["chunks_reused"] == res["chunks"] > 1 and res["events"][0]["tier"] == "TRIPLE"
 
 
-def test_ambiguous_event_falls_back_to_ocr(tmp_path, monkeypatch):
+def test_ambiguous_event_falls_back_to_ocr(tmp_path, monkeypatch, scored_once):
     raw = ko_ncc.load_raw_bank()
     monkeypatch.setattr(ko_ncc, "decode", _fake_decode_factory(raw, 20.0, 22.0, "QUAD"))
     monkeypatch.setattr(ko_ncc, "AMBIG_MARGIN", 1.1)           # every event counts as ambiguous

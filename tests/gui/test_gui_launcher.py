@@ -131,8 +131,14 @@ def test_check_prints_build_and_boot_id_and_exits_zero_when_server_answers():
     assert "boot_id boot123abc" in lines
 
 
-def test_check_exits_nonzero_when_nothing_answers():
+def test_check_exits_nonzero_when_nothing_answers(monkeypatch):
     port = _free_port()
+
+    def refused(*args, **kwargs):
+        # A real refused connect costs about 2 s per call on this machine (two calls here), so refuse at once.
+        raise ConnectionRefusedError(10061, "No connection could be made because the target machine actively refused it")
+
+    monkeypatch.setattr("urllib.request.urlopen", refused)
     lines = []
     assert launcher.check(port, listener=lambda p: None, out=lines.append) == 1
     assert launcher.answers(port) is False
