@@ -14,7 +14,8 @@ src/
   batcher.py            : group clips into ~15-min batches
   encoder.py            : FFmpeg concat encode (NVENC GPU / libx264 CPU fallback); skip-if-exists
   description_writer.py : write YouTube description .txt files
-  ko_detect.py          : KO banner detection (OCR via Tesseract), standalone and imported
+  ko_detect.py          : KO banner detection (OCR via Tesseract; scan_video uses ko_ncc by default), standalone and imported
+  ko_ncc.py             : NCC edge-template tier-word detector for long videos (bank in assets/ko_templates/; needs numpy + opencv-python)
   ai_prompt.py          : generate pre-filled AI prompts markdown file after each pipeline run
   cleanup.py            : interactive post-YouTube cleanup (move Quad+ to archive, delete rest)
   preprocess.py         : pre-process mode: warm KO cache for all clips without encoding

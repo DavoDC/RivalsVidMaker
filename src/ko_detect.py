@@ -34,6 +34,14 @@ import pytesseract
 import clip_cache
 import winproc
 
+try:
+    import ko_ncc          # needs numpy + opencv-python; scan_video falls back to OCR without them
+except ImportError as _ncc_err:
+    ko_ncc = None
+    _NCC_IMPORT_ERROR = str(_ncc_err)
+
+_log = logging.getLogger("ko_detect")
+
 # ── Config ────────────────────────────────────────────────────────────────────
 
 FFMPEG       = r"C:\Users\David\GitHubRepos\RivalsVidMaker\dependencies\ffmpeg\ffmpeg.exe"
@@ -343,7 +351,8 @@ def scan_clip(
 # OCR thread pool reads the frames, and each finished chunk is checkpointed atomically so a
 # killed run resumes with byte-identical chunk files. No early exit, no 22 s cap.
 
-SCANNER_VERSION     = "long-scan-2"
+SCANNER_VERSION     = "long-scan-3"   # 3: NCC tier-word detector is the default (ko_ncc); OCR kept as detector="ocr"
+DEFAULT_DETECTOR    = "ncc"           # scan_video(detector=None) uses this; "ocr" is the Tesseract path
 LONG_CHUNK_SECS     = 600
 LONG_OVERLAP_SECS   = 5     # extra decoded tail per chunk; covers seek/fps edge frames
 LONG_FPS            = 4     # Quad+ banners stay 2-4 s, so at least 8 samples each
@@ -525,6 +534,89 @@ def _events_from_samples(samples: list[tuple[float, str | None]]) -> list[dict]:
     return events
 
 
+def _ocr_ambiguous_runs(video_path, runs, geom, runner, ocr_fn, fps) -> None:
+    """Re-read the peak frame of every run whose top two tier scores are within ko_ncc.AMBIG_MARGIN.
+    A recognised tier replaces the run's tier; any OCR failure or unreadable frame keeps the NCC answer."""
+    cw, ch = geom[0], geom[1]
+    for r in runs:
+        if r["margin"] >= ko_ncc.AMBIG_MARGIN:
+            continue
+        try:
+            for data in runner(video_path, max(0.0, r["peak"] / fps), 0.5, geom, 4):
+                tier = ocr_fn(data, cw, ch)
+                if tier in TIER_RANK:
+                    _log.info("scan_video: OCR settled ambiguous run at %.2fs: %s -> %s", r["peak"] / fps, r["tier"], tier)
+                    r["tier"] = tier
+                break
+        except Exception as e:                  # OCR is a best-effort tiebreak, never fatal
+            _log.warning("scan_video: OCR tiebreak failed at %.2fs (%s); keeping %s", r["peak"] / fps, e, r["tier"])
+
+
+def _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, runner, ocr_fn, workers, resume, t0) -> dict:
+    """The detector="ncc" body of scan_video: 60 s chunks of scores, checkpointed, merged, then runs and events."""
+    import numpy as np
+    fps, chunk_secs = ko_ncc.FPS, ko_ncc.CHUNK_SECS
+    bank, crop = plan["bank"], plan["crop"]
+    n_chunks = math.ceil(duration / chunk_secs)
+    total = int(duration * fps)
+    n_workers = workers or min(8, os.cpu_count() or 4)
+    sig = ko_ncc.bank_signature()
+    # decode() is looked up at call time so tests can swap it
+    def one(i: int):
+        start = i * chunk_secs
+        length = min(chunk_secs, duration - start)
+        meta = {"scanner_version": SCANNER_VERSION, "detector": "ncc", "chunk": i, "chunk_secs": chunk_secs,
+                "fps": fps, "crop": list(crop), "bank": sig, "source": os.path.basename(video_path),
+                "source_bytes": _file_size(video_path)}
+        path = os.path.join(checkpoint_dir, f"chunk_{i:04d}.json")
+        tc = time.perf_counter()
+        data = _load_chunk(path, meta) if resume else None
+        was_reused = data is not None
+        if data is None:
+            frames, scenes = ko_ncc.decode(FFMPEG, video_path, start, length, fps, crop)
+            frames = frames[: round(length * fps)]
+            scores = ko_ncc.frame_scores(frames, bank)
+            data = {**meta, "first_idx": round(start * fps), "scores": np.round(scores, 3).tolist(),
+                    "scenes": [[round(start + t, 3), round(s, 3)] for t, s in scenes]}
+            _atomic_write_json(path, data)
+        return i, data, was_reused, time.perf_counter() - tc
+
+    owned: list[tuple[int, dict]] = []
+    reused = 0
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:
+        futs = [pool.submit(one, i) for i in range(n_chunks)]
+        try:
+            for done, fut in enumerate(as_completed(futs), 1):
+                i, data, was_reused, secs = fut.result()
+                reused += was_reused
+                owned.append((i, data))
+                if progress:
+                    progress(done, n_chunks, {"chunk": i, "reused": was_reused, "secs": secs})
+        except BaseException:
+            pool.shutdown(wait=False, cancel_futures=True)
+            raise
+    parts = [(d["first_idx"], np.asarray(d["scores"], np.float32).reshape(-1, len(bank["tiers"])))
+             for _, d in sorted(owned)]
+    scores = ko_ncc.merge_scores(parts, total)
+    runs = ko_ncc.runs_from_scores(scores, bank["tiers"], fps)
+    _ocr_ambiguous_runs(video_path, runs, geom, runner or _ffmpeg_runner, ocr_fn or _ocr_roi_bytes, fps)
+    timeline = ko_ncc.timeline_from_runs(runs, total, fps)
+    scenes = sorted((t, s) for _, d in owned for t, s in d["scenes"])
+    return {
+        "video": video_path, "duration": duration, "fps": fps, "scanner_version": SCANNER_VERSION,
+        "detector": "ncc", "chunks": n_chunks, "chunks_reused": reused, "timeline": timeline,
+        "events": _events_from_samples(timeline), "scenes": scenes,
+        "scan_time": time.perf_counter() - t0,
+    }
+
+
+def _file_size(path: str):
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return None
+
+
 def scan_video(
     video_path: str,
     *,
@@ -539,11 +631,18 @@ def scan_video(
     fps: int = LONG_FPS,
     workers: int | None = None,
     resume: bool = True,
+    detector: str | None = None,
 ) -> dict:
     """
     Scan a long video (compilation or VOD) end to end for kill banners.
 
-    Chunks of chunk_secs (plus overlap_secs of tail) are decoded one at a time; each is
+    detector "ncc" (the default, DEFAULT_DETECTOR) matches the tier word against the template
+    bank in ko_ncc: about 8x faster than OCR, own 60 s chunk checkpoints, OCR only for runs whose
+    top two tier scores are close. It falls back to OCR with a log line when the frame size, the
+    bank or opencv is unusable. detector "ocr" is the original Tesseract path described below
+    (chunk_secs, overlap_secs and fps apply to it only). Both return the same shape plus "detector".
+
+    OCR path: chunks of chunk_secs (plus overlap_secs of tail) are decoded one at a time; each is
     checkpointed to checkpoint_dir/chunk_NNNN.json. With resume=True a chunk whose file
     matches the current scanner version and parameters is reused, not rescanned.
 
@@ -564,8 +663,26 @@ def scan_video(
     duration = get_duration(video_path) if duration is None else duration
     if duration <= 0:
         raise RuntimeError(f"cannot read duration of {video_path}")
-    geom = roi_geometry(*(size or get_size(video_path)))
+    detector = detector or DEFAULT_DETECTOR
+    if detector not in ("ncc", "ocr"):
+        raise ValueError(f"unknown detector {detector!r}, expected 'ncc' or 'ocr'")
+    size = size or get_size(video_path)
+    geom = roi_geometry(*size)
     os.makedirs(checkpoint_dir, exist_ok=True)
+    if detector == "ncc":
+        plan, why = None, None
+        if ko_ncc is None:
+            why = f"ko_ncc unavailable ({_NCC_IMPORT_ERROR})"
+        else:
+            try:
+                plan = ko_ncc.plan(*size)
+            except (ValueError, OSError, KeyError) as e:      # UnsupportedSize is a ValueError
+                why = str(e)
+        if plan is not None:
+            return _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, runner, ocr_fn,
+                                   workers, resume, t0)
+        _log.warning("scan_video: NCC detector not usable for %s (%s); falling back to OCR", video_path, why)
+        detector = "ocr"
     os.environ.setdefault("OMP_THREAD_LIMIT", "1")   # one tesseract thread per worker, no oversubscription
     n_chunks = math.ceil(duration / chunk_secs)
     own_len = chunk_secs * fps                         # grid samples owned per chunk
@@ -621,7 +738,7 @@ def scan_video(
         timeline = sorted(timeline + extra, key=lambda p: p[0])
     return {
         "video": video_path, "duration": duration, "fps": fps, "scanner_version": SCANNER_VERSION,
-        "chunks": n_chunks, "chunks_reused": reused, "timeline": timeline,
+        "detector": "ocr", "chunks": n_chunks, "chunks_reused": reused, "timeline": timeline,
         "events": _events_from_samples(timeline), "scenes": sorted(scenes),
         "scan_time": time.perf_counter() - t0,
     }

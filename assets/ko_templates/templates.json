@@ -1,0 +1,369 @@
+{
+  "frame_size": [
+    1920,
+    1080
+  ],
+  "templates": [
+    {
+      "file": "templates/TRIPLE_103.8s.png",
+      "tier": "TRIPLE",
+      "time_s": 103.8,
+      "source": "w1035_0003.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/TRIPLE_104.1s.png",
+      "tier": "TRIPLE",
+      "time_s": 104.1,
+      "source": "w1035_0006.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/TRIPLE_104.3s.png",
+      "tier": "TRIPLE",
+      "time_s": 104.3,
+      "source": "w1035_0008.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/TRIPLE_368.0s.png",
+      "tier": "TRIPLE",
+      "time_s": 368.0,
+      "source": "q356_0120.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/QUAD_105.5s.png",
+      "tier": "QUAD",
+      "time_s": 105.5,
+      "source": "w1035_0020.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/QUAD_106.5s.png",
+      "tier": "QUAD",
+      "time_s": 106.5,
+      "source": "w1035_0030.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/QUAD_107.5s.png",
+      "tier": "QUAD",
+      "time_s": 107.5,
+      "source": "w1035_0040.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/QUAD_376.2s.png",
+      "tier": "QUAD",
+      "time_s": 376.2,
+      "source": "q356_0202.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/DOUBLE_358.4s.png",
+      "tier": "DOUBLE",
+      "time_s": 358.4,
+      "source": "harvest_b/aw358_0015.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/DOUBLE_359.1s.png",
+      "tier": "DOUBLE",
+      "time_s": 359.1,
+      "source": "harvest_b/aw358_0022.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/DOUBLE_360.1s.png",
+      "tier": "DOUBLE",
+      "time_s": 360.1,
+      "source": "harvest_b/aw358_0032.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "AWAKENS 2026-03-17 video (Feb 2026 content)"
+    },
+    {
+      "file": "templates/DOUBLE_4660.2s.png",
+      "tier": "DOUBLE",
+      "time_s": 4660.2,
+      "source": "harvest_b/vod4659_0014.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "THOR RIVALS GAMEPLAY 2025-09-12 VOD (Sep 2025 content)"
+    },
+    {
+      "file": "templates/PENTA_229.4s.png",
+      "tier": "PENTA",
+      "time_s": 229.4,
+      "source": "harvest_b/p229_0015.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "Thor UNLEASHED Part 4 2025-10-01 video (Sep 2025 content)"
+    },
+    {
+      "file": "templates/PENTA_229.7s.png",
+      "tier": "PENTA",
+      "time_s": 229.7,
+      "source": "harvest_b/p229_0018.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "Thor UNLEASHED Part 4 2025-10-01 video (Sep 2025 content)"
+    },
+    {
+      "file": "templates/PENTA_264.5s.png",
+      "tier": "PENTA",
+      "time_s": 264.5,
+      "source": "harvest_b/p264_0016.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "Thor UNLEASHED Part 4 2025-10-01 video (Sep 2025 content)"
+    },
+    {
+      "file": "templates/PENTA_264.9s.png",
+      "tier": "PENTA",
+      "time_s": 264.9,
+      "source": "harvest_b/p264_0020.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "Thor UNLEASHED Part 4 2025-10-01 video (Sep 2025 content)"
+    },
+    {
+      "file": "templates/HEXA_1055.4s.png",
+      "tier": "HEXA",
+      "time_s": 1055.4,
+      "source": "harvest_b/h1055_0015.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "Thor UNLEASHED Part 4 2025-10-01 video (Sep 2025 content)"
+    },
+    {
+      "file": "templates/HEXA_1055.7s.png",
+      "tier": "HEXA",
+      "time_s": 1055.7,
+      "source": "harvest_b/h1055_0018.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "Thor UNLEASHED Part 4 2025-10-01 video (Sep 2025 content)"
+    },
+    {
+      "file": "templates/HEXA_1056.1s.png",
+      "tier": "HEXA",
+      "time_s": 1056.1,
+      "source": "harvest_b/h1055_0022.png",
+      "box_roi_px": [
+        372,
+        80,
+        480,
+        120
+      ],
+      "box_frame_frac_xywh": [
+        0.9437,
+        0.4739,
+        0.0563,
+        0.037
+      ],
+      "season": "Thor UNLEASHED Part 4 2025-10-01 video (Sep 2025 content)"
+    }
+  ]
+}

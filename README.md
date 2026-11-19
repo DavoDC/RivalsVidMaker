@@ -32,7 +32,7 @@ Prefer a terminal? `scripts/run.bat` opens an arrow-key menu with the same workf
 
 ## What makes this difficult
 
-**Reading kill banners with no labelled data.** There is no game API and no labelled training set, so tier detection reads the banner straight off the video: sample frames, crop the banner region, clean the image up, OCR the tier with Tesseract, and use a cooldown state machine so one banner never counts twice. Method and ground truth: [docs/MULTIKILL_DETECTION.md](docs/MULTIKILL_DETECTION.md).
+**Reading kill banners with no labelled data.** There is no game API and no labelled training set, so tier detection reads the banner straight off the video: sample frames, crop the banner region, clean the image up, OCR the tier with Tesseract, and use a cooldown state machine so one banner never counts twice. Whole compilations take a faster route: the tier word is matched against a small bank of edge templates, about seven times faster than OCR with every Quad in the test compilation found, and OCR only settles the rare close call. Method and ground truth: [docs/MULTIKILL_DETECTION.md](docs/MULTIKILL_DETECTION.md).
 
 **Skipping the encode entirely.** Compilation tools usually re-encode for compatibility. Marvel Rivals clips turn out to be uniform (H.264, 1920x1080, 120 fps, AAC), so they can be joined by stream copy, which removes the encoding bottleneck: seconds instead of 5 to 10 minutes.
 

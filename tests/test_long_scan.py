@@ -15,6 +15,12 @@ import pytest
 import ko_detect
 import winproc
 
+@pytest.fixture(autouse=True)
+def _ocr_detector(monkeypatch):
+    """These tests drive the OCR path with fake runners; the NCC default is covered in test_ko_ncc.py."""
+    monkeypatch.setattr(ko_detect, "DEFAULT_DETECTOR", "ocr")
+
+
 W, H = 40, 20
 GEOM = ko_detect.roi_geometry(W, H)
 FRAME_BYTES = GEOM[0] * GEOM[1]

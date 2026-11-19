@@ -6,7 +6,7 @@ One-time setup takes about ten minutes. You need Windows and Python 3.10 or newe
 
 ```bash
 # Python packages
-pip install pytesseract Pillow imagehash questionary google-auth-oauthlib send2trash nicegui
+pip install pytesseract Pillow numpy opencv-python imagehash questionary google-auth-oauthlib send2trash nicegui
 
 # Tesseract OCR (reads the multi-kill banners)
 winget install UB-Mannheim.TesseractOCR
