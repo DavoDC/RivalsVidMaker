@@ -343,10 +343,12 @@ def scan_clip(
 # OCR thread pool reads the frames, and each finished chunk is checkpointed atomically so a
 # killed run resumes with byte-identical chunk files. No early exit, no 22 s cap.
 
-SCANNER_VERSION     = "long-scan-1"
+SCANNER_VERSION     = "long-scan-2"
 LONG_CHUNK_SECS     = 600
 LONG_OVERLAP_SECS   = 5     # extra decoded tail per chunk; covers seek/fps edge frames
 LONG_FPS            = 4     # Quad+ banners stay 2-4 s, so at least 8 samples each
+RESCAN_FPS          = 8     # a TRIPLE re-reads the next RESCAN_SECS at this rate; Quad banners can flash < 0.5 s
+RESCAN_SECS         = 12
 SCENE_KEEP_MIN      = 5.0   # scdet scores below this are noise and not stored
 _SCENE_RE           = re.compile(r"lavfi\.scd\.score:\s*([0-9.]+),\s*lavfi\.scd\.time:\s*([0-9.]+)")
 
@@ -376,14 +378,14 @@ class _FfmpegDecode:
     def __init__(self, video, start, length, geom, fps):
         cw, ch, x, y = geom
         self.scenes: list[tuple[float, float]] = []
-        self._size = cw * ch
+        self._size = cw * ch * 3   # rgb24: gray from the YUV plane differs from PNG->PIL luma and OCRs worse
         graph = (f"[0:v]split=2[a][b];"
-                 f"[a]fps={fps},crop={cw}:{ch}:{x}:{y},format=gray[roi];"
+                 f"[a]fps={fps},crop={cw}:{ch}:{x}:{y},format=rgb24[roi];"
                  f"[b]scale=320:-2,scdet=threshold=0[sc]")
         cmd = [FFMPEG, "-hide_banner", "-nostats", "-loglevel", "info", "-nostdin",
                "-ss", f"{start:.3f}", "-t", f"{length:.3f}", "-i", video, "-an", "-sn",
                "-filter_complex", graph,
-               "-map", "[roi]", "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1",
+               "-map", "[roi]", "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1",
                "-map", "[sc]", "-f", "null", "-"]
         self._proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                       creationflags=winproc.NO_WINDOW)
@@ -421,8 +423,34 @@ def _ffmpeg_runner(video, start, length, geom, fps):
     return _FfmpegDecode(video, start, length, geom, fps)
 
 
+def _roi_to_gray(data: bytes, width: int, height: int) -> Image.Image:
+    return Image.frombytes("RGB", (width, height), data).convert("L")
+
+
 def _ocr_roi_bytes(data: bytes, width: int, height: int) -> str | None:
-    return _tier_from_crop(Image.frombytes("L", (width, height), data))
+    return _tier_from_crop(Image.frombytes("RGB", (width, height), data))
+
+
+def _rescan_triples(video, events, duration, geom, runner, ocr_fn, workers) -> list[tuple[float, str | None]]:
+    """Extra high-fps samples for the RESCAN_SECS after every TRIPLE not already followed by a Quad+."""
+    cw, ch = geom[0], geom[1]
+    extra: list[tuple[float, str | None]] = []
+    quad = TIER_RANK["QUAD"]
+    for ev in events:
+        if ev["tier"] != "TRIPLE":
+            continue
+        end = ev["ts"] + RESCAN_SECS
+        if any(e["ts"] > ev["ts"] and e["ts"] <= end and TIER_RANK[e["tier"]] >= quad for e in events):
+            continue
+        start = max(0.0, ev["ts"])
+        length = min(RESCAN_SECS, duration - start)
+        if length <= 0:
+            continue
+        decode = runner(video, start, length, geom, RESCAN_FPS)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futs = [pool.submit(ocr_fn, d, cw, ch) for d in decode]
+            extra += [(start + k / RESCAN_FPS, f.result()) for k, f in enumerate(futs)]
+    return extra
 
 
 def _atomic_write_json(path: str, obj) -> None:
@@ -588,6 +616,9 @@ def scan_video(
                 frame_tier[idx] = tier
 
     timeline = [(idx / fps, frame_tier[idx]) for idx in sorted(frame_tier)]
+    extra = _rescan_triples(video_path, _events_from_samples(timeline), duration, geom, runner, ocr_fn, n_workers)
+    if extra:
+        timeline = sorted(timeline + extra, key=lambda p: p[0])
     return {
         "video": video_path, "duration": duration, "fps": fps, "scanner_version": SCANNER_VERSION,
         "chunks": n_chunks, "chunks_reused": reused, "timeline": timeline,

@@ -239,3 +239,61 @@ def test_real_ffmpeg_runner_on_synthetic_video(tmp_path):
     assert abs(result["events"][0]["ts"] - 10.0) <= 0.5
     peak = max(result["scenes"], key=lambda s: s[1])
     assert abs(peak[0] - 10.0) <= 0.5
+
+
+# -- full-range gray and the TRIPLE-triggered rescan ---------------------------
+
+@pytest.mark.skipif(_ffmpeg() is None, reason="ffmpeg not available")
+def test_real_ffmpeg_roi_matches_png_pil_gray_for_coloured_banner(tmp_path):
+    """The pipe must give the same luma as PNG then PIL convert('L') (what crop_banner OCRs)."""
+    from PIL import Image
+    video = tmp_path / "colour.mp4"
+    subprocess.run(
+        [_ffmpeg(), "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=0xf0a020:s=640x360:r=30:d=2",
+         "-pix_fmt", "yuv420p", str(video)],
+        check=True, creationflags=winproc.NO_WINDOW,
+    )
+    png = tmp_path / "f.png"
+    subprocess.run([_ffmpeg(), "-y", "-loglevel", "error", "-i", str(video), "-frames:v", "1", str(png)],
+                   check=True, creationflags=winproc.NO_WINDOW)
+    want = ko_detect.crop_banner(Image.open(png)).convert("L").getpixel((5, 5))
+    geom = ko_detect.roi_geometry(640, 360)
+    frame = next(iter(ko_detect._ffmpeg_runner(str(video), 0.0, 1.0, geom, 2)))
+    got = ko_detect._roi_to_gray(frame, geom[0], geom[1]).getpixel((5, 5))
+    assert abs(got - want) <= 2
+
+
+def rescan_runner(log):
+    def runner(video, start, length, geom, fps):
+        log.append((start, length, fps))
+        return FakeDecode(round(start * fps), round(length * fps), [])
+    return runner
+
+
+def test_triple_triggers_local_high_fps_rescan_that_finds_quad(tmp_path):
+    log = []
+    # base grid sees TRIPLE at 12.0; the QUAD banner lasts 0.25 s at 15.5 and only the rescan grid can see it
+    def ocr(data, w, h):
+        t = int.from_bytes(data[:4], "big") / ko_detect.RESCAN_FPS if len(log) and log[-1][2] == ko_detect.RESCAN_FPS \
+            else int.from_bytes(data[:4], "big") / FPS
+        if 12.0 <= t < 12.5:
+            return "TRIPLE"
+        if 15.5 <= t < 15.75 and log[-1][2] == ko_detect.RESCAN_FPS:
+            return "QUAD"
+        return None
+    # rescan frames carry idx = round(start*fps)+i, so t = idx / RESCAN_FPS is video time
+    res = ko_detect.scan_video(
+        "fake.mp4", checkpoint_dir=str(tmp_path / "scan"), ocr_fn=ocr, duration=25.0, size=(W, H),
+        chunk_secs=10, overlap_secs=2, fps=FPS, workers=1, runner=rescan_runner(log))
+    rescans = [c for c in log if c[2] == ko_detect.RESCAN_FPS]
+    assert rescans and rescans[0][0] == pytest.approx(12.0, abs=1.0)
+    assert rescans[0][1] == ko_detect.RESCAN_SECS
+    assert [e["tier"] for e in res["events"]] == ["TRIPLE", "QUAD"]
+
+
+def test_no_rescan_without_triple(tmp_path):
+    log = []
+    ko_detect.scan_video(
+        "fake.mp4", checkpoint_dir=str(tmp_path / "scan"), ocr_fn=make_ocr({3.0: "DOUBLE"}), duration=25.0,
+        size=(W, H), chunk_secs=10, overlap_secs=2, fps=FPS, workers=2, runner=rescan_runner(log))
+    assert not [c for c in log if c[2] == ko_detect.RESCAN_FPS]
