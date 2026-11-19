@@ -615,7 +615,9 @@ def test_sort_by_column_and_direction():
 
 def test_headers_are_keyboard_buttons_and_mark_the_active_column():
     html = clips.table_html(_rows(("A", 1, 1, 0)))
-    assert html.count("rvm_sort") == 10  # click and Enter handler on each of the five headers
+    assert re.findall(r'data-sort="(\w+)"', html) == ["Character", "Clips", "Length", "Scanned", "Best"]
+    # ui.html sanitizes inline on* attributes away (DOMPurify), so the header clicks are wired on the element
+    assert "onclick" not in html and "onkeydown" not in html
     assert 'aria-sort="descending"' in html and html.count('aria-sort="none"') == 4
     assert html.count('tabindex="0"') == 5
 
@@ -627,6 +629,11 @@ def test_next_sort_flips_active_column_and_starts_numbers_descending():
     assert clips.next_sort("Character") == ("Character", False)
 
 
+def _table_elements():
+    return [e for e in ElementFilter(only_visible=False)
+            if isinstance(e, ui.html) and 'data-sort="Clips"' in str(e.content)]
+
+
 def test_clicking_a_header_resorts_the_live_table():
     clips._sort.update(col="Length", desc=True)
 
@@ -634,15 +641,15 @@ def test_clicking_a_header_resorts_the_live_table():
         async with user_simulation(lambda: clips.build(FixtureSource("needs_decision"), {})) as user:
             await user.open("/")
             with user.client:
-                before = [e for e in ElementFilter(only_visible=False) if "rvm_sort" in str(getattr(e, "content", ""))]
-                assert before
-                before[0]._handle_event if False else None
-                handlers = [l for e in before for l in e._event_listeners.values() if l.type == "rvm_sort"]
-                assert handlers
+                table = _table_elements()[-1]
+                # The browser path: the click and Enter listeners live on the table element, whose JS reads
+                # data-sort from the header that was clicked, and emits the column name.
+                listeners = {l.type: l for l in table._event_listeners.values()}
+                assert "th[data-sort]" in listeners["click"].js_handler
+                assert "th[data-sort]" in listeners["keydown"].js_handler
                 from nicegui.events import GenericEventArguments
-                handlers[0].handler(GenericEventArguments(sender=before[0], client=user.client, args={"detail": "Clips"}))
-                html = [str(e.content) for e in ElementFilter(only_visible=False) if "rvm_sort" in str(getattr(e, "content", ""))][0]
-                return html
+                listeners["click"].handler(GenericEventArguments(sender=table, client=user.client, args="Clips"))
+                return _table_elements()[-1].content
 
     html = asyncio.run(run())
     assert clips._sort == {"col": "Clips", "desc": True}

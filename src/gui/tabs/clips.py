@@ -149,16 +149,16 @@ def next_sort(col: str) -> tuple[str, bool]:
 
 def _th(label: str, style: str, right: bool = False, sort: tuple[str, bool] | None = None) -> str:
     """A header cell whose hover box (styled in theme.py, .rvm-tip) explains the column. With sort it is also a
-    button: click or Enter sorts by the column, and the active column shows an arrow and aria-sort."""
+    button: click or Enter sorts by the column, and the active column shows an arrow and aria-sort. The click and
+    key handlers are not inline attributes: ui.html sanitizes on* attributes away, so _sortable_table listens on
+    the table and reads data-sort from the header."""
     cls = "rvm-tip rvm-tip-r" if right else "rvm-tip"
     extra, arrow = "", ""
     if sort is not None:
         cls += " rvm-sortable"
         active = sort[0] == label
         state = ("descending" if sort[1] else "ascending") if active else "none"
-        fire = "this.dispatchEvent(new CustomEvent('rvm_sort',{detail:'" + label + "',bubbles:true}))"
-        keys = "if(event.key==='Enter'||event.key===' '){event.preventDefault();" + fire + "}"
-        extra = (f' role="columnheader" tabindex="0" aria-sort="{state}" onclick="{fire}" onkeydown="{keys}"')
+        extra = f' data-sort="{label}" role="columnheader" tabindex="0" aria-sort="{state}"'
         mark = ("▼" if sort[1] else "▲") if active else ""
         arrow = f'<span class="rvm-sort-mark" aria-hidden="true">{mark}</span>'
     return f'<th class="{cls}" data-tip="{escape(COLUMN_TIPS[label])}" style="{style}"{extra}>{label}{arrow}</th>'
@@ -278,6 +278,13 @@ def _decision_row(row: dict, actions: dict, busy: bool) -> None:
                 button.style(faded)
 
 
+# A click or Enter/Space on a sortable header emits its data-sort name. Listeners sit on the ui.html element, since
+# inline on* attributes are stripped by its DOMPurify sanitizing.
+_SORT_CLICK_JS = "(e) => { const th = e.target.closest('th[data-sort]'); if (th) emit(th.dataset.sort); }"
+_SORT_KEY_JS = ("(e) => { const th = e.target.closest('th[data-sort]');"
+                " if (th && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); emit(th.dataset.sort); } }")
+
+
 def _sortable_table(characters: list[dict]) -> None:
     """The character table in its own box; a header click re-sorts it in place without rebuilding the tab."""
     box = ui.column().style("width:100%;gap:0;")
@@ -286,10 +293,11 @@ def _sortable_table(characters: list[dict]) -> None:
         box.clear()
         with box:
             html = ui.html(table_html(characters, (_sort["col"], _sort["desc"]))).style("width:100%;")
-            html.on("rvm_sort", on_sort, args=["detail"])
+            html.on("click", on_sort, js_handler=_SORT_CLICK_JS)
+            html.on("keydown", on_sort, js_handler=_SORT_KEY_JS)
 
     def on_sort(event) -> None:
-        col = event.args.get("detail") if isinstance(event.args, dict) else event.args
+        col = event.args
         if col in _NUMERIC or col == "Character":
             _sort["col"], _sort["desc"] = next_sort(col)
             draw()
