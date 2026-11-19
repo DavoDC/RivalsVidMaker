@@ -25,7 +25,8 @@ Usage:
 """
 
 import logging
-import subprocess, os, sys, tempfile, shutil, glob, re, json, time
+import subprocess, os, sys, tempfile, shutil, glob, re, json, time, math, threading
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from PIL import Image, ImageOps, ImageFilter
@@ -115,7 +116,11 @@ def preprocess(crop: Image.Image) -> Image.Image:
 
 def ocr_tier(img_path: str) -> str | None:
     img   = Image.open(img_path)
-    crop  = crop_banner(img)
+    return _tier_from_crop(crop_banner(img))
+
+
+def _tier_from_crop(crop: Image.Image) -> str | None:
+    """OCR an already-cropped banner region (shared by ocr_tier and scan_video)."""
     proc  = preprocess(crop)
     for psm in (8, 7, 6):
         cfg   = f"--psm {psm} --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ!"
@@ -331,6 +336,264 @@ def scan_clip(
         return result
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+# ── Long-video scan ───────────────────────────────────────────────────────────
+# scan_clip stays the short-clip path. scan_video is for compilations and VODs: one ffmpeg
+# per 600 s chunk crops the banner ROI in ffmpeg and pipes gray rawvideo (no PNG files), an
+# OCR thread pool reads the frames, and each finished chunk is checkpointed atomically so a
+# killed run resumes with byte-identical chunk files. No early exit, no 22 s cap.
+
+SCANNER_VERSION     = "long-scan-1"
+LONG_CHUNK_SECS     = 600
+LONG_OVERLAP_SECS   = 5     # extra decoded tail per chunk; covers seek/fps edge frames
+LONG_FPS            = 4     # Quad+ banners stay 2-4 s, so at least 8 samples each
+SCENE_KEEP_MIN      = 5.0   # scdet scores below this are noise and not stored
+_SCENE_RE           = re.compile(r"lavfi\.scd\.score:\s*([0-9.]+),\s*lavfi\.scd\.time:\s*([0-9.]+)")
+
+
+def roi_geometry(width: int, height: int) -> tuple[int, int, int, int]:
+    """(crop_w, crop_h, x, y) of the banner ROI, identical to what crop_banner cuts."""
+    x, y = int(width * CROP_X), int(height * CROP_Y1)
+    return width - x, int(height * CROP_Y2) - y, x, y
+
+
+def get_size(clip_path: str) -> tuple[int, int]:
+    r = subprocess.run(
+        [FFPROBE, "-v", "error", "-select_streams", "v:0",
+         "-show_entries", "stream=width,height", "-of", "csv=p=0", clip_path],
+        capture_output=True, text=True, creationflags=winproc.NO_WINDOW,
+    )
+    try:
+        w, h = r.stdout.strip().split(",")[:2]
+        return int(w), int(h)
+    except ValueError:
+        raise RuntimeError(f"cannot read video size of {clip_path}: {r.stderr.strip()[:200]}")
+
+
+class _FfmpegDecode:
+    """Iterable of gray ROI frames (bytes) from one ffmpeg run; .scenes fills as it streams."""
+
+    def __init__(self, video, start, length, geom, fps):
+        cw, ch, x, y = geom
+        self.scenes: list[tuple[float, float]] = []
+        self._size = cw * ch
+        graph = (f"[0:v]split=2[a][b];"
+                 f"[a]fps={fps},crop={cw}:{ch}:{x}:{y},format=gray[roi];"
+                 f"[b]scale=320:-2,scdet=threshold=0[sc]")
+        cmd = [FFMPEG, "-hide_banner", "-nostats", "-loglevel", "info", "-nostdin",
+               "-ss", f"{start:.3f}", "-t", f"{length:.3f}", "-i", video, "-an", "-sn",
+               "-filter_complex", graph,
+               "-map", "[roi]", "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1",
+               "-map", "[sc]", "-f", "null", "-"]
+        self._proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                      creationflags=winproc.NO_WINDOW)
+        self._err_tail: deque = deque(maxlen=20)
+        self._reader = threading.Thread(target=self._drain_stderr, daemon=True)
+        self._reader.start()
+
+    def _drain_stderr(self):
+        for raw in self._proc.stderr:
+            line = raw.decode("utf-8", "replace")
+            m = _SCENE_RE.search(line)
+            if m:
+                self.scenes.append((float(m.group(2)), float(m.group(1))))
+            else:
+                self._err_tail.append(line.rstrip())
+
+    def __iter__(self):
+        try:
+            while True:
+                data = self._proc.stdout.read(self._size)
+                if len(data) < self._size:
+                    break
+                yield data
+            self._proc.wait()
+            self._reader.join(timeout=10)
+            if self._proc.returncode != 0:
+                raise RuntimeError(f"ffmpeg failed ({self._proc.returncode}): " + " | ".join(self._err_tail))
+        finally:
+            if self._proc.poll() is None:
+                self._proc.kill()
+                self._proc.wait()
+
+
+def _ffmpeg_runner(video, start, length, geom, fps):
+    return _FfmpegDecode(video, start, length, geom, fps)
+
+
+def _ocr_roi_bytes(data: bytes, width: int, height: int) -> str | None:
+    return _tier_from_crop(Image.frombytes("L", (width, height), data))
+
+
+def _atomic_write_json(path: str, obj) -> None:
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(obj, sort_keys=True, separators=(",", ":")) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+def _chunk_meta(video, idx, chunk_secs, overlap_secs, fps, geom) -> dict:
+    try:
+        nbytes = os.path.getsize(video)
+    except OSError:
+        nbytes = None
+    return {"scanner_version": SCANNER_VERSION, "chunk": idx, "chunk_secs": chunk_secs,
+            "overlap_secs": overlap_secs, "fps": fps, "geom": list(geom),
+            "source": os.path.basename(video), "source_bytes": nbytes}
+
+
+def _load_chunk(path: str, meta: dict) -> dict | None:
+    """The checkpoint at path if it is finished and matches meta, else None."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or any(data.get(k) != v for k, v in meta.items()):
+        return None
+    return data
+
+
+def _scan_chunk(video, start, length, geom, fps, runner, ocr_fn, pool, limit) -> tuple[list, list]:
+    """Decode one chunk and OCR its frames in order. Returns (tiers, scenes) for the chunk."""
+    cw, ch = geom[0], geom[1]
+    decode = runner(video, start, length, geom, fps)
+    pending: deque = deque()
+    tiers: list = []
+    try:
+        for data in decode:
+            pending.append(pool.submit(ocr_fn, data, cw, ch))
+            while len(pending) > limit:
+                tiers.append(pending.popleft().result())
+        while pending:
+            tiers.append(pending.popleft().result())
+    except BaseException:
+        for fut in pending:
+            fut.cancel()
+        raise
+    expected = int(length * fps)
+    if len(tiers) < expected - 1:
+        raise RuntimeError(f"chunk at {start}s produced {len(tiers)} frames, expected about {expected}")
+    return tiers, [(round(start + t, 3), round(s, 3)) for t, s in decode.scenes if s >= SCENE_KEEP_MIN]
+
+
+def _events_from_samples(samples: list[tuple[float, str | None]]) -> list[dict]:
+    """The _scan_frames event rules (rank rise, cooldown, prev-tier reset) with no early exit."""
+    events, prev_tier, cooldown_end, last_active = [], None, 0.0, None
+    for ts, tier in samples:
+        if tier and ts >= cooldown_end:
+            rank, prev_rank = TIER_RANK.get(tier, -1), TIER_RANK.get(prev_tier, -1) if prev_tier else -1
+            if prev_tier is None or rank > prev_rank:
+                events.append({"tier": tier, "ts": ts})
+                cooldown_end, prev_tier = ts + COOLDOWN_SECS, tier
+            elif tier == prev_tier:
+                cooldown_end = ts + COOLDOWN_SECS
+        if tier:
+            last_active = ts
+        elif last_active is not None and (ts - last_active) > COOLDOWN_SECS * 2:
+            prev_tier = None
+    return events
+
+
+def scan_video(
+    video_path: str,
+    *,
+    checkpoint_dir: str,
+    progress=None,
+    runner=None,
+    ocr_fn=None,
+    duration: float | None = None,
+    size: tuple[int, int] | None = None,
+    chunk_secs: int = LONG_CHUNK_SECS,
+    overlap_secs: int = LONG_OVERLAP_SECS,
+    fps: int = LONG_FPS,
+    workers: int | None = None,
+    resume: bool = True,
+) -> dict:
+    """
+    Scan a long video (compilation or VOD) end to end for kill banners.
+
+    Chunks of chunk_secs (plus overlap_secs of tail) are decoded one at a time; each is
+    checkpointed to checkpoint_dir/chunk_NNNN.json. With resume=True a chunk whose file
+    matches the current scanner version and parameters is reused, not rescanned.
+
+    progress(done_chunks, total_chunks, info) is called after every chunk
+    (info = {"chunk", "reused", "secs"}). runner(video, start, length, geom, fps) returns
+    an iterable of gray ROI frames with a .scenes list; ocr_fn(data, w, h) returns a tier
+    or None. Both are injectable for tests. The caller owns checkpoint_dir (the OldCompilations
+    run passes it through oldcomp_guard.assert_outside_oldcomp first).
+
+    Returns {"video", "duration", "fps", "scanner_version", "chunks", "chunks_reused",
+    "timeline": [(t, tier_or_None)] one per sample, "events": [{"tier","ts"}] with the
+    scan_clip rank/cooldown rules, "scenes": [(t, score)] with score >= SCENE_KEEP_MIN,
+    "scan_time"}.
+    """
+    t0 = time.perf_counter()
+    runner = runner or _ffmpeg_runner
+    ocr_fn = ocr_fn or _ocr_roi_bytes
+    duration = get_duration(video_path) if duration is None else duration
+    if duration <= 0:
+        raise RuntimeError(f"cannot read duration of {video_path}")
+    geom = roi_geometry(*(size or get_size(video_path)))
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    os.environ.setdefault("OMP_THREAD_LIMIT", "1")   # one tesseract thread per worker, no oversubscription
+    n_chunks = math.ceil(duration / chunk_secs)
+    own_len = chunk_secs * fps                         # grid samples owned per chunk
+    frame_tier: dict[int, str | None] = {}
+    scenes: list[tuple[float, float]] = []
+    owned: list[dict] = []
+    reused = 0
+
+    n_workers = workers or min(12, os.cpu_count() or 4)
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:   # in-flight frames bounded at 4x workers
+        try:
+            for i in range(n_chunks):
+                start = i * chunk_secs
+                length = min(chunk_secs + overlap_secs, duration - start)
+                path = os.path.join(checkpoint_dir, f"chunk_{i:04d}.json")
+                meta = _chunk_meta(video_path, i, chunk_secs, overlap_secs, fps, geom)
+                tc = time.perf_counter()
+                data = _load_chunk(path, meta) if resume else None
+                was_reused = data is not None
+                if data is None:
+                    tiers, sc = _scan_chunk(video_path, start, length, geom, fps, runner, ocr_fn, pool, n_workers * 4)
+                    data = {**meta, "first_idx": round(start * fps), "tiers": tiers,
+                            "scenes": [list(s) for s in sc]}
+                    _atomic_write_json(path, data)
+                reused += was_reused
+                owned.append(data)
+                if progress:
+                    progress(i + 1, n_chunks, {"chunk": i, "reused": was_reused, "secs": time.perf_counter() - tc})
+        except BaseException:
+            pool.shutdown(wait=False, cancel_futures=True)
+            raise
+
+    # Merge: overlap samples first, then each chunk's owned samples win (dedup by grid index).
+    for i, data in enumerate(owned):
+        lo, hi = i * own_len, (i + 1) * own_len if i < n_chunks - 1 else float("inf")
+        for k, tier in enumerate(data["tiers"]):
+            idx = data["first_idx"] + k
+            if not (lo <= idx < hi):
+                frame_tier.setdefault(idx, tier)
+        for t, s in data["scenes"]:
+            if lo <= round(t * fps) < hi:
+                scenes.append((t, s))
+    for i, data in enumerate(owned):
+        lo, hi = i * own_len, (i + 1) * own_len if i < n_chunks - 1 else float("inf")
+        for k, tier in enumerate(data["tiers"]):
+            idx = data["first_idx"] + k
+            if lo <= idx < hi:
+                frame_tier[idx] = tier
+
+    timeline = [(idx / fps, frame_tier[idx]) for idx in sorted(frame_tier)]
+    return {
+        "video": video_path, "duration": duration, "fps": fps, "scanner_version": SCANNER_VERSION,
+        "chunks": n_chunks, "chunks_reused": reused, "timeline": timeline,
+        "events": _events_from_samples(timeline), "scenes": sorted(scenes),
+        "scan_time": time.perf_counter() - t0,
+    }
 
 # ── Formatting ────────────────────────────────────────────────────────────────
 
