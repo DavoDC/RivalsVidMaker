@@ -1,6 +1,9 @@
 """Tests for oldcomp_scan: the resumable batch loop over OldCompilations (fakes stand in for the scanner)."""
 
 import json
+import os
+import subprocess
+import sys
 
 import pytest
 
@@ -99,3 +102,55 @@ def test_meta_inside_root_refused(tree):
     root, _, state = tree
     with pytest.raises(oldcomp_guard.OldCompViolation):
         run(tree, meta=root / "meta")
+
+
+def _dead_pid():
+    p = subprocess.Popen([sys.executable, "--version"], stdout=subprocess.DEVNULL)
+    p.wait()
+    return p.pid
+
+
+def test_second_acquire_refused_while_first_holds(tmp_path):
+    meta = tmp_path / "OldCompilationsMeta"
+    lock = oldcomp_scan.acquire_lock(meta)
+    assert lock == meta / "_scan.lock"
+    with pytest.raises(oldcomp_scan.ScanLocked) as e:
+        oldcomp_scan.acquire_lock(meta)
+    assert e.value.pid == os.getpid()
+    oldcomp_scan.release_lock(lock)
+
+
+def test_stale_lock_with_dead_pid_is_taken_over(tmp_path):
+    meta = tmp_path / "OldCompilationsMeta"
+    meta.mkdir()
+    (meta / "_scan.lock").write_text(str(_dead_pid()))
+    lock = oldcomp_scan.acquire_lock(meta)
+    assert lock.read_text().strip() == str(os.getpid())
+    oldcomp_scan.release_lock(lock)
+
+
+def test_lock_released_after_run(tree):
+    root, meta, state = tree
+    run(tree)
+    assert not (meta / "_scan.lock").exists()
+
+
+def test_lock_released_when_run_aborts(tree):
+    root, meta, state = tree
+
+    def abort(path, **kw):
+        raise KeyboardInterrupt
+    with pytest.raises(KeyboardInterrupt):
+        run(tree, scan_fn=abort)
+    assert not (meta / "_scan.lock").exists()
+
+
+def test_run_refused_while_another_holds_lock(tree):
+    root, meta, state = tree
+    lock = oldcomp_scan.acquire_lock(meta)
+    with pytest.raises(oldcomp_scan.ScanLocked) as e:
+        run(tree)
+    assert e.value.pid == os.getpid()
+    assert not (meta / "scan").exists()
+    assert json.loads(state.read_text())["videos"] == {}
+    oldcomp_scan.release_lock(lock)

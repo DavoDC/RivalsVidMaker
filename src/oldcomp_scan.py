@@ -33,6 +33,68 @@ def _read_json(path: Path, default):
         return default
 
 
+LOCK_NAME = "_scan.lock"
+
+
+class ScanLocked(RuntimeError):
+    def __init__(self, pid: int):
+        super().__init__(f"another scan is running (pid {pid})")
+        self.pid = pid
+
+
+def _pid_alive(pid: int) -> bool:
+    if os.name == "nt":
+        # os.kill(pid, 0) on Windows calls TerminateProcess, so probe with OpenProcess instead.
+        import ctypes
+        from ctypes import wintypes
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.OpenProcess.restype = wintypes.HANDLE
+        h = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return ctypes.get_last_error() == 5  # ERROR_ACCESS_DENIED: process exists
+        try:
+            code = wintypes.DWORD()
+            if not k32.GetExitCodeProcess(h, ctypes.byref(code)):
+                return True
+            return code.value == 259  # STILL_ACTIVE
+        finally:
+            k32.CloseHandle(h)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def acquire_lock(meta) -> Path:
+    """Create meta/_scan.lock holding our PID. A lock whose PID is dead is stale and is taken over."""
+    meta = Path(meta)
+    meta.mkdir(parents=True, exist_ok=True)
+    lock = meta / LOCK_NAME
+    for _ in range(2):
+        try:
+            fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        except FileExistsError:
+            try:
+                holder = int(lock.read_text().strip())
+            except (OSError, ValueError):
+                holder = None  # unreadable lock: no live holder can be proven, so treat as stale
+            if holder is not None and _pid_alive(holder):
+                raise ScanLocked(holder)
+            lock.unlink(missing_ok=True)
+            continue
+        with os.fdopen(fd, "w") as f:
+            f.write(str(os.getpid()))
+        return lock
+    raise ScanLocked(int(lock.read_text().strip() or 0))
+
+
+def release_lock(lock) -> None:
+    Path(lock).unlink(missing_ok=True)
+
+
 def list_videos(root) -> list[Path]:
     return sorted(p for p in Path(root).iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTS)
 
@@ -63,7 +125,14 @@ def scan_all(*, root, meta, state_path, scan_fn, duration_fn, version, only=None
     res = {"plan": plan, "scanned": 0, "skipped": 0, "failed": []}
     if dry_run:
         return res
+    lock = acquire_lock(meta)
+    try:
+        return _scan_planned(res, plan, root, scan_root, index_path, state_path, version, scan_fn, now_fn, log)
+    finally:
+        release_lock(lock)
 
+
+def _scan_planned(res, plan, root, scan_root, index_path, state_path, version, scan_fn, now_fn, log) -> dict:
     index = _read_json(index_path, {"videos": {}})
     index.setdefault("videos", {})
     for r in plan:

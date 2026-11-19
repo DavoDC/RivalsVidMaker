@@ -2,11 +2,13 @@
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import ko_detect  # noqa: E402
+import oldcomp_guard  # noqa: E402
 import oldcomp_scan  # noqa: E402
 
 DEFAULT_ROOT = r"C:\Users\David\Videos\MarvelRivals\OldCompilations"
@@ -28,15 +30,34 @@ def main(argv=None) -> int:
     sc.add_argument("--order", default="shortest-first", choices=["shortest-first"])
     sc.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
-    res = oldcomp_scan.scan_all(
-        root=a.root, meta=a.meta, state_path=a.state, only=a.only, max_videos=a.max_videos,
-        dry_run=a.dry_run, version=ko_detect.SCANNER_VERSION, duration_fn=ko_detect.get_duration,
-        scan_fn=lambda p, checkpoint_dir: ko_detect.scan_video(p, checkpoint_dir=checkpoint_dir),
-        log=lambda m: print(m, flush=True))
+    run_log = None
+    if not a.dry_run:
+        log_path = Path(a.meta) / "_scan_run.log"
+        oldcomp_guard.assert_outside_oldcomp(log_path, a.root)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        run_log = open(log_path, "a", encoding="utf-8", buffering=1)  # append: runs never clobber each other
+
+    def emit(m):
+        print(m, flush=True)
+        if run_log:
+            run_log.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {m}\n")
+
+    try:
+        res = oldcomp_scan.scan_all(
+            root=a.root, meta=a.meta, state_path=a.state, only=a.only, max_videos=a.max_videos,
+            dry_run=a.dry_run, version=ko_detect.SCANNER_VERSION, duration_fn=ko_detect.get_duration,
+            scan_fn=lambda p, checkpoint_dir: ko_detect.scan_video(p, checkpoint_dir=checkpoint_dir),
+            log=emit)
+    except oldcomp_scan.ScanLocked as e:
+        emit(str(e))
+        return 2
+    finally:
+        if run_log:
+            run_log.close()
     if a.dry_run:
         for r in res["plan"]:
             print(f"{r['duration'] / 60:8.1f} min  {r['stem']}")
-    print(f"done: scanned={res['scanned']} skipped={res['skipped']} failed={res['failed']}", flush=True)
+    emit(f"done: scanned={res['scanned']} skipped={res['skipped']} failed={res['failed']}")
     return 1 if res["failed"] else 0
 
 
