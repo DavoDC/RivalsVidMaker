@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/4f4ed61c-ce7a-4ea5-a8fd-1619307b2ff4
 
 ## See it
 
-![The Compile tab: a planned 15-minute Thor video with its Quad and Penta clips marked](docs/images/gui-compile.png)
+![The Clips tab: clips sorted by character, each scanned, with Quad kills marked](docs/images/gui-clips.png)
 
 ## How it works
 
