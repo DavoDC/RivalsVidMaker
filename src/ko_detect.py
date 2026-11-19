@@ -559,7 +559,7 @@ def _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, 
     bank, crop = plan["bank"], plan["crop"]
     n_chunks = math.ceil(duration / chunk_secs)
     total = int(duration * fps)
-    n_workers = workers or min(8, os.cpu_count() or 4)
+    n_workers = workers or ko_ncc.WORKERS
     sig = ko_ncc.bank_signature()
     # decode() is looked up at call time so tests can swap it
     def one(i: int):

@@ -216,6 +216,48 @@ def test_unsupported_size_falls_back_to_ocr_with_log(tmp_path, caplog):
     assert any("falling back to OCR" in r.message for r in caplog.records)
 
 
+def test_decode_command_sets_one_ffmpeg_thread_before_input(monkeypatch):
+    seen = {}
+
+    class Done:
+        returncode = 0
+        stdout = b""
+        stderr = b""
+
+    def fake_run(cmd, **kw):
+        seen["cmd"] = cmd
+        return Done()
+
+    monkeypatch.setattr(ko_ncc.subprocess, "run", fake_run)
+    ko_ncc.decode("ffmpeg", "v.mp4", 0.0, 60.0, 15, (10, 10, 0, 0))
+    cmd = seen["cmd"]
+    i = cmd.index("-threads")
+    assert cmd[i + 1] == "1"
+    assert i < cmd.index("-i")
+
+
+def test_default_chunk_workers_is_eight_and_one_thread_each():
+    assert ko_ncc.WORKERS == 8
+    assert ko_ncc.FFMPEG_THREADS == 1
+
+
+def test_scan_video_ncc_default_pool_is_eight_workers(tmp_path, monkeypatch, scored_once):
+    raw = ko_ncc.load_raw_bank()
+    monkeypatch.setattr(ko_ncc, "decode", _fake_decode_factory(raw, 70.0, 72.0, "QUAD"))
+    sizes = []
+    real_pool = ko_detect.ThreadPoolExecutor
+
+    class Recording(real_pool):
+        def __init__(self, max_workers=None, *a, **k):
+            sizes.append(max_workers)
+            super().__init__(max_workers, *a, **k)
+
+    monkeypatch.setattr(ko_detect, "ThreadPoolExecutor", Recording)
+    ko_detect.scan_video("fake.mp4", checkpoint_dir=str(tmp_path / "s"), duration=130.0,
+                         size=(1920, 1080), detector="ncc")
+    assert sizes[0] == 8
+
+
 def test_detector_ocr_is_reachable():
     assert ko_detect.SCANNER_VERSION != "long-scan-2"
 

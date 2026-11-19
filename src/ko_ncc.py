@@ -35,6 +35,8 @@ MIN_FRAMES = 2         # hit frames needed for a run to count as an event
 MAX_GAP = 1            # missed frames bridged inside one run
 AMBIG_MARGIN = 0.10    # (best - second) / best summed score below this: ask OCR about the run
 CHUNK_SECS = 60
+WORKERS = 8            # chunks decoded in parallel by scan_video (confirmed bench setting)
+FFMPEG_THREADS = 1     # -threads per decode, so WORKERS ffmpeg runs do not oversubscribe the CPU
 SCENE_KEEP_MIN = 5.0   # scdet scores below this are noise (same as ko_detect.SCENE_KEEP_MIN)
 MIN_HEIGHT = 360       # below this the word is too small to match
 
@@ -199,17 +201,19 @@ def plan(width: int, height: int, raw: dict | None = None, pad: int = PAD) -> di
 # ── Decode ────────────────────────────────────────────────────────────────────
 
 def decode(ffmpeg: str, video: str, start: float, length: float, fps: int,
-           crop: tuple[int, int, int, int]) -> tuple[np.ndarray, list[tuple[float, float]]]:
+           crop: tuple[int, int, int, int], threads: int = FFMPEG_THREADS
+           ) -> tuple[np.ndarray, list[tuple[float, float]]]:
     """
     (frames (N, ch, cw) uint8 gray, scenes [(t_from_start, score)]) for [start, start+length).
     A scdet branch on the downscaled full frame rides along so the scene peaks used for clip
-    boundaries need no second decode.
+    boundaries need no second decode. threads is the ffmpeg -threads value, set before -i.
     """
     cw, ch, x, y = crop
     graph = (f"[0:v]split=2[a][b];[a]fps={fps},crop={cw}:{ch}:{x}:{y},format=gray[roi];"
              f"[b]scale=320:-2,scdet=threshold=0[sc]")
     cmd = [ffmpeg, "-hide_banner", "-nostats", "-loglevel", "info", "-nostdin",
-           "-ss", f"{start:.3f}", "-t", f"{length:.3f}", "-i", video, "-an", "-sn",
+           "-ss", f"{start:.3f}", "-t", f"{length:.3f}", "-threads", str(int(threads)),
+           "-i", video, "-an", "-sn",
            "-filter_complex", graph,
            "-map", "[roi]", "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1",
            "-map", "[sc]", "-f", "null", "-"]
