@@ -4,6 +4,8 @@
 
 Every multi-kill, found and timestamped for you. Save your best Marvel Rivals plays in game, and RivalsVidMaker turns the pile of short clips into ready-to-upload 15-minute YouTube videos: it finds every Quad, Penta and Hexa, joins the clips in seconds, writes the description with a clickable timestamp for each big kill, and uploads it to your channel. No editor, no scrubbing through footage.
 
+https://github.com/user-attachments/assets/4f4ed61c-ce7a-4ea5-a8fd-1619307b2ff4
+
 ## Why you will want it
 
 - **Every big kill, found for you.** It reads the kill banner in each clip, so every Quad, Penta and Hexa is spotted without you watching anything back.
