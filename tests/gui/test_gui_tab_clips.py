@@ -237,12 +237,12 @@ def test_table_rows_carry_testids_and_the_five_columns():
     html = clips.table_html(rows)
     assert {t for t in TESTID.findall(html) if t.startswith("clip-char-")} == {r["testid"] for r in rows}
     for heading in ("Character", "Clips", "Length", "Scanned", "Best"):
-        assert f">{heading}</th>" in html
+        assert re.search(f">{heading}(<span[^>]*></span>|<span[^>]*>.</span>)?</th>", html)
 
 
 def test_table_header_says_length_not_minutes():
     html = clips.table_html([])
-    assert ">Length</th>" in html
+    assert ">Length<" in html
     assert ">Minutes<" not in html
 
 
@@ -587,3 +587,64 @@ def test_length_cell_flags_unscanned_clips_only_when_some_remain():
     base = {"testid": "clip-char-x-000001", "name": "THOR", "clips": 19, "seconds": 559, "tiers": {}}
     assert "1 unscanned" in clips.table_html([dict(base, scanned=18)])
     assert "unscanned" not in clips.table_html([dict(base, scanned=19)])
+
+
+# ---- sortable character table --------------------------------------------------------------------
+
+def _rows(*specs):
+    return [{"name": n, "testid": f"clip-char-{n}", "clips": c, "scanned": c, "seconds": sec,
+             "tiers": {"QUAD": 1} if q else {}} for n, c, sec, q in specs]
+
+
+def _order(html):
+    return re.findall(r'data-testid="clip-char-(\w+)"', html)
+
+
+def test_default_sort_is_length_most_first_like_compile():
+    rows = _rows(("A", 5, 60, 0), ("B", 2, 600, 0), ("C", 9, 300, 0))
+    assert _order(clips.table_html(rows)) == ["B", "C", "A"]
+
+
+def test_sort_by_column_and_direction():
+    rows = _rows(("A", 5, 60, 0), ("B", 2, 600, 1), ("C", 9, 300, 0))
+    assert _order(clips.table_html(rows, ("Clips", True))) == ["C", "A", "B"]
+    assert _order(clips.table_html(rows, ("Clips", False))) == ["B", "A", "C"]
+    assert _order(clips.table_html(rows, ("Best", True)))[0] == "B"
+    assert _order(clips.table_html(rows, ("Character", False))) == ["A", "B", "C"]
+
+
+def test_headers_are_keyboard_buttons_and_mark_the_active_column():
+    html = clips.table_html(_rows(("A", 1, 1, 0)))
+    assert html.count("rvm_sort") == 10  # click and Enter handler on each of the five headers
+    assert 'aria-sort="descending"' in html and html.count('aria-sort="none"') == 4
+    assert html.count('tabindex="0"') == 5
+
+
+def test_next_sort_flips_active_column_and_starts_numbers_descending():
+    clips._sort.update(col="Length", desc=True)
+    assert clips.next_sort("Length") == ("Length", False)
+    assert clips.next_sort("Clips") == ("Clips", True)
+    assert clips.next_sort("Character") == ("Character", False)
+
+
+def test_clicking_a_header_resorts_the_live_table():
+    clips._sort.update(col="Length", desc=True)
+
+    async def run():
+        async with user_simulation(lambda: clips.build(FixtureSource("needs_decision"), {})) as user:
+            await user.open("/")
+            with user.client:
+                before = [e for e in ElementFilter(only_visible=False) if "rvm_sort" in str(getattr(e, "content", ""))]
+                assert before
+                before[0]._handle_event if False else None
+                handlers = [l for e in before for l in e._event_listeners.values() if l.type == "rvm_sort"]
+                assert handlers
+                from nicegui.events import GenericEventArguments
+                handlers[0].handler(GenericEventArguments(sender=before[0], client=user.client, args={"detail": "Clips"}))
+                html = [str(e.content) for e in ElementFilter(only_visible=False) if "rvm_sort" in str(getattr(e, "content", ""))][0]
+                return html
+
+    html = asyncio.run(run())
+    assert clips._sort == {"col": "Clips", "desc": True}
+    assert 'aria-sort="descending"' in html
+    clips._sort.update(col="Length", desc=True)

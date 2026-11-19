@@ -108,10 +108,60 @@ def _best_cell(tiers: dict) -> str:
     return tier_chip.chip_html(tier)
 
 
-def _th(label: str, style: str, right: bool = False) -> str:
-    """A header cell whose hover box (styled in theme.py, .rvm-tip) explains the column."""
+DEFAULT_SORT = ("Length", True)  # same order as the Compile tab's closest list: most clip time first
+_NUMERIC = ("Clips", "Length", "Scanned", "Best")
+_sort = {"col": DEFAULT_SORT[0], "desc": DEFAULT_SORT[1]}  # shortcut: one local user, one table; per-client state if ever shared
+
+
+def _seconds(row: dict) -> float:
+    seconds = row.get("seconds")
+    if isinstance(seconds, (int, float)) and not isinstance(seconds, bool):
+        return float(seconds)
+    return float(row.get("minutes") or 0) * 60
+
+
+def _best_rank(row: dict) -> int:
+    tier = _best(row.get("tiers") or {})
+    return len(_BEST_ORDER) - _BEST_ORDER.index(tier) if tier else 0
+
+
+def sort_rows(rows: list[dict], col: str, desc: bool) -> list[dict]:
+    """Rows ordered by a column; ties fall back to the display name so the order never jumps between polls."""
+    keys = {
+        "Character": lambda r: avatars.display_name(str(r.get("name") or "")).lower(),
+        "Clips": lambda r: int(r.get("clips") or 0),
+        "Length": _seconds,
+        "Scanned": lambda r: int(r.get("scanned") or 0),
+        "Best": _best_rank,
+    }
+    key = keys.get(col, keys[DEFAULT_SORT[0]])
+    by_name = sorted(rows, key=keys["Character"])
+    return sorted(by_name, key=key, reverse=desc)
+
+
+def next_sort(col: str) -> tuple[str, bool]:
+    """A click on the active column flips its direction; a new column starts the natural way: numbers most first,
+    names A to Z."""
+    if col == _sort["col"]:
+        return col, not _sort["desc"]
+    return col, col in _NUMERIC
+
+
+def _th(label: str, style: str, right: bool = False, sort: tuple[str, bool] | None = None) -> str:
+    """A header cell whose hover box (styled in theme.py, .rvm-tip) explains the column. With sort it is also a
+    button: click or Enter sorts by the column, and the active column shows an arrow and aria-sort."""
     cls = "rvm-tip rvm-tip-r" if right else "rvm-tip"
-    return f'<th class="{cls}" data-tip="{escape(COLUMN_TIPS[label])}" style="{style}">{label}</th>'
+    extra, arrow = "", ""
+    if sort is not None:
+        cls += " rvm-sortable"
+        active = sort[0] == label
+        state = ("descending" if sort[1] else "ascending") if active else "none"
+        fire = "this.dispatchEvent(new CustomEvent('rvm_sort',{detail:'" + label + "',bubbles:true}))"
+        keys = "if(event.key==='Enter'||event.key===' '){event.preventDefault();" + fire + "}"
+        extra = (f' role="columnheader" tabindex="0" aria-sort="{state}" onclick="{fire}" onkeydown="{keys}"')
+        mark = ("▼" if sort[1] else "▲") if active else ""
+        arrow = f'<span class="rvm-sort-mark" aria-hidden="true">{mark}</span>'
+    return f'<th class="{cls}" data-tip="{escape(COLUMN_TIPS[label])}" style="{style}"{extra}>{label}{arrow}</th>'
 
 
 def _partial_hint(clips: int, scanned: int) -> str:
@@ -121,10 +171,12 @@ def _partial_hint(clips: int, scanned: int) -> str:
     return f'<div style="color:{tokens.TEXT_DIM};font-weight:400;">{clips - scanned} unscanned</div>'
 
 
-def table_html(rows: list[dict]) -> str:
-    """The character table: Character, Clips, Length, Scanned and Best; one row per character with its testid."""
+def table_html(rows: list[dict], sort: tuple[str, bool] | None = None) -> str:
+    """The character table: Character, Clips, Length, Scanned and Best; one row per character with its testid.
+    Rows follow sort (column, descending), by default Length most first; headers are click targets."""
+    sort = sort or DEFAULT_SORT
     body = []
-    for row in rows:
+    for row in sort_rows(rows, *sort):
         clips = int(row.get("clips") or 0)
         scanned = int(row.get("scanned") or 0)
         folder = str(row.get("name") or "")
@@ -137,11 +189,11 @@ def table_html(rows: list[dict]) -> str:
             f'<td style="{_TD}">{_best_cell(row.get("tiers") or {})}</td>'
             "</tr>")
     return (f'<table style="{_TABLE}"><thead><tr>'
-            + _th('Character', _TH)
-            + _th('Clips', _TH_NUM, right=True)
-            + _th('Length', _TH_NUM, right=True)
-            + _th('Scanned', _TH_NUM, right=True)
-            + _th('Best', _TH)
+            + _th('Character', _TH, sort=sort)
+            + _th('Clips', _TH_NUM, right=True, sort=sort)
+            + _th('Length', _TH_NUM, right=True, sort=sort)
+            + _th('Scanned', _TH_NUM, right=True, sort=sort)
+            + _th('Best', _TH, sort=sort)
             + "</tr></thead><tbody>" + "".join(body) + "</tbody></table>")
 
 
@@ -226,6 +278,25 @@ def _decision_row(row: dict, actions: dict, busy: bool) -> None:
                 button.style(faded)
 
 
+def _sortable_table(characters: list[dict]) -> None:
+    """The character table in its own box; a header click re-sorts it in place without rebuilding the tab."""
+    box = ui.column().style("width:100%;gap:0;")
+
+    def draw() -> None:
+        box.clear()
+        with box:
+            html = ui.html(table_html(characters, (_sort["col"], _sort["desc"]))).style("width:100%;")
+            html.on("rvm_sort", on_sort, args=["detail"])
+
+    def on_sort(event) -> None:
+        col = event.args.get("detail") if isinstance(event.args, dict) else event.args
+        if col in _NUMERIC or col == "Character":
+            _sort["col"], _sort["desc"] = next_sort(col)
+            draw()
+
+    draw()
+
+
 def build(source, actions=None) -> None:
     actions = actions or {}
     state = view_model.snapshot(source)
@@ -251,7 +322,7 @@ def build(source, actions=None) -> None:
         with ui.column().classes("rvm-clips-main").style(_LAYOUT_MAIN + "gap:8px;"):
             characters = clips_state["characters"]
             if characters:
-                ui.html(table_html(characters)).style("width:100%;")
+                _sortable_table(characters)
             else:
                 ui.label(NO_CHARACTERS_COPY).style(_BODY)
             roots = clips_state["unsorted"]

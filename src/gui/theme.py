@@ -36,6 +36,9 @@ _CSS = """
     background:@@PANEL@@;color:@@TEXT@@;border:1px solid @@LINE@@;border-radius:@@RADIUS_PANEL@@px;
     padding:@@SPACE_12@@px @@SPACE_16@@px;text-align:left;}
   .rvm-tip-r:hover::after,.rvm-tip-r:focus-visible::after{left:auto;right:0;}
+  .rvm-sortable{cursor:pointer;user-select:none;}
+  .rvm-sortable:hover{color:@@TEXT@@;}
+  .rvm-sort-mark{display:inline-block;width:1.1em;font-size:0.7em;color:@@TEXT@@;}
   .rvm-tabs{display:flex;gap:@@SPACE_24@@px;padding:0 @@SPACE_24@@px;border-bottom:1px solid @@LINE@@;}
   .rvm-tab{font:inherit;font-size:@@SIZE_NAV@@px;font-weight:600;font-stretch:87.5%;color:@@TEXT_DIM@@;
     background:none;border:none;border-bottom:@@SPACE_4@@px solid transparent;padding:@@SPACE_8@@px 0;cursor:pointer;}
