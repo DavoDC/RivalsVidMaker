@@ -601,16 +601,23 @@ def _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, 
     lay = _ncc_lanes(with_scenes, workers, nvdec, crop, vsize)
     fps = lay["fps"]
     n_workers = lay["cpu"] + lay["nvdec"]
-    chunk_secs = ko_ncc.chunk_len(duration, n_workers, lay["chunk_secs"])
-    n_chunks = math.ceil(duration / chunk_secs)
+    if lay["profile"] == "fast" and str(lay["chunk_secs"]) == "auto":
+        spans = ko_ncc.lane_spans(duration, lay["cpu"], lay["nvdec"])       # NVDEC spans are longer, all workers finish together
+        chunk_secs = "auto"
+    else:
+        chunk_secs = ko_ncc.chunk_len(duration, n_workers, lay["chunk_secs"])
+        n_eq = math.ceil(duration / chunk_secs)
+        spans = [(i * chunk_secs, min(chunk_secs, duration - i * chunk_secs), ln)
+                 for i, ln in enumerate(ko_ncc.split_lanes(n_eq, lay["cpu"], lay["nvdec"]))]
+    n_chunks = len(spans)
+    lanes = [ln for _, _, ln in spans]
     total = int(duration * fps)
-    lanes = ko_ncc.split_lanes(n_chunks, lay["cpu"], lay["nvdec"])
     sig = ko_ncc.bank_signature()
 
     def one(i: int):
-        start = i * chunk_secs
-        length = min(chunk_secs, duration - start)
+        start, length, _lane = spans[i]
         meta = {"scanner_version": SCANNER_VERSION, "detector": "ncc", "chunk": i, "chunk_secs": chunk_secs,
+                "start": round(start, 3), "length": round(length, 3),
                 "fps": fps, "crop": list(crop), "bank": sig, "profile": lay["profile"],
                 "source": os.path.basename(video_path), "source_bytes": _file_size(video_path)}
         path = os.path.join(checkpoint_dir, f"chunk_{i:04d}.json")

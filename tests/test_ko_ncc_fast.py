@@ -444,3 +444,53 @@ def test_progress_reports_decode_and_score_seconds_per_chunk(tmp_path, lanes_env
     for info in seen:
         assert info["decode_secs"] >= 0 and info["score_secs"] >= 0
         assert info["decode_secs"] + info["score_secs"] <= info["secs"] + 1e-6
+
+
+# ---- weighted lane spans (BL-141): NVDEC lanes get longer chunks so every worker finishes together ----
+
+def _covers(spans, duration):
+    assert spans[0][0] == 0
+    for (s0, l0, _), (s1, _, _) in zip(spans, spans[1:]):
+        assert s0 + l0 == s1
+    assert abs(spans[-1][0] + spans[-1][1] - duration) < 1e-9
+
+
+def test_lane_spans_cover_the_video_contiguously_and_weight_nvdec_longer():
+    spans = ko_ncc.lane_spans(903.1, 4, 3)
+    _covers(spans, 903.1)
+    assert [lane for _, _, lane in spans] == ["cpu"] * 4 + ["nvdec"] * 3
+    cpu_len = {l for _, l, lane in spans if lane == "cpu"}
+    nv_len = {l for _, l, lane in spans if lane == "nvdec"}
+    assert max(cpu_len) < min(nv_len)
+    assert min(nv_len) / max(cpu_len) == pytest.approx(ko_ncc.NVDEC_WEIGHT, rel=0.1)
+
+
+def test_lane_spans_without_nvdec_equal_the_old_equal_chunks():
+    spans = ko_ncc.lane_spans(130.0, 8, 0)
+    _covers(spans, 130.0)
+    assert all(lane == "cpu" for _, _, lane in spans)
+    assert [round(l) for _, l, _ in spans[:-1]] == [17.0] * (len(spans) - 1)    # ceil(130 / 8)
+
+
+def test_lane_spans_tiny_video_is_one_span():
+    spans = ko_ncc.lane_spans(0.4, 4, 3)
+    assert len(spans) == 1 and spans[0][0] == 0 and abs(spans[0][1] - 0.4) < 1e-9
+
+
+def test_scan_decodes_the_weighted_spans(tmp_path, lanes_env):
+    mp, log, _ = lanes_env
+    mp.setattr(ko_ncc, "nvdec_available", lambda ffmpeg: True)
+    spans = []
+    real_nv = ko_ncc.decode_nvdec
+    real_fast = ko_ncc.decode_fast
+
+    def spy_nv(ffmpeg, video, start, length, *a, **k):
+        spans.append((start, length, "nvdec")); return real_nv(ffmpeg, video, start, length, *a, **k)
+
+    def spy_fast(ffmpeg, video, start, length, *a, **k):
+        spans.append((start, length, "cpu")); return real_fast(ffmpeg, video, start, length, *a, **k)
+
+    mp.setattr(ko_ncc, "decode_nvdec", spy_nv)
+    mp.setattr(ko_ncc, "decode_fast", spy_fast)
+    _scan(tmp_path)
+    assert sorted(spans) == sorted(ko_ncc.lane_spans(130.0, 4, 3))

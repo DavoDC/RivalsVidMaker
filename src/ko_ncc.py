@@ -274,6 +274,29 @@ def split_lanes(n_chunks: int, cpu_workers: int, nvdec_workers: int) -> list[str
     return ["cpu"] * (n_chunks - n_nv) + ["nvdec"] * n_nv
 
 
+NVDEC_WEIGHT = 1.15      # an NVDEC chunk is this much longer than a CPU chunk (profile 2026-11-20: NVDEC lane finishes about 15 percent sooner)
+
+
+def lane_spans(duration: float, cpu_workers: int, nvdec_workers: int, nv_weight: float = NVDEC_WEIGHT):
+    """Auto layout as [(start, length, lane)]: one span per worker, contiguous over the whole video, NVDEC spans
+    last and nv_weight times longer so every worker finishes together; the last span takes the rounding remainder.
+    Without NVDEC it is the old equal split, ceil(duration / workers) per chunk. Pure."""
+    if nvdec_workers <= 0 or cpu_workers + nvdec_workers <= 0:
+        step = chunk_len(duration, max(1, cpu_workers))
+        n = max(1, math.ceil(duration / step))
+        return [(i * step, min(step, duration - i * step), "cpu") for i in range(n)]
+    unit = duration / (cpu_workers + nvdec_workers * nv_weight)
+    plan = [("cpu", float(max(1, round(unit))))] * cpu_workers + [("nvdec", float(max(1, round(unit * nv_weight))))] * nvdec_workers
+    spans, cur = [], 0.0
+    for k, (lane, ln) in enumerate(plan):
+        if cur >= duration:
+            break
+        ln = duration - cur if k == len(plan) - 1 else min(ln, duration - cur)
+        spans.append((cur, ln, lane))
+        cur += ln
+    return spans
+
+
 def _gray_frames(raw: bytes, cw: int, ch: int) -> np.ndarray:
     buf = np.frombuffer(raw, dtype=np.uint8)
     return buf[: len(buf) // (cw * ch) * (cw * ch)].reshape(-1, ch, cw)
