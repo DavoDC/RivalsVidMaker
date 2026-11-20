@@ -620,7 +620,9 @@ def _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, 
         if data is not None and len(data.get("scores") or []) < expected - SHORT_DECODE_FRAMES:
             data = None                                      # a checkpoint holding too few frames is rescanned, never merged
         was_reused = data is not None
+        dec_s = score_s = 0.0
         if data is None:
+            td = time.perf_counter()
             def need_full(fr, lane):
                 if len(fr) < expected - SHORT_DECODE_FRAMES:
                     raise RuntimeError(f"short decode on {lane} lane at {start:.1f}s: {len(fr)} of {expected} frames")
@@ -639,11 +641,14 @@ def _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, 
                 if frames is None:
                     frames = need_full(ko_ncc.decode_fast(FFMPEG, video_path, start, length, fps, crop), "cpu")
             frames = frames[:expected]
+            dec_s = time.perf_counter() - td
+            ts_ = time.perf_counter()
             scores = ko_ncc.frame_scores(frames, bank)
+            score_s = time.perf_counter() - ts_
             data = {**meta, "first_idx": round(start * fps), "scores": np.round(scores, 3).tolist(),
                     "scenes": [[round(start + t, 3), round(s, 3)] for t, s in scenes]}
             _atomic_write_json(path, data)
-        return i, data, was_reused, time.perf_counter() - tc
+        return i, data, was_reused, time.perf_counter() - tc, dec_s, score_s
 
     owned: list[tuple[int, dict]] = []
     reused = 0
@@ -651,11 +656,12 @@ def _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, 
         futs = [pool.submit(one, i) for i in range(n_chunks)]
         try:
             for done, fut in enumerate(as_completed(futs), 1):
-                i, data, was_reused, secs = fut.result()
+                i, data, was_reused, secs, dec_s, score_s = fut.result()
                 reused += was_reused
                 owned.append((i, data))
                 if progress:
-                    progress(done, n_chunks, {"chunk": i, "reused": was_reused, "secs": secs})
+                    progress(done, n_chunks, {"chunk": i, "reused": was_reused, "secs": secs,
+                                           "decode_secs": dec_s, "score_secs": score_s})
         except BaseException:
             pool.shutdown(wait=False, cancel_futures=True)
             raise

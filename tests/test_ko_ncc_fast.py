@@ -433,3 +433,14 @@ def test_split_banner_misread_one_tier_higher_moments_later_is_not_a_new_event()
     runs = [{"tier": "TRIPLE", "peak": 100}, {"tier": "QUAD", "peak": 113}]      # legit chain, 1.3 s apart
     ev = ko_detect._events_from_samples(ko_ncc.peak_timeline(runs, 200, 10), rise_ignores_cooldown=True)
     assert [e["tier"] for e in ev] == ["TRIPLE", "QUAD"]
+
+
+def test_progress_reports_decode_and_score_seconds_per_chunk(tmp_path, lanes_env):
+    mp, log, _ = lanes_env
+    mp.setattr(ko_ncc, "nvdec_available", lambda ffmpeg: False)
+    seen = []
+    _scan(tmp_path, progress=lambda done, total, info: seen.append(info))
+    assert seen
+    for info in seen:
+        assert info["decode_secs"] >= 0 and info["score_secs"] >= 0
+        assert info["decode_secs"] + info["score_secs"] <= info["secs"] + 1e-6
