@@ -15,8 +15,10 @@ Pure numpy + cv2; ffmpeg only inside decode().
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
+import math
 import re
 import subprocess
 from pathlib import Path
@@ -135,6 +137,20 @@ def timeline_from_runs(runs: list[dict], total: int, fps: float) -> list[tuple[f
     return [(i / fps, tier[i]) for i in range(total)]
 
 
+def peak_timeline(runs: list[dict], total: int, fps: float) -> list[tuple[float, str | None]]:
+    """
+    One (t, tier_or_None) sample per frame, but only each run's PEAK frame carries the run's tier. Feeding this to
+    ko_detect._events_from_samples stamps every event at the peak (the frame that best matches the winning tier),
+    so a chained TRIPLE -> QUAD run (one hit run, tier QUAD) is stamped at the QUAD, not at the run's first frame.
+    The None frames keep the prev-tier reset of the event rules working.
+    """
+    tier: list[str | None] = [None] * total
+    for r in runs:
+        if 0 <= r["peak"] < total:
+            tier[r["peak"]] = r["tier"]
+    return [(i / fps, tier[i]) for i in range(total)]
+
+
 # ── Bank and geometry ─────────────────────────────────────────────────────────
 
 _raw_cache: dict[str, dict] = {}
@@ -226,6 +242,118 @@ def decode(ffmpeg: str, video: str, start: float, length: float, fps: int,
     scenes = [(float(m.group(2)), float(m.group(1))) for m in _SCENE_RE.finditer(err)
               if float(m.group(1)) >= SCENE_KEEP_MIN]
     return frames, scenes
+
+
+# ── Fast long-scan profile (hybrid CPU + NVDEC lanes) ─────────────────────────
+#
+# Ported from the benched candidate ncc_hybrid_4c3n. Used by ko_detect.scan_video only (the long-scan path);
+# scan_range and the short-clip paths keep FPS / decode() above unchanged. The fast lanes decode the tier-word
+# box only, so they carry no scdet branch: scenes are empty unless scan_video(with_scenes=True) picks the
+# legacy profile (60 s chunks, 15 fps, scdet, CPU only).
+
+FAST = {
+    "fps": 10, "chunk_secs": "auto", "cpu_workers": 4, "nvdec_workers": 3, "ffmpeg_threads": 1,
+    "skip_frame": "noref", "decoder_args": ["-skip_loop_filter", "all"],
+}
+ALL_CPU_WORKERS = 8      # lane layout when NVDEC is unavailable: the same fast decode, CPU only, eight workers
+
+
+def chunk_len(duration: float, workers: int, chunk_secs="auto") -> float:
+    """Numeric chunk_secs is used as-is. "auto" gives each worker one equal chunk: ceil(duration / workers), min 1 s."""
+    if str(chunk_secs) == "auto":
+        return float(max(1, math.ceil(duration / max(1, workers))))
+    return float(chunk_secs)
+
+
+def split_lanes(n_chunks: int, cpu_workers: int, nvdec_workers: int) -> list[str]:
+    """Static lane per chunk, proportional to worker counts; the NVDEC chunks are the last ones. Pure."""
+    total = cpu_workers + nvdec_workers
+    if nvdec_workers <= 0 or total <= 0:
+        return ["cpu"] * n_chunks
+    n_nv = min(n_chunks, round(n_chunks * nvdec_workers / total))
+    return ["cpu"] * (n_chunks - n_nv) + ["nvdec"] * n_nv
+
+
+def _gray_frames(raw: bytes, cw: int, ch: int) -> np.ndarray:
+    buf = np.frombuffer(raw, dtype=np.uint8)
+    return buf[: len(buf) // (cw * ch) * (cw * ch)].reshape(-1, ch, cw)
+
+
+def decode_fast(ffmpeg: str, video: str, start: float, length: float, fps: int,
+                crop: tuple[int, int, int, int], threads: int = FAST["ffmpeg_threads"],
+                skip_frame: str = FAST["skip_frame"], decoder_args=FAST["decoder_args"]) -> np.ndarray:
+    """CPU decode of the ROI only (frames (N, ch, cw) uint8 gray): non-reference frames and the loop filter are skipped."""
+    cw, ch, x, y = crop
+    pre = ["-threads", str(int(threads)), "-filter_threads", "1"] if threads else []
+    pre += ["-skip_frame", str(skip_frame)] if skip_frame else []
+    pre += [str(a) for a in decoder_args]
+    cmd = [ffmpeg, "-hide_banner", "-nostats", "-loglevel", "error", "-nostdin",
+           "-ss", f"{start:.3f}", "-t", f"{length:.3f}", *pre, "-i", video, "-an", "-sn",
+           "-vf", f"fps={fps},crop={cw}:{ch}:{x}:{y},format=gray", "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1"]
+    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=winproc.NO_WINDOW)
+    if r.returncode != 0:
+        tail = " | ".join(r.stderr.decode("utf-8", "replace").splitlines()[-5:])
+        raise RuntimeError(f"ffmpeg failed at {start}s ({r.returncode}): {tail}")
+    return _gray_frames(r.stdout, cw, ch)
+
+
+def nvdec_crop_ok(crop: tuple[int, int, int, int], size: tuple[int, int]) -> bool:
+    """cuvid crop edges (top, bottom, left, right) must be even; an odd ROI is left to the CPU lane (never benched)."""
+    cw, ch, x, y = crop
+    W, H = size
+    x = max(0, min(x, W - cw))
+    y = max(0, min(y, H - ch))
+    return all(v % 2 == 0 for v in (y, H - y - ch, x, W - x - cw))
+
+
+def nvdec_cmd(ffmpeg: str, video: str, start: float, length: float, fps: int,
+              crop: tuple[int, int, int, int], size: tuple[int, int]) -> list[str]:
+    """h264_cuvid decode with the hardware crop (order top x bottom x left x right), then fps and gray as the CPU path."""
+    cw, ch, x, y = crop
+    W, H = size
+    x = max(0, min(x, W - cw))                    # an ROI past the frame edge clamps to the edge, like the CPU crop
+    y = max(0, min(y, H - ch))
+    return [ffmpeg, "-hide_banner", "-nostats", "-loglevel", "error", "-nostdin",
+            "-ss", f"{start:.3f}", "-t", f"{length:.3f}",
+            "-c:v", "h264_cuvid", "-crop", f"{y}x{H - y - ch}x{x}x{W - x - cw}", "-i", video, "-an", "-sn",
+            "-vf", f"fps={fps},format=gray", "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1"]
+
+
+def decode_nvdec(ffmpeg: str, video: str, start: float, length: float, fps: int,
+                 crop: tuple[int, int, int, int], size: tuple[int, int]) -> np.ndarray:
+    """NVDEC decode of the ROI (same frames-array shape as decode_fast). Raises RuntimeError on any ffmpeg failure."""
+    r = subprocess.run(nvdec_cmd(ffmpeg, video, start, length, fps, crop, size), stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE, creationflags=winproc.NO_WINDOW)
+    if r.returncode != 0:
+        tail = " | ".join(r.stderr.decode("utf-8", "replace").splitlines()[-3:])
+        raise RuntimeError(f"ffmpeg nvdec failed at {start}s ({r.returncode}): {tail}")
+    return _gray_frames(r.stdout, crop[0], crop[1])
+
+
+def _probe(cmd: list[str], data: bytes | None = None, timeout: float = 30):
+    return subprocess.run(cmd, input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          creationflags=winproc.NO_WINDOW, timeout=timeout)
+
+
+@functools.lru_cache(maxsize=8)
+def nvdec_available(ffmpeg: str) -> bool:
+    """
+    True only when this ffmpeg lists h264_cuvid AND a one-frame h264 decode with it succeeds (so a build with
+    the decoder but no NVIDIA GPU or driver reports False). Never raises; cached per ffmpeg path.
+    """
+    try:
+        r = _probe([ffmpeg, "-hide_banner", "-decoders"])
+        if r.returncode != 0 or b"h264_cuvid" not in r.stdout:
+            return False
+        enc = _probe([ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                      "color=c=black:s=256x256:r=5:d=0.4", "-c:v", "libx264", "-f", "h264", "pipe:1"])
+        if enc.returncode != 0 or not enc.stdout:
+            return False
+        dec = _probe([ffmpeg, "-hide_banner", "-loglevel", "error", "-c:v", "h264_cuvid", "-f", "h264",
+                      "-i", "pipe:0", "-frames:v", "1", "-f", "null", "-"], enc.stdout)
+        return dec.returncode == 0
+    except Exception:                                            # missing exe, timeout, OS error: no NVDEC, no noise
+        return False
 
 
 def scan_range(video: str, start: float, length: float, ffmpeg: str, size: tuple[int, int],

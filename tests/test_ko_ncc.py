@@ -136,6 +136,13 @@ def _fake_decode_factory(raw, hit_start, hit_end, tier, fps=ko_ncc.FPS):
     return decode
 
 
+def _use_decode(monkeypatch, fake):
+    """Route every ko_ncc decode entry point to fake (legacy signature, returns (frames, scenes)); no GPU probing."""
+    monkeypatch.setattr(ko_ncc, "decode", fake)
+    monkeypatch.setattr(ko_ncc, "decode_fast", lambda *a, **k: fake(*a, **k)[0])
+    monkeypatch.setattr(ko_ncc, "nvdec_available", lambda ffmpeg: False)
+
+
 @pytest.fixture
 def scored_once(monkeypatch):
     """Score each distinct frame once. The fake decode repeats one blank and one banner frame across a
@@ -160,9 +167,9 @@ def scored_once(monkeypatch):
 
 def test_scan_video_ncc_returns_scan_shape_and_event(tmp_path, monkeypatch, scored_once):
     raw = ko_ncc.load_raw_bank()
-    monkeypatch.setattr(ko_ncc, "decode", _fake_decode_factory(raw, 70.0, 72.0, "QUAD"))
+    _use_decode(monkeypatch, _fake_decode_factory(raw, 70.0, 72.0, "QUAD"))
     res = ko_detect.scan_video("fake.mp4", checkpoint_dir=str(tmp_path / "s"), duration=130.0,
-                               size=(1920, 1080), detector="ncc")
+                               size=(1920, 1080), detector="ncc", with_scenes=True)   # scenes need the legacy profile
     assert res["scanner_version"] == ko_detect.SCANNER_VERSION
     assert res["detector"] == "ncc"
     assert [(e["tier"]) for e in res["events"]] == ["QUAD"]
@@ -176,17 +183,17 @@ def test_scan_video_ncc_returns_scan_shape_and_event(tmp_path, monkeypatch, scor
 
 def test_scan_video_ncc_resumes_from_checkpoints(tmp_path, monkeypatch, scored_once):
     raw = ko_ncc.load_raw_bank()
-    monkeypatch.setattr(ko_ncc, "decode", _fake_decode_factory(raw, 5.0, 7.0, "TRIPLE"))
+    _use_decode(monkeypatch, _fake_decode_factory(raw, 5.0, 7.0, "TRIPLE"))
     kw = dict(checkpoint_dir=str(tmp_path / "s"), duration=130.0, size=(1920, 1080), detector="ncc")
     ko_detect.scan_video("fake.mp4", **kw)
-    monkeypatch.setattr(ko_ncc, "decode", lambda *a, **k: (_ for _ in ()).throw(AssertionError("redecoded")))
+    _use_decode(monkeypatch, lambda *a, **k: (_ for _ in ()).throw(AssertionError("redecoded")))
     res = ko_detect.scan_video("fake.mp4", **kw)
     assert res["chunks_reused"] == res["chunks"] > 1 and res["events"][0]["tier"] == "TRIPLE"
 
 
 def test_ambiguous_event_falls_back_to_ocr(tmp_path, monkeypatch, scored_once):
     raw = ko_ncc.load_raw_bank()
-    monkeypatch.setattr(ko_ncc, "decode", _fake_decode_factory(raw, 20.0, 22.0, "QUAD"))
+    _use_decode(monkeypatch, _fake_decode_factory(raw, 20.0, 22.0, "QUAD"))
     monkeypatch.setattr(ko_ncc, "AMBIG_MARGIN", 1.1)           # every event counts as ambiguous
 
     class OneFrame:
@@ -241,9 +248,9 @@ def test_default_chunk_workers_is_eight_and_one_thread_each():
     assert ko_ncc.FFMPEG_THREADS == 1
 
 
-def test_scan_video_ncc_default_pool_is_eight_workers(tmp_path, monkeypatch, scored_once):
+def test_scan_video_ncc_legacy_profile_pool_is_eight_workers(tmp_path, monkeypatch, scored_once):
     raw = ko_ncc.load_raw_bank()
-    monkeypatch.setattr(ko_ncc, "decode", _fake_decode_factory(raw, 70.0, 72.0, "QUAD"))
+    _use_decode(monkeypatch, _fake_decode_factory(raw, 70.0, 72.0, "QUAD"))
     sizes = []
     real_pool = ko_detect.ThreadPoolExecutor
 
@@ -254,7 +261,7 @@ def test_scan_video_ncc_default_pool_is_eight_workers(tmp_path, monkeypatch, sco
 
     monkeypatch.setattr(ko_detect, "ThreadPoolExecutor", Recording)
     ko_detect.scan_video("fake.mp4", checkpoint_dir=str(tmp_path / "s"), duration=130.0,
-                         size=(1920, 1080), detector="ncc")
+                         size=(1920, 1080), detector="ncc", with_scenes=True)
     assert sizes[0] == 8
 
 

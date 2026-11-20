@@ -351,7 +351,7 @@ def scan_clip(
 # OCR thread pool reads the frames, and each finished chunk is checkpointed atomically so a
 # killed run resumes with byte-identical chunk files. No early exit, no 22 s cap.
 
-SCANNER_VERSION     = "long-scan-3"   # 3: NCC tier-word detector is the default (ko_ncc); OCR kept as detector="ocr"
+SCANNER_VERSION     = "long-scan-4"   # 3: NCC default (ko_ncc), OCR is detector="ocr"; 4: fast NCC profile (10 fps, auto chunks, NVDEC lane)
 DEFAULT_DETECTOR    = "ncc"           # scan_video(detector=None) uses this; "ocr" is the Tesseract path
 LONG_CHUNK_SECS     = 600
 LONG_OVERLAP_SECS   = 5     # extra decoded tail per chunk; covers seek/fps edge frames
@@ -516,12 +516,17 @@ def _scan_chunk(video, start, length, geom, fps, runner, ocr_fn, pool, limit) ->
     return tiers, [(round(start + t, 3), round(s, 3)) for t, s in decode.scenes if s >= SCENE_KEEP_MIN]
 
 
-def _events_from_samples(samples: list[tuple[float, str | None]]) -> list[dict]:
-    """The _scan_frames event rules (rank rise, cooldown, prev-tier reset) with no early exit."""
+def _events_from_samples(samples: list[tuple[float, str | None]], rise_ignores_cooldown: bool = False) -> list[dict]:
+    """
+    The _scan_frames event rules (rank rise, cooldown, prev-tier reset) with no early exit.
+    rise_ignores_cooldown: for peak-stamped samples (one per run) a higher tier is always its own event, because
+    consecutive peaks of a QUAD -> PENTA -> HEXA chain can sit closer together than COOLDOWN_SECS.
+    """
     events, prev_tier, cooldown_end, last_active = [], None, 0.0, None
     for ts, tier in samples:
-        if tier and ts >= cooldown_end:
-            rank, prev_rank = TIER_RANK.get(tier, -1), TIER_RANK.get(prev_tier, -1) if prev_tier else -1
+        rank, prev_rank = TIER_RANK.get(tier, -1), TIER_RANK.get(prev_tier, -1) if prev_tier else -1
+        rising = bool(tier) and rise_ignores_cooldown and prev_tier is not None and rank > prev_rank
+        if tier and (ts >= cooldown_end or rising):
             if prev_tier is None or rank > prev_rank:
                 events.append({"tier": tier, "ts": ts})
                 cooldown_end, prev_tier = ts + COOLDOWN_SECS, tier
@@ -552,28 +557,74 @@ def _ocr_ambiguous_runs(video_path, runs, geom, runner, ocr_fn, fps) -> None:
             _log.warning("scan_video: OCR tiebreak failed at %.2fs (%s); keeping %s", r["peak"] / fps, e, r["tier"])
 
 
-def _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, runner, ocr_fn, workers, resume, t0) -> dict:
-    """The detector="ncc" body of scan_video: 60 s chunks of scores, checkpointed, merged, then runs and events."""
+def _ncc_lanes(with_scenes: bool, workers, nvdec, crop, size) -> dict:
+    """
+    Pick the NCC scan profile. with_scenes=True or an explicit worker count keeps the legacy decode (60 s chunks,
+    15 fps, scdet, CPU only). Otherwise the fast profile: NVDEC lane when allowed, detected and the ROI is
+    cuvid-croppable (4 CPU + 3 NVDEC workers), else the same fast decode on 8 CPU workers. Never raises.
+    """
+    if with_scenes:
+        return {"profile": "legacy", "fps": ko_ncc.FPS, "chunk_secs": ko_ncc.CHUNK_SECS,
+                "cpu": workers or ko_ncc.WORKERS, "nvdec": 0}
+    p = ko_ncc.FAST
+    use_nv = (nvdec is not False and not workers and ko_ncc.nvdec_available(FFMPEG)
+              and ko_ncc.nvdec_crop_ok(crop, size))
+    cpu = workers or (p["cpu_workers"] if use_nv else ko_ncc.ALL_CPU_WORKERS)
+    return {"profile": "fast", "fps": p["fps"], "chunk_secs": p["chunk_secs"], "cpu": cpu,
+            "nvdec": p["nvdec_workers"] if use_nv else 0}
+
+
+def _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, runner, ocr_fn, workers, resume, t0,
+                    with_scenes=False, nvdec=None, size=None) -> dict:
+    """
+    The detector="ncc" body of scan_video: chunks of scores, checkpointed, merged, then runs and events.
+
+    Default is the fast profile (ko_ncc.FAST, bench candidate ncc_hybrid_4c3n): balanced auto chunks (one per
+    worker), 10 fps, noref + no loop filter, 4 CPU + 3 NVDEC workers (all-CPU on 8 workers without NVIDIA).
+    Design decisions, so a later reader need not rediscover them:
+    - Checkpoints stay per chunk, but a chunk is now about duration / 7 long (minutes, not 60 s), so a killed
+      scan resumes at that coarser grain. The chunk length is a pure function of duration and the lane layout,
+      and chunk_secs / fps / profile are in the chunk meta, so resume stays correct and a different layout
+      rescans instead of mixing grids. Lane (CPU or NVDEC) is deliberately NOT in the meta: both give valid scores.
+    - The fast lanes decode the ROI only, so "scenes" is [] on them. with_scenes=True selects the legacy
+      profile (60 s chunks, 15 fps, scdet, CPU only) for callers that need scene peaks.
+    - An NVDEC chunk that fails to decode is redone on the CPU lane (silent, debug log); a failed CPU decode raises.
+    decode / decode_fast / decode_nvdec are looked up on ko_ncc at call time so tests can swap them.
+    """
     import numpy as np
-    fps, chunk_secs = ko_ncc.FPS, ko_ncc.CHUNK_SECS
     bank, crop = plan["bank"], plan["crop"]
+    vsize = size or get_size(video_path)
+    lay = _ncc_lanes(with_scenes, workers, nvdec, crop, vsize)
+    fps = lay["fps"]
+    n_workers = lay["cpu"] + lay["nvdec"]
+    chunk_secs = ko_ncc.chunk_len(duration, n_workers, lay["chunk_secs"])
     n_chunks = math.ceil(duration / chunk_secs)
     total = int(duration * fps)
-    n_workers = workers or ko_ncc.WORKERS
+    lanes = ko_ncc.split_lanes(n_chunks, lay["cpu"], lay["nvdec"])
     sig = ko_ncc.bank_signature()
-    # decode() is looked up at call time so tests can swap it
+
     def one(i: int):
         start = i * chunk_secs
         length = min(chunk_secs, duration - start)
         meta = {"scanner_version": SCANNER_VERSION, "detector": "ncc", "chunk": i, "chunk_secs": chunk_secs,
-                "fps": fps, "crop": list(crop), "bank": sig, "source": os.path.basename(video_path),
-                "source_bytes": _file_size(video_path)}
+                "fps": fps, "crop": list(crop), "bank": sig, "profile": lay["profile"],
+                "source": os.path.basename(video_path), "source_bytes": _file_size(video_path)}
         path = os.path.join(checkpoint_dir, f"chunk_{i:04d}.json")
         tc = time.perf_counter()
         data = _load_chunk(path, meta) if resume else None
         was_reused = data is not None
         if data is None:
-            frames, scenes = ko_ncc.decode(FFMPEG, video_path, start, length, fps, crop)
+            if lay["profile"] == "legacy":
+                frames, scenes = ko_ncc.decode(FFMPEG, video_path, start, length, fps, crop)
+            else:
+                frames, scenes = None, []
+                if lanes[i] == "nvdec":
+                    try:
+                        frames = ko_ncc.decode_nvdec(FFMPEG, video_path, start, length, fps, crop, vsize)
+                    except Exception as e:                  # per-chunk fallback: the CPU lane redoes this chunk
+                        _log.debug("scan_video: NVDEC chunk %d failed (%s); decoding on the CPU", i, e)
+                if frames is None:
+                    frames = ko_ncc.decode_fast(FFMPEG, video_path, start, length, fps, crop)
             frames = frames[: round(length * fps)]
             scores = ko_ncc.frame_scores(frames, bank)
             data = {**meta, "first_idx": round(start * fps), "scores": np.round(scores, 3).tolist(),
@@ -605,7 +656,10 @@ def _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, 
     return {
         "video": video_path, "duration": duration, "fps": fps, "scanner_version": SCANNER_VERSION,
         "detector": "ncc", "chunks": n_chunks, "chunks_reused": reused, "timeline": timeline,
-        "events": _events_from_samples(timeline), "scenes": scenes,
+        # events are stamped at each run's peak frame (not its first), so a chained TRIPLE -> QUAD run gives the QUAD time;
+        # "timeline" keeps the per-frame run labels
+        "events": _events_from_samples(ko_ncc.peak_timeline(runs, total, fps), rise_ignores_cooldown=True),
+        "scenes": scenes,
         "scan_time": time.perf_counter() - t0,
     }
 
@@ -632,14 +686,18 @@ def scan_video(
     workers: int | None = None,
     resume: bool = True,
     detector: str | None = None,
+    with_scenes: bool = False,
+    nvdec: bool | None = None,
 ) -> dict:
     """
     Scan a long video (compilation or VOD) end to end for kill banners.
 
     detector "ncc" (the default, DEFAULT_DETECTOR) matches the tier word against the template
-    bank in ko_ncc: about 8x faster than OCR, own 60 s chunk checkpoints, OCR only for runs whose
+    bank in ko_ncc: about 8x faster than OCR, own chunk checkpoints, OCR only for runs whose
     top two tier scores are close. It falls back to OCR with a log line when the frame size, the
-    bank or opencv is unusable. detector "ocr" is the original Tesseract path described below
+    bank or opencv is unusable. NCC runs the fast profile by default (ko_ncc.FAST: auto chunks, 10 fps,
+    optional NVDEC lane with silent CPU fallback; no scenes). with_scenes=True selects the legacy
+    60 s / 15 fps / scdet CPU profile so "scenes" is filled; nvdec=False disables the NVDEC lane. detector "ocr" is the original Tesseract path described below
     (chunk_secs, overlap_secs and fps apply to it only). Both return the same shape plus "detector".
 
     OCR path: chunks of chunk_secs (plus overlap_secs of tail) are decoded one at a time; each is
@@ -680,7 +738,7 @@ def scan_video(
                 why = str(e)
         if plan is not None:
             return _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, runner, ocr_fn,
-                                   workers, resume, t0)
+                                   workers, resume, t0, with_scenes=with_scenes, nvdec=nvdec, size=size)
         _log.warning("scan_video: NCC detector not usable for %s (%s); falling back to OCR", video_path, why)
         detector = "ocr"
     os.environ.setdefault("OMP_THREAD_LIMIT", "1")   # one tesseract thread per worker, no oversubscription
