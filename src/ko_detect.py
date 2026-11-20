@@ -87,6 +87,8 @@ def configure(
 SCAN_FPS_FAST        = 2     # pass 1: quick sweep (most multi-kills caught here)
 SCAN_FPS_FULL        = 8     # pass 2: thorough retry; 0.125s resolution makes brief banners infallible
 SKIP_SECS            = 6     # skip first N seconds; data: earliest KO = 7.0s, -1s safety margin
+RISE_MIN_GAP_SECS    = 0.5   # peak-stamped chains are about 1.3 s apart; a closer higher peak is a split banner
+SHORT_DECODE_FRAMES  = 2     # a decode may come up this many frames short of round(length * fps) before it is truncated
 COOLDOWN_SECS        = 2.0   # min gap between distinct kill events (keep low -- p10 inter-kill = 2s)
 SCAN_STOP_SECS       = 22    # pass 1 early exit if no KO found; data: p90 start_ts = 18.5s + 3.5s buffer
 POST_KO_SILENCE_SECS = 16    # exit after N seconds silence post-sequence; data: p90 sequence duration = 16s
@@ -520,12 +522,14 @@ def _events_from_samples(samples: list[tuple[float, str | None]], rise_ignores_c
     """
     The _scan_frames event rules (rank rise, cooldown, prev-tier reset) with no early exit.
     rise_ignores_cooldown: for peak-stamped samples (one per run) a higher tier is always its own event, because
-    consecutive peaks of a QUAD -> PENTA -> HEXA chain can sit closer together than COOLDOWN_SECS.
+    consecutive peaks of a QUAD -> PENTA -> HEXA chain can sit closer together than COOLDOWN_SECS. A rising peak
+    under RISE_MIN_GAP_SECS after the previous peak is a split banner misread, not a chain, and stays suppressed.
     """
     events, prev_tier, cooldown_end, last_active = [], None, 0.0, None
     for ts, tier in samples:
         rank, prev_rank = TIER_RANK.get(tier, -1), TIER_RANK.get(prev_tier, -1) if prev_tier else -1
-        rising = bool(tier) and rise_ignores_cooldown and prev_tier is not None and rank > prev_rank
+        rising = (bool(tier) and rise_ignores_cooldown and prev_tier is not None and rank > prev_rank
+                  and last_active is not None and ts - last_active >= RISE_MIN_GAP_SECS)
         if tier and (ts >= cooldown_end or rising):
             if prev_tier is None or rank > prev_rank:
                 events.append({"tier": tier, "ts": ts})
@@ -611,21 +615,30 @@ def _scan_video_ncc(video_path, plan, duration, geom, checkpoint_dir, progress, 
                 "source": os.path.basename(video_path), "source_bytes": _file_size(video_path)}
         path = os.path.join(checkpoint_dir, f"chunk_{i:04d}.json")
         tc = time.perf_counter()
+        expected = round(length * fps)
         data = _load_chunk(path, meta) if resume else None
+        if data is not None and len(data.get("scores") or []) < expected - SHORT_DECODE_FRAMES:
+            data = None                                      # a checkpoint holding too few frames is rescanned, never merged
         was_reused = data is not None
         if data is None:
+            def need_full(fr, lane):
+                if len(fr) < expected - SHORT_DECODE_FRAMES:
+                    raise RuntimeError(f"short decode on {lane} lane at {start:.1f}s: {len(fr)} of {expected} frames")
+                return fr
+
             if lay["profile"] == "legacy":
                 frames, scenes = ko_ncc.decode(FFMPEG, video_path, start, length, fps, crop)
+                need_full(frames, "legacy")
             else:
                 frames, scenes = None, []
                 if lanes[i] == "nvdec":
                     try:
-                        frames = ko_ncc.decode_nvdec(FFMPEG, video_path, start, length, fps, crop, vsize)
+                        frames = need_full(ko_ncc.decode_nvdec(FFMPEG, video_path, start, length, fps, crop, vsize), "nvdec")
                     except Exception as e:                  # per-chunk fallback: the CPU lane redoes this chunk
                         _log.debug("scan_video: NVDEC chunk %d failed (%s); decoding on the CPU", i, e)
                 if frames is None:
-                    frames = ko_ncc.decode_fast(FFMPEG, video_path, start, length, fps, crop)
-            frames = frames[: round(length * fps)]
+                    frames = need_full(ko_ncc.decode_fast(FFMPEG, video_path, start, length, fps, crop), "cpu")
+            frames = frames[:expected]
             scores = ko_ncc.frame_scores(frames, bank)
             data = {**meta, "first_idx": round(start * fps), "scores": np.round(scores, 3).tolist(),
                     "scenes": [[round(start + t, 3), round(s, 3)] for t, s in scenes]}

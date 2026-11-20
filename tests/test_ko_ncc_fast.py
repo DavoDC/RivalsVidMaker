@@ -339,7 +339,12 @@ def test_chained_triple_to_quad_run_is_stamped_at_the_quad(tmp_path, monkeypatch
     res = ko_detect.scan_video("fake.mp4", checkpoint_dir=str(tmp_path / "s"), duration=130.0,
                                size=(1920, 1080), detector="ncc", with_scenes=with_scenes)
     quad = [e for e in res["events"] if e["tier"] == "QUAD"]
-    assert len(quad) == 1 and 62.0 <= quad[0]["ts"] <= 66.0                  # not 60.0, the run's first frame
+    frames = fr(0.0, 130.0, res["fps"])                                      # the same frames the scan decoded
+    bank = ko_ncc.plan(1920, 1080, raw)["bank"]
+    runs = ko_ncc.runs_from_scores(ko_ncc.frame_scores(frames, bank), bank["tiers"], res["fps"])
+    peak_t = [r["peak"] / res["fps"] for r in runs if r["tier"] == "QUAD"][0]
+    assert len(quad) == 1 and quad[0]["ts"] == pytest.approx(peak_t, abs=1e-6)  # exactly the run's peak frame
+    assert 62.0 <= peak_t <= 66.0 and peak_t != 60.0                         # not the run's first frame
 
 
 def test_streak_grouping_with_peak_times_keeps_max_gap_semantics():
@@ -362,3 +367,69 @@ def test_rising_peaks_closer_than_the_cooldown_each_become_an_event():
     runs = [{"tier": "QUAD", "peak": 100}, {"tier": "QUAD", "peak": 110}, {"tier": "TRIPLE", "peak": 115}]
     ev = ko_detect._events_from_samples(ko_ncc.peak_timeline(runs, 200, 10), rise_ignores_cooldown=True)
     assert [e["tier"] for e in ev] == ["QUAD"]
+
+
+# ---- reviewer fixes 2026-11-20: truncated decodes are never scored as zeros; a split banner is not a higher tier ----
+
+def _short(fn, drop):
+    """Wrap a decode fake so it returns `drop` frames fewer than asked (exit 0, truncated output)."""
+    def wrapped(*a, **k):
+        out = fn(*a, **k)
+        return out[:len(out) - drop] if not isinstance(out, tuple) else (out[0][:len(out[0]) - drop], out[1])
+    return wrapped
+
+
+def test_nvdec_short_output_is_redone_on_the_cpu_lane(tmp_path, lanes_env):
+    mp, log, (fast, nv, legacy) = lanes_env
+    mp.setattr(ko_ncc, "nvdec_available", lambda ffmpeg: True)
+    mp.setattr(ko_ncc, "decode_nvdec", _short(nv, 30))                # 3 s of the chunk missing
+    res = _scan(tmp_path)
+    assert {k for k, _ in log} == {"cpu", "nvdec"}
+    assert sorted(k for k, _ in log).count("cpu") == 4 + 3           # the 3 truncated NVDEC chunks were redone on CPU
+    assert [e["tier"] for e in res["events"]] == ["QUAD"]
+
+
+def test_nvdec_output_within_tolerance_is_accepted(tmp_path, lanes_env):
+    mp, log, (fast, nv, legacy) = lanes_env
+    mp.setattr(ko_ncc, "nvdec_available", lambda ffmpeg: True)
+    mp.setattr(ko_ncc, "decode_nvdec", _short(nv, 2))
+    _scan(tmp_path)
+    assert sorted(k for k, _ in log).count("cpu") == 4
+
+
+def test_cpu_short_output_raises(tmp_path, lanes_env):
+    mp, log, (fast, nv, legacy) = lanes_env
+    mp.setattr(ko_ncc, "nvdec_available", lambda ffmpeg: False)
+    mp.setattr(ko_ncc, "decode_fast", _short(fast, 30))
+    with pytest.raises(RuntimeError, match="short"):
+        _scan(tmp_path)
+
+
+def test_legacy_short_output_raises(tmp_path, lanes_env):
+    mp, log, (fast, nv, legacy) = lanes_env
+    mp.setattr(ko_ncc, "decode", _short(legacy, 30))
+    with pytest.raises(RuntimeError, match="short"):
+        _scan(tmp_path, with_scenes=True)
+
+
+def test_short_checkpoint_is_rescanned_not_reused(tmp_path, lanes_env):
+    import json
+    mp, log, _ = lanes_env
+    mp.setattr(ko_ncc, "nvdec_available", lambda ffmpeg: False)
+    _scan(tmp_path)
+    ck = tmp_path / "s" / "chunk_0003.json"
+    data = json.loads(ck.read_text(encoding="utf-8"))
+    data["scores"] = data["scores"][:len(data["scores"]) // 2]
+    ck.write_text(json.dumps(data), encoding="utf-8")
+    log.clear()
+    res = _scan(tmp_path)
+    assert res["chunks_reused"] == res["chunks"] - 1 and len(log) == 1
+
+
+def test_split_banner_misread_one_tier_higher_moments_later_is_not_a_new_event():
+    runs = [{"tier": "TRIPLE", "peak": 100}, {"tier": "QUAD", "peak": 103}]      # 0.3 s apart at 10 fps
+    ev = ko_detect._events_from_samples(ko_ncc.peak_timeline(runs, 200, 10), rise_ignores_cooldown=True)
+    assert [e["tier"] for e in ev] == ["TRIPLE"]
+    runs = [{"tier": "TRIPLE", "peak": 100}, {"tier": "QUAD", "peak": 113}]      # legit chain, 1.3 s apart
+    ev = ko_detect._events_from_samples(ko_ncc.peak_timeline(runs, 200, 10), rise_ignores_cooldown=True)
+    assert [e["tier"] for e in ev] == ["TRIPLE", "QUAD"]
